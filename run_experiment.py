@@ -1,7 +1,6 @@
 import os
 import sys
 
-
 project_root = "/home/clexma/Desktop/fox3/fuzzing/"
 
 def clear_old_files():
