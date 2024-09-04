@@ -1,108 +1,13 @@
 ----- funcname:
-fscontext_create_fd
------ filepath:
-/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
------ source:
-static int fscontext_create_fd(struct fs_context *fc, unsigned int o_flags)
------ addresses:
-ffffffff8182ed0d
-ffffffff8182e6ae
-ffffffff8182e4af
-ffffffff8182e9dd
------ funcname:
-fscontext_create_fd
------ filepath:
-/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
------ source:
-int fd;
------ addresses:
-ffffffff8182ed0d
-ffffffff8182e6ae
-ffffffff8182e4af
-ffffffff8182e9dd
------ funcname:
-fscontext_create_fd
------ filepath:
-/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
------ source:
-fd = anon_inode_getfd("[fscontext]", &fscontext_fops, fc,
------ addresses:
-ffffffff8182e9e0
-ffffffff8182e4be
-ffffffff8182e4c8
-ffffffff8182e6ae
-ffffffff8182e4b1
-ffffffff8182e6c7
-ffffffff8182e9dd
-ffffffff8182e9fd
-ffffffff8182ed2d
-ffffffff8182ed10
-ffffffff8182e4af
-ffffffff8182e9ed
-ffffffff8182e6bd
-ffffffff8182e6b0
-ffffffff8182ed1d
-ffffffff8182ed0d
------ funcname:
-fscontext_create_fd
------ filepath:
-/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
------ source:
-O_RDWR | o_flags);
------ addresses:
-ffffffff8182e4c5
-ffffffff8182ed2a
-ffffffff8182e6c4
-ffffffff8182e9fa
------ funcname:
-fscontext_create_fd
------ filepath:
-/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
------ source:
-if (fd < 0)
------ addresses:
-ffffffff8182ed34
-ffffffff8182e4d0
-ffffffff8182e6cf
-ffffffff8182ea04
------ funcname:
-fscontext_create_fd
------ filepath:
-/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
------ source:
-put_fs_context(fc);
------ addresses:
-ffffffff8182ed6c
-ffffffff8182e708
-ffffffff8182e518
-ffffffff8182ea37
-ffffffff8182ed67
-ffffffff8182ea3c
-ffffffff8182e509
-ffffffff8182e717
-ffffffff8182ea46
-ffffffff8182ed76
------ funcname:
-fscontext_create_fd
------ filepath:
-/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
------ source:
-return fd;
------ addresses:
-ffffffff8182e6d4
-ffffffff8182e4d5
-ffffffff8182ed38
-ffffffff8182ea08
------ funcname:
 kpageflags_read
 ----- filepath:
 /home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
 ----- source:
 {
 ----- addresses:
-ffffffff8192d2d0
-ffffffff8192d2d4
 ffffffff8192d2e8
+ffffffff8192d2d4
+ffffffff8192d2d0
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -129,9 +34,9 @@ unsigned long src = *ppos;
 ----- addresses:
 ffffffff8192d6b7
 ffffffff8192d318
+ffffffff8192d344
 ffffffff8192d33a
 ffffffff8192d321
-ffffffff8192d344
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -155,9 +60,9 @@ kpageflags_read
 ----- source:
 pfn = src / KPMSIZE;
 ----- addresses:
-ffffffff8192d393
 ffffffff8192d34c
 ffffffff8192d387
+ffffffff8192d393
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -181,8 +86,8 @@ kpageflags_read
 ----- source:
 if (src >= max_dump_pfn * KPMSIZE)
 ----- addresses:
-ffffffff8192d35a
 ffffffff8192d366
+ffffffff8192d35a
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -198,10 +103,10 @@ kpageflags_read
 ----- source:
 count = min_t(unsigned long, count, (max_dump_pfn * KPMSIZE) - src);
 ----- addresses:
-ffffffff8192d377
-ffffffff8192d37e
 ffffffff8192d374
+ffffffff8192d377
 ffffffff8192d36f
+ffffffff8192d37e
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -218,12 +123,12 @@ kpageflags_read
 ----- source:
 struct page *page = pfn_to_online_page(pfn);
 ----- addresses:
-ffffffff8192d42c
-ffffffff8192d5f6
-ffffffff8192d42e
-ffffffff8192d70a
 ffffffff8192d5cd
 ffffffff8192d3b0
+ffffffff8192d42c
+ffffffff8192d70a
+ffffffff8192d5f6
+ffffffff8192d42e
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -231,9 +136,9 @@ kpageflags_read
 ----- source:
 if (put_user(stable_page_flags(page), out)) {
 ----- addresses:
-ffffffff8192d42e
-ffffffff8192d443
 ffffffff8192d43b
+ffffffff8192d443
+ffffffff8192d42e
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -241,8 +146,8 @@ kpageflags_read
 ----- source:
 pfn++;
 ----- addresses:
-ffffffff8192d454
 ffffffff8192d44b
+ffffffff8192d454
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -250,8 +155,8 @@ kpageflags_read
 ----- source:
 out++;
 ----- addresses:
-ffffffff8192d450
 ffffffff8192d458
+ffffffff8192d450
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -275,22 +180,22 @@ kpageflags_read
 ----- source:
 *ppos += (char __user *)out - buf;
 ----- addresses:
-ffffffff8192d49a
-ffffffff8192d6a0
-ffffffff8192d494
-ffffffff8192d752
-ffffffff8192d46a
-ffffffff8192d6a8
-ffffffff8192d734
-ffffffff8192d6ab
-ffffffff8192d497
-ffffffff8192d491
-ffffffff8192d743
-ffffffff8192d683
-ffffffff8192d6a5
 ffffffff8192d48c
-ffffffff8192d67e
+ffffffff8192d46a
+ffffffff8192d6ab
+ffffffff8192d752
 ffffffff8192d725
+ffffffff8192d734
+ffffffff8192d491
+ffffffff8192d494
+ffffffff8192d497
+ffffffff8192d683
+ffffffff8192d49a
+ffffffff8192d67e
+ffffffff8192d6a0
+ffffffff8192d6a5
+ffffffff8192d743
+ffffffff8192d6a8
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -298,8 +203,8 @@ kpageflags_read
 ----- source:
 if (!ret)
 ----- addresses:
-ffffffff8192d4c4
 ffffffff8192d6ab
+ffffffff8192d4c4
 ----- funcname:
 kpageflags_read
 ----- filepath:
@@ -315,8 +220,8 @@ kpageflags_read
 ----- source:
 }
 ----- addresses:
-ffffffff8192d4c9
 ffffffff8192d4d8
+ffffffff8192d4c9
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -324,8 +229,8 @@ stable_page_flags
 ----- source:
 {
 ----- addresses:
-ffffffff8192c934
 ffffffff8192c930
+ffffffff8192c934
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -375,8 +280,8 @@ stable_page_flags
 if (!page)
 ----- addresses:
 ffffffff8192c94a
-ffffffff8192c934
 ffffffff8192c945
+ffffffff8192c934
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -400,9 +305,9 @@ stable_page_flags
 ----- source:
 k = folio->flags;
 ----- addresses:
-ffffffff8192c9c3
-ffffffff8192c99f
 ffffffff8192d20d
+ffffffff8192c99f
+ffffffff8192c9c3
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -410,9 +315,9 @@ stable_page_flags
 ----- source:
 mapping = (unsigned long)folio->mapping;
 ----- addresses:
+ffffffff8192d1f6
 ffffffff8192c9bf
 ffffffff8192c9e2
-ffffffff8192d1f6
 ffffffff8192c9c7
 ----- funcname:
 stable_page_flags
@@ -431,8 +336,8 @@ stable_page_flags
 if (page_mapped(page))
 ----- addresses:
 ffffffff8192ce77
-ffffffff8192ce60
 ffffffff8192c9f4
+ffffffff8192ce60
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -440,9 +345,9 @@ stable_page_flags
 ----- source:
 if (is_anon) {
 ----- addresses:
-ffffffff8192ce72
 ffffffff8192ce7b
 ffffffff8192caaf
+ffffffff8192ce72
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -460,8 +365,8 @@ stable_page_flags
 if (mapping & PAGE_MAPPING_KSM)
 ----- addresses:
 ffffffff8192cd2f
-ffffffff8192cd2b
 ffffffff8192cd26
+ffffffff8192cd2b
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -469,8 +374,8 @@ stable_page_flags
 ----- source:
 u |= 1 << KPF_KSM;
 ----- addresses:
-ffffffff8192d073
 ffffffff8192d067
+ffffffff8192d073
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -479,8 +384,8 @@ stable_page_flags
 if (page == &folio->page)
 ----- addresses:
 ffffffff8192cf9d
-ffffffff8192cd41
 ffffffff8192cabf
+ffffffff8192cd41
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -488,9 +393,9 @@ stable_page_flags
 ----- source:
 u |= kpf_copy_bit(k, KPF_COMPOUND_HEAD, PG_head);
 ----- addresses:
-ffffffff8192cd63
 ffffffff8192cd4f
 ffffffff8192cd60
+ffffffff8192cd63
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -532,8 +437,8 @@ stable_page_flags
 ----- source:
 if ((k & (1 << PG_lru)) || is_anon)
 ----- addresses:
-ffffffff8192d083
 ffffffff8192d078
+ffffffff8192d083
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -550,12 +455,12 @@ stable_page_flags
 ----- source:
 } else if (is_zero_pfn(page_to_pfn(page)))
 ----- addresses:
-ffffffff8192cde4
-ffffffff8192cdd9
 ffffffff8192cda1
+ffffffff8192cdcc
+ffffffff8192cdd9
+ffffffff8192cde4
 ffffffff8192cdf2
 ffffffff8192d263
-ffffffff8192cdcc
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -572,8 +477,8 @@ stable_page_flags
 ----- source:
 if (PageBuddy(page))
 ----- addresses:
-ffffffff8192cb59
 ffffffff8192cb23
+ffffffff8192cb59
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -581,9 +486,9 @@ stable_page_flags
 ----- source:
 u |= 1 << KPF_BUDDY;
 ----- addresses:
-ffffffff8192d183
 ffffffff8192d17b
 ffffffff8192cb64
+ffffffff8192d183
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -591,10 +496,10 @@ stable_page_flags
 ----- source:
 else if (page_count(page) == 0 && is_free_buddy_page(page))
 ----- addresses:
-ffffffff8192d133
 ffffffff8192d140
-ffffffff8192d030
 ffffffff8192cfa5
+ffffffff8192d030
+ffffffff8192d133
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -602,8 +507,8 @@ stable_page_flags
 ----- source:
 if (PageOffline(page))
 ----- addresses:
-ffffffff8192cb70
 ffffffff8192cb7d
+ffffffff8192cb70
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -725,11 +630,11 @@ stable_page_flags
 ----- source:
 u |= kpf_copy_bit(k, KPF_RECLAIM,	PG_reclaim);
 ----- addresses:
-ffffffff8192cbeb
-ffffffff8192cc1b
-ffffffff8192cbd4
 ffffffff8192cc01
+ffffffff8192cc1b
 ffffffff8192cc10
+ffffffff8192cbeb
+ffffffff8192cbd4
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -737,8 +642,8 @@ stable_page_flags
 ----- source:
 if ((k & SWAPCACHE) == SWAPCACHE)
 ----- addresses:
-ffffffff8192cc1e
 ffffffff8192cc13
+ffffffff8192cc1e
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -826,16 +731,16 @@ stable_page_flags
 ----- source:
 u |= kpf_copy_bit(k, KPF_ARCH,		PG_arch_1);
 ----- addresses:
-ffffffff8192cccd
 ffffffff8192ccb6
-ffffffff8192cc71
+ffffffff8192cccd
 ffffffff8192cc9f
 ffffffff8192ccf5
 ffffffff8192cc37
-ffffffff8192cc5a
 ffffffff8192cd05
-ffffffff8192cce4
+ffffffff8192cc5a
 ffffffff8192cc88
+ffffffff8192cc71
+ffffffff8192cce4
 ----- funcname:
 stable_page_flags
 ----- filepath:
@@ -852,3 +757,98 @@ stable_page_flags
 };
 ----- addresses:
 ffffffff8192cd10
+----- funcname:
+fscontext_create_fd
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
+----- source:
+static int fscontext_create_fd(struct fs_context *fc, unsigned int o_flags)
+----- addresses:
+ffffffff8182e6ae
+ffffffff8182ed0d
+ffffffff8182e9dd
+ffffffff8182e4af
+----- funcname:
+fscontext_create_fd
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
+----- source:
+int fd;
+----- addresses:
+ffffffff8182e6ae
+ffffffff8182ed0d
+ffffffff8182e9dd
+ffffffff8182e4af
+----- funcname:
+fscontext_create_fd
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
+----- source:
+fd = anon_inode_getfd("[fscontext]", &fscontext_fops, fc,
+----- addresses:
+ffffffff8182ed10
+ffffffff8182ed2d
+ffffffff8182e4af
+ffffffff8182e6bd
+ffffffff8182e9e0
+ffffffff8182e9ed
+ffffffff8182e9fd
+ffffffff8182ed0d
+ffffffff8182e6c7
+ffffffff8182e9dd
+ffffffff8182ed1d
+ffffffff8182e4be
+ffffffff8182e4c8
+ffffffff8182e6ae
+ffffffff8182e6b0
+ffffffff8182e4b1
+----- funcname:
+fscontext_create_fd
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
+----- source:
+O_RDWR | o_flags);
+----- addresses:
+ffffffff8182e6c4
+ffffffff8182e4c5
+ffffffff8182e9fa
+ffffffff8182ed2a
+----- funcname:
+fscontext_create_fd
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
+----- source:
+if (fd < 0)
+----- addresses:
+ffffffff8182e4d0
+ffffffff8182e6cf
+ffffffff8182ed34
+ffffffff8182ea04
+----- funcname:
+fscontext_create_fd
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
+----- source:
+put_fs_context(fc);
+----- addresses:
+ffffffff8182ea37
+ffffffff8182ea46
+ffffffff8182e509
+ffffffff8182ed67
+ffffffff8182ea3c
+ffffffff8182ed6c
+ffffffff8182e518
+ffffffff8182ed76
+ffffffff8182e708
+ffffffff8182e717
+----- funcname:
+fscontext_create_fd
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/fsopen.c
+----- source:
+return fd;
+----- addresses:
+ffffffff8182ea08
+ffffffff8182ed38
+ffffffff8182e6d4
+ffffffff8182e4d5
