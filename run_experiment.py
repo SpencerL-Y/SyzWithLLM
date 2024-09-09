@@ -50,9 +50,9 @@ if __name__ == "__main__":
             llm_enabled = True 
         # pass
         clear_old_files()
+        target_functions_file_name = "./target_functions.txt"
+        target_functions_file = open(target_functions_file_name, "r")
         if llm_enabled:
-            target_functions_file_name = "./target_functions.txt"
-            target_functions_file = open(target_functions_file_name, "r")
             os.chdir("./ChatAnalyzer")
             # obtain the path of function and the corresponding path of function body and store it into the files in ChatAnalyzer
             for line in target_functions_file.readlines():
@@ -60,11 +60,13 @@ if __name__ == "__main__":
                 print("python3 chat_interface.py init " + function_name)
                 os.system("python3 chat_interface.py init " + function_name)
             target_functions_file.seek(0)
-            for line in target_functions_file.readlines():
-                function_name = line.strip().replace("\n", "")
-                print("python3 chat_interface.py close " + function_name + " 2")
-                os.system("python3 chat_interface.py close " + function_name + " 2")
-            target_functions_file.close()
+        else:
+            os.chdir("./ChatAnalyzer")
+        for line in target_functions_file.readlines():
+            function_name = line.strip().replace("\n", "")
+            print("python3 chat_interface.py close " + function_name + " 2")
+            os.system("python3 chat_interface.py close " + function_name + " 2")
+        target_functions_file.close()
         os.chdir("../linuxRepo/line2addr")
         print(os.getcwd())
         print("python3 ./addr_extractor.py ./input_functions.txt")
