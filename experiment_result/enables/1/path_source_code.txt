@@ -1,0 +1,2919 @@
+SYSCALL_DEFINE1(exit, int, error_code)
+{
+	do_exit((error_code&0xff)<<8);
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+		void __user *, arg)
+{
+	struct pid_namespace *pid_ns = task_active_pid_ns(current);
+	char buffer[256];
+	int ret = 0;
+
+	/* We only trust the superuser with rebooting the system. */
+	if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
+		return -EPERM;
+
+	/* For safety, we require "magic" arguments. */
+	if (magic1 != LINUX_REBOOT_MAGIC1 ||
+			(magic2 != LINUX_REBOOT_MAGIC2 &&
+			magic2 != LINUX_REBOOT_MAGIC2A &&
+			magic2 != LINUX_REBOOT_MAGIC2B &&
+			magic2 != LINUX_REBOOT_MAGIC2C))
+		return -EINVAL;
+
+	/*
+	 * If pid namespaces are enabled and the current task is in a child
+	 * pid_namespace, the command is handled by reboot_pid_ns() which will
+	 * call do_exit().
+	 */
+	ret = reboot_pid_ns(pid_ns, cmd);
+	if (ret)
+		return ret;
+
+	/* Instead of trying to make the power_off code look like
+	 * halt when pm_power_off is not set do it the easy way.
+	 */
+	if ((cmd == LINUX_REBOOT_CMD_POWER_OFF) && !kernel_can_power_off()) {
+		poweroff_fallback_to_halt = true;
+		cmd = LINUX_REBOOT_CMD_HALT;
+	}
+
+	mutex_lock(&system_transition_mutex);
+	switch (cmd) {
+	case LINUX_REBOOT_CMD_RESTART:
+		kernel_restart(NULL);
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_ON:
+		C_A_D = 1;
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_OFF:
+		C_A_D = 0;
+		break;
+
+	case LINUX_REBOOT_CMD_HALT:
+		kernel_halt();
+		do_exit(0);
+
+	case LINUX_REBOOT_CMD_POWER_OFF:
+		kernel_power_off();
+		do_exit(0);
+		break;
+
+	case LINUX_REBOOT_CMD_RESTART2:
+		ret = strncpy_from_user(&buffer[0], arg, sizeof(buffer) - 1);
+		if (ret < 0) {
+			ret = -EFAULT;
+			break;
+		}
+		buffer[sizeof(buffer) - 1] = '\0';
+
+		kernel_restart(buffer);
+		break;
+
+#ifdef CONFIG_KEXEC_CORE
+	case LINUX_REBOOT_CMD_KEXEC:
+		ret = kernel_kexec();
+		break;
+#endif
+
+#ifdef CONFIG_HIBERNATION
+	case LINUX_REBOOT_CMD_SW_SUSPEND:
+		ret = hibernate();
+		break;
+#endif
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&system_transition_mutex);
+	return ret;
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+__visible noinstr void do_int80_emulation(struct pt_regs *regs)
+{
+	int nr;
+
+	/* Kernel does not use INT $0x80! */
+	if (unlikely(!user_mode(regs))) {
+		irqentry_enter(regs);
+		instrumentation_begin();
+		panic("Unexpected external interrupt 0x80\n");
+	}
+
+	/*
+	 * Establish kernel context for instrumentation, including for
+	 * int80_is_external() below which calls into the APIC driver.
+	 * Identical for soft and external interrupts.
+	 */
+	enter_from_user_mode(regs);
+
+	instrumentation_begin();
+	add_random_kstack_offset();
+
+	/* Validate that this is a soft interrupt to the extent possible */
+	if (unlikely(int80_is_external()))
+		panic("Unexpected external interrupt 0x80\n");
+
+	/*
+	 * The low level idtentry code pushed -1 into regs::orig_ax
+	 * and regs::ax contains the syscall number.
+	 *
+	 * User tracing code (ptrace or signal handlers) might assume
+	 * that the regs::orig_ax contains a 32-bit number on invoking
+	 * a 32-bit syscall.
+	 *
+	 * Establish the syscall convention by saving the 32bit truncated
+	 * syscall number in regs::orig_ax and by invalidating regs::ax.
+	 */
+	regs->orig_ax = regs->ax & GENMASK(31, 0);
+	regs->ax = -ENOSYS;
+
+	nr = syscall_32_enter(regs);
+
+	local_irq_enable();
+	nr = syscall_enter_from_user_mode_work(regs, nr);
+	do_syscall_32_irqs_on(regs, nr);
+
+	instrumentation_end();
+	syscall_exit_to_user_mode(regs);
+}
+asmlinkage unsigned long syscall_trace_enter(void)
+{
+	unsigned long ret = 0;
+	struct pt_regs *regs = current_pt_regs();
+	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
+	    ptrace_report_syscall_entry(current_pt_regs()))
+		ret = -1UL;
+	audit_syscall_entry(regs->r0, regs->r16, regs->r17, regs->r18, regs->r19);
+	return ret ?: current_pt_regs()->r0;
+}
+int __secure_computing(const struct seccomp_data *sd)
+{
+	int mode = current->seccomp.mode;
+	int this_syscall;
+
+	if (IS_ENABLED(CONFIG_CHECKPOINT_RESTORE) &&
+	    unlikely(current->ptrace & PT_SUSPEND_SECCOMP))
+		return 0;
+
+	this_syscall = sd ? sd->nr :
+		syscall_get_nr(current, current_pt_regs());
+
+	switch (mode) {
+	case SECCOMP_MODE_STRICT:
+		__secure_computing_strict(this_syscall);  /* may call do_exit */
+		return 0;
+	case SECCOMP_MODE_FILTER:
+		return __seccomp_filter(this_syscall, sd, false);
+	/* Surviving SECCOMP_RET_KILL_* must be proactively impossible. */
+	case SECCOMP_MODE_DEAD:
+		WARN_ON_ONCE(1);
+		do_exit(SIGKILL);
+		return -1;
+	default:
+		BUG();
+	}
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+__visible noinstr bool do_syscall_64(struct pt_regs *regs, int nr)
+{
+	add_random_kstack_offset();
+	nr = syscall_enter_from_user_mode(regs, nr);
+
+	instrumentation_begin();
+
+	if (!do_syscall_x64(regs, nr) && !do_syscall_x32(regs, nr) && nr != -1) {
+		/* Invalid system call, but still a system call. */
+		regs->ax = __x64_sys_ni_syscall(regs);
+	}
+
+	instrumentation_end();
+	syscall_exit_to_user_mode(regs);
+
+	/*
+	 * Check that the register state is valid for using SYSRET to exit
+	 * to userspace.  Otherwise use the slower but fully capable IRET
+	 * exit path.
+	 */
+
+	/* XEN PV guests always use the IRET path */
+	if (cpu_feature_enabled(X86_FEATURE_XENPV))
+		return false;
+
+	/* SYSRET requires RCX == RIP and R11 == EFLAGS */
+	if (unlikely(regs->cx != regs->ip || regs->r11 != regs->flags))
+		return false;
+
+	/* CS and SS must match the values set in MSR_STAR */
+	if (unlikely(regs->cs != __USER_CS || regs->ss != __USER_DS))
+		return false;
+
+	/*
+	 * On Intel CPUs, SYSRET with non-canonical RCX/RIP will #GP
+	 * in kernel space.  This essentially lets the user take over
+	 * the kernel, since userspace controls RSP.
+	 *
+	 * TASK_SIZE_MAX covers all user-accessible addresses other than
+	 * the deprecated vsyscall page.
+	 */
+	if (unlikely(regs->ip >= TASK_SIZE_MAX))
+		return false;
+
+	/*
+	 * SYSRET cannot restore RF.  It can restore TF, but unlike IRET,
+	 * restoring TF results in a trap from userspace immediately after
+	 * SYSRET.
+	 */
+	if (unlikely(regs->flags & (X86_EFLAGS_RF | X86_EFLAGS_TF)))
+		return false;
+
+	/* Use SYSRET to exit to userspace */
+	return true;
+}
+asmlinkage unsigned long syscall_trace_enter(void)
+{
+	unsigned long ret = 0;
+	struct pt_regs *regs = current_pt_regs();
+	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
+	    ptrace_report_syscall_entry(current_pt_regs()))
+		ret = -1UL;
+	audit_syscall_entry(regs->r0, regs->r16, regs->r17, regs->r18, regs->r19);
+	return ret ?: current_pt_regs()->r0;
+}
+int __secure_computing(const struct seccomp_data *sd)
+{
+	int mode = current->seccomp.mode;
+	int this_syscall;
+
+	if (IS_ENABLED(CONFIG_CHECKPOINT_RESTORE) &&
+	    unlikely(current->ptrace & PT_SUSPEND_SECCOMP))
+		return 0;
+
+	this_syscall = sd ? sd->nr :
+		syscall_get_nr(current, current_pt_regs());
+
+	switch (mode) {
+	case SECCOMP_MODE_STRICT:
+		__secure_computing_strict(this_syscall);  /* may call do_exit */
+		return 0;
+	case SECCOMP_MODE_FILTER:
+		return __seccomp_filter(this_syscall, sd, false);
+	/* Surviving SECCOMP_RET_KILL_* must be proactively impossible. */
+	case SECCOMP_MODE_DEAD:
+		WARN_ON_ONCE(1);
+		do_exit(SIGKILL);
+		return -1;
+	default:
+		BUG();
+	}
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+static int call_usermodehelper_exec_async(void *data)
+{
+	struct subprocess_info *sub_info = data;
+	struct cred *new;
+	int retval;
+
+	spin_lock_irq(&current->sighand->siglock);
+	flush_signal_handlers(current, 1);
+	spin_unlock_irq(&current->sighand->siglock);
+
+	/*
+	 * Initial kernel threads share ther FS with init, in order to
+	 * get the init root directory. But we've now created a new
+	 * thread that is going to execve a user process and has its own
+	 * 'struct fs_struct'. Reset umask to the default.
+	 */
+	current->fs->umask = 0022;
+
+	/*
+	 * Our parent (unbound workqueue) runs with elevated scheduling
+	 * priority. Avoid propagating that into the userspace child.
+	 */
+	set_user_nice(current, 0);
+
+	retval = -ENOMEM;
+	new = prepare_kernel_cred(current);
+	if (!new)
+		goto out;
+
+	spin_lock(&umh_sysctl_lock);
+	new->cap_bset = cap_intersect(usermodehelper_bset, new->cap_bset);
+	new->cap_inheritable = cap_intersect(usermodehelper_inheritable,
+					     new->cap_inheritable);
+	spin_unlock(&umh_sysctl_lock);
+
+	if (sub_info->init) {
+		retval = sub_info->init(sub_info, new);
+		if (retval) {
+			abort_creds(new);
+			goto out;
+		}
+	}
+
+	commit_creds(new);
+
+	wait_for_initramfs();
+	retval = kernel_execve(sub_info->path,
+			       (const char *const *)sub_info->argv,
+			       (const char *const *)sub_info->envp);
+out:
+	sub_info->retval = retval;
+	/*
+	 * call_usermodehelper_exec_sync() will call umh_complete
+	 * if UHM_WAIT_PROC.
+	 */
+	if (!(sub_info->wait & UMH_WAIT_PROC))
+		umh_complete(sub_info);
+	if (!retval)
+		return 0;
+	do_exit(0);
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+SYSCALL_DEFINE1(exit_group, int, error_code)
+{
+	do_group_exit((error_code & 0xff) << 8);
+	/* NOTREACHED */
+	return 0;
+}
+do_group_exit(int exit_code)
+{
+	struct signal_struct *sig = current->signal;
+
+	if (sig->flags & SIGNAL_GROUP_EXIT)
+		exit_code = sig->group_exit_code;
+	else if (sig->group_exec_task)
+		exit_code = 0;
+	else {
+		struct sighand_struct *const sighand = current->sighand;
+
+		spin_lock_irq(&sighand->siglock);
+		if (sig->flags & SIGNAL_GROUP_EXIT)
+			/* Another thread got here before we took the lock.  */
+			exit_code = sig->group_exit_code;
+		else if (sig->group_exec_task)
+			exit_code = 0;
+		else {
+			sig->group_exit_code = exit_code;
+			sig->flags = SIGNAL_GROUP_EXIT;
+			zap_other_threads(current);
+		}
+		spin_unlock_irq(&sighand->siglock);
+	}
+
+	do_exit(exit_code);
+	/* NOTREACHED */
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+static int io_wq_worker(void *data)
+{
+	struct io_worker *worker = data;
+	struct io_wq_acct *acct = io_wq_get_acct(worker);
+	struct io_wq *wq = worker->wq;
+	bool exit_mask = false, last_timeout = false;
+	char buf[TASK_COMM_LEN];
+
+	set_mask_bits(&worker->flags, 0,
+		      BIT(IO_WORKER_F_UP) | BIT(IO_WORKER_F_RUNNING));
+
+	snprintf(buf, sizeof(buf), "iou-wrk-%d", wq->task->pid);
+	set_task_comm(current, buf);
+
+	while (!test_bit(IO_WQ_BIT_EXIT, &wq->state)) {
+		long ret;
+
+		set_current_state(TASK_INTERRUPTIBLE);
+
+		/*
+		 * If we have work to do, io_acct_run_queue() returns with
+		 * the acct->lock held. If not, it will drop it.
+		 */
+		while (io_acct_run_queue(acct))
+			io_worker_handle_work(acct, worker);
+
+		raw_spin_lock(&wq->lock);
+		/*
+		 * Last sleep timed out. Exit if we're not the last worker,
+		 * or if someone modified our affinity.
+		 */
+		if (last_timeout && (exit_mask || acct->nr_workers > 1)) {
+			acct->nr_workers--;
+			raw_spin_unlock(&wq->lock);
+			__set_current_state(TASK_RUNNING);
+			break;
+		}
+		last_timeout = false;
+		__io_worker_idle(wq, worker);
+		raw_spin_unlock(&wq->lock);
+		if (io_run_task_work())
+			continue;
+		ret = schedule_timeout(WORKER_IDLE_TIMEOUT);
+		if (signal_pending(current)) {
+			struct ksignal ksig;
+
+			if (!get_signal(&ksig))
+				continue;
+			break;
+		}
+		if (!ret) {
+			last_timeout = true;
+			exit_mask = !cpumask_test_cpu(raw_smp_processor_id(),
+							wq->cpu_mask);
+		}
+	}
+
+	if (test_bit(IO_WQ_BIT_EXIT, &wq->state) && io_acct_run_queue(acct))
+		io_worker_handle_work(acct, worker);
+
+	io_worker_exit(worker);
+	return 0;
+}
+bool get_signal(struct ksignal *ksig)
+{
+	struct sighand_struct *sighand = current->sighand;
+	struct signal_struct *signal = current->signal;
+	int signr;
+
+	clear_notify_signal();
+	if (unlikely(task_work_pending(current)))
+		task_work_run();
+
+	if (!task_sigpending(current))
+		return false;
+
+	if (unlikely(uprobe_deny_signal()))
+		return false;
+
+	/*
+	 * Do this once, we can't return to user-mode if freezing() == T.
+	 * do_signal_stop() and ptrace_stop() do freezable_schedule() and
+	 * thus do not need another check after return.
+	 */
+	try_to_freeze();
+
+relock:
+	spin_lock_irq(&sighand->siglock);
+
+	/*
+	 * Every stopped thread goes here after wakeup. Check to see if
+	 * we should notify the parent, prepare_signal(SIGCONT) encodes
+	 * the CLD_ si_code into SIGNAL_CLD_MASK bits.
+	 */
+	if (unlikely(signal->flags & SIGNAL_CLD_MASK)) {
+		int why;
+
+		if (signal->flags & SIGNAL_CLD_CONTINUED)
+			why = CLD_CONTINUED;
+		else
+			why = CLD_STOPPED;
+
+		signal->flags &= ~SIGNAL_CLD_MASK;
+
+		spin_unlock_irq(&sighand->siglock);
+
+		/*
+		 * Notify the parent that we're continuing.  This event is
+		 * always per-process and doesn't make whole lot of sense
+		 * for ptracers, who shouldn't consume the state via
+		 * wait(2) either, but, for backward compatibility, notify
+		 * the ptracer of the group leader too unless it's gonna be
+		 * a duplicate.
+		 */
+		read_lock(&tasklist_lock);
+		do_notify_parent_cldstop(current, false, why);
+
+		if (ptrace_reparented(current->group_leader))
+			do_notify_parent_cldstop(current->group_leader,
+						true, why);
+		read_unlock(&tasklist_lock);
+
+		goto relock;
+	}
+
+	for (;;) {
+		struct k_sigaction *ka;
+		enum pid_type type;
+
+		/* Has this task already been marked for death? */
+		if ((signal->flags & SIGNAL_GROUP_EXIT) ||
+		     signal->group_exec_task) {
+			signr = SIGKILL;
+			sigdelset(&current->pending.signal, SIGKILL);
+			trace_signal_deliver(SIGKILL, SEND_SIG_NOINFO,
+					     &sighand->action[SIGKILL-1]);
+			recalc_sigpending();
+			/*
+			 * implies do_group_exit() or return to PF_USER_WORKER,
+			 * no need to initialize ksig->info/etc.
+			 */
+			goto fatal;
+		}
+
+		if (unlikely(current->jobctl & JOBCTL_STOP_PENDING) &&
+		    do_signal_stop(0))
+			goto relock;
+
+		if (unlikely(current->jobctl &
+			     (JOBCTL_TRAP_MASK | JOBCTL_TRAP_FREEZE))) {
+			if (current->jobctl & JOBCTL_TRAP_MASK) {
+				do_jobctl_trap();
+				spin_unlock_irq(&sighand->siglock);
+			} else if (current->jobctl & JOBCTL_TRAP_FREEZE)
+				do_freezer_trap();
+
+			goto relock;
+		}
+
+		/*
+		 * If the task is leaving the frozen state, let's update
+		 * cgroup counters and reset the frozen bit.
+		 */
+		if (unlikely(cgroup_task_frozen(current))) {
+			spin_unlock_irq(&sighand->siglock);
+			cgroup_leave_frozen(false);
+			goto relock;
+		}
+
+		/*
+		 * Signals generated by the execution of an instruction
+		 * need to be delivered before any other pending signals
+		 * so that the instruction pointer in the signal stack
+		 * frame points to the faulting instruction.
+		 */
+		type = PIDTYPE_PID;
+		signr = dequeue_synchronous_signal(&ksig->info);
+		if (!signr)
+			signr = dequeue_signal(current, &current->blocked,
+					       &ksig->info, &type);
+
+		if (!signr)
+			break; /* will return 0 */
+
+		if (unlikely(current->ptrace) && (signr != SIGKILL) &&
+		    !(sighand->action[signr -1].sa.sa_flags & SA_IMMUTABLE)) {
+			signr = ptrace_signal(signr, &ksig->info, type);
+			if (!signr)
+				continue;
+		}
+
+		ka = &sighand->action[signr-1];
+
+		/* Trace actually delivered signals. */
+		trace_signal_deliver(signr, &ksig->info, ka);
+
+		if (ka->sa.sa_handler == SIG_IGN) /* Do nothing.  */
+			continue;
+		if (ka->sa.sa_handler != SIG_DFL) {
+			/* Run the handler.  */
+			ksig->ka = *ka;
+
+			if (ka->sa.sa_flags & SA_ONESHOT)
+				ka->sa.sa_handler = SIG_DFL;
+
+			break; /* will return non-zero "signr" value */
+		}
+
+		/*
+		 * Now we are doing the default action for this signal.
+		 */
+		if (sig_kernel_ignore(signr)) /* Default is nothing. */
+			continue;
+
+		/*
+		 * Global init gets no signals it doesn't want.
+		 * Container-init gets no signals it doesn't want from same
+		 * container.
+		 *
+		 * Note that if global/container-init sees a sig_kernel_only()
+		 * signal here, the signal must have been generated internally
+		 * or must have come from an ancestor namespace. In either
+		 * case, the signal cannot be dropped.
+		 */
+		if (unlikely(signal->flags & SIGNAL_UNKILLABLE) &&
+				!sig_kernel_only(signr))
+			continue;
+
+		if (sig_kernel_stop(signr)) {
+			/*
+			 * The default action is to stop all threads in
+			 * the thread group.  The job control signals
+			 * do nothing in an orphaned pgrp, but SIGSTOP
+			 * always works.  Note that siglock needs to be
+			 * dropped during the call to is_orphaned_pgrp()
+			 * because of lock ordering with tasklist_lock.
+			 * This allows an intervening SIGCONT to be posted.
+			 * We need to check for that and bail out if necessary.
+			 */
+			if (signr != SIGSTOP) {
+				spin_unlock_irq(&sighand->siglock);
+
+				/* signals can be posted during this window */
+
+				if (is_current_pgrp_orphaned())
+					goto relock;
+
+				spin_lock_irq(&sighand->siglock);
+			}
+
+			if (likely(do_signal_stop(signr))) {
+				/* It released the siglock.  */
+				goto relock;
+			}
+
+			/*
+			 * We didn't actually stop, due to a race
+			 * with SIGCONT or something like that.
+			 */
+			continue;
+		}
+
+	fatal:
+		spin_unlock_irq(&sighand->siglock);
+		if (unlikely(cgroup_task_frozen(current)))
+			cgroup_leave_frozen(true);
+
+		/*
+		 * Anything else is fatal, maybe with a core dump.
+		 */
+		current->flags |= PF_SIGNALED;
+
+		if (sig_kernel_coredump(signr)) {
+			if (print_fatal_signals)
+				print_fatal_signal(signr);
+			proc_coredump_connector(current);
+			/*
+			 * If it was able to dump core, this kills all
+			 * other threads in the group and synchronizes with
+			 * their demise.  If we lost the race with another
+			 * thread getting here, it set group_exit_code
+			 * first and our do_group_exit call below will use
+			 * that value and ignore the one we pass it.
+			 */
+			do_coredump(&ksig->info);
+		}
+
+		/*
+		 * PF_USER_WORKER threads will catch and exit on fatal signals
+		 * themselves. They have cleanup that must be performed, so we
+		 * cannot call do_exit() on their behalf. Note that ksig won't
+		 * be properly initialized, PF_USER_WORKER's shouldn't use it.
+		 */
+		if (current->flags & PF_USER_WORKER)
+			goto out;
+
+		/*
+		 * Death signals, no core dump.
+		 */
+		do_group_exit(signr);
+		/* NOTREACHED */
+	}
+	spin_unlock_irq(&sighand->siglock);
+
+	ksig->sig = signr;
+
+	if (signr && !(ksig->ka.sa.sa_flags & SA_EXPOSE_TAGBITS))
+		hide_si_addr_tag_bits(ksig);
+out:
+	return signr > 0;
+}
+do_group_exit(int exit_code)
+{
+	struct signal_struct *sig = current->signal;
+
+	if (sig->flags & SIGNAL_GROUP_EXIT)
+		exit_code = sig->group_exit_code;
+	else if (sig->group_exec_task)
+		exit_code = 0;
+	else {
+		struct sighand_struct *const sighand = current->sighand;
+
+		spin_lock_irq(&sighand->siglock);
+		if (sig->flags & SIGNAL_GROUP_EXIT)
+			/* Another thread got here before we took the lock.  */
+			exit_code = sig->group_exit_code;
+		else if (sig->group_exec_task)
+			exit_code = 0;
+		else {
+			sig->group_exit_code = exit_code;
+			sig->flags = SIGNAL_GROUP_EXIT;
+			zap_other_threads(current);
+		}
+		spin_unlock_irq(&sighand->siglock);
+	}
+
+	do_exit(exit_code);
+	/* NOTREACHED */
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+static int io_sq_thread(void *data)
+{
+	struct llist_node *retry_list = NULL;
+	struct io_sq_data *sqd = data;
+	struct io_ring_ctx *ctx;
+	struct rusage start;
+	unsigned long timeout = 0;
+	char buf[TASK_COMM_LEN];
+	DEFINE_WAIT(wait);
+
+	/* offload context creation failed, just exit */
+	if (!current->io_uring)
+		goto err_out;
+
+	snprintf(buf, sizeof(buf), "iou-sqp-%d", sqd->task_pid);
+	set_task_comm(current, buf);
+
+	/* reset to our pid after we've set task_comm, for fdinfo */
+	sqd->task_pid = current->pid;
+
+	if (sqd->sq_cpu != -1) {
+		set_cpus_allowed_ptr(current, cpumask_of(sqd->sq_cpu));
+	} else {
+		set_cpus_allowed_ptr(current, cpu_online_mask);
+		sqd->sq_cpu = raw_smp_processor_id();
+	}
+
+	/*
+	 * Force audit context to get setup, in case we do prep side async
+	 * operations that would trigger an audit call before any issue side
+	 * audit has been done.
+	 */
+	audit_uring_entry(IORING_OP_NOP);
+	audit_uring_exit(true, 0);
+
+	mutex_lock(&sqd->lock);
+	while (1) {
+		bool cap_entries, sqt_spin = false;
+
+		if (io_sqd_events_pending(sqd) || signal_pending(current)) {
+			if (io_sqd_handle_event(sqd))
+				break;
+			timeout = jiffies + sqd->sq_thread_idle;
+		}
+
+		cap_entries = !list_is_singular(&sqd->ctx_list);
+		getrusage(current, RUSAGE_SELF, &start);
+		list_for_each_entry(ctx, &sqd->ctx_list, sqd_list) {
+			int ret = __io_sq_thread(ctx, cap_entries);
+
+			if (!sqt_spin && (ret > 0 || !wq_list_empty(&ctx->iopoll_list)))
+				sqt_spin = true;
+		}
+		if (io_sq_tw(&retry_list, IORING_TW_CAP_ENTRIES_VALUE))
+			sqt_spin = true;
+
+		if (sqt_spin || !time_after(jiffies, timeout)) {
+			if (sqt_spin) {
+				io_sq_update_worktime(sqd, &start);
+				timeout = jiffies + sqd->sq_thread_idle;
+			}
+			if (unlikely(need_resched())) {
+				mutex_unlock(&sqd->lock);
+				cond_resched();
+				mutex_lock(&sqd->lock);
+				sqd->sq_cpu = raw_smp_processor_id();
+			}
+			continue;
+		}
+
+		prepare_to_wait(&sqd->wait, &wait, TASK_INTERRUPTIBLE);
+		if (!io_sqd_events_pending(sqd) && !io_sq_tw_pending(retry_list)) {
+			bool needs_sched = true;
+
+			list_for_each_entry(ctx, &sqd->ctx_list, sqd_list) {
+				atomic_or(IORING_SQ_NEED_WAKEUP,
+						&ctx->rings->sq_flags);
+				if ((ctx->flags & IORING_SETUP_IOPOLL) &&
+				    !wq_list_empty(&ctx->iopoll_list)) {
+					needs_sched = false;
+					break;
+				}
+
+				/*
+				 * Ensure the store of the wakeup flag is not
+				 * reordered with the load of the SQ tail
+				 */
+				smp_mb__after_atomic();
+
+				if (io_sqring_entries(ctx)) {
+					needs_sched = false;
+					break;
+				}
+			}
+
+			if (needs_sched) {
+				mutex_unlock(&sqd->lock);
+				schedule();
+				mutex_lock(&sqd->lock);
+				sqd->sq_cpu = raw_smp_processor_id();
+			}
+			list_for_each_entry(ctx, &sqd->ctx_list, sqd_list)
+				atomic_andnot(IORING_SQ_NEED_WAKEUP,
+						&ctx->rings->sq_flags);
+		}
+
+		finish_wait(&sqd->wait, &wait);
+		timeout = jiffies + sqd->sq_thread_idle;
+	}
+
+	if (retry_list)
+		io_sq_tw(&retry_list, UINT_MAX);
+
+	io_uring_cancel_generic(true, sqd);
+	sqd->thread = NULL;
+	list_for_each_entry(ctx, &sqd->ctx_list, sqd_list)
+		atomic_or(IORING_SQ_NEED_WAKEUP, &ctx->rings->sq_flags);
+	io_run_task_work();
+	mutex_unlock(&sqd->lock);
+err_out:
+	complete(&sqd->exited);
+	do_exit(0);
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+static int io_wq_worker(void *data)
+{
+	struct io_worker *worker = data;
+	struct io_wq_acct *acct = io_wq_get_acct(worker);
+	struct io_wq *wq = worker->wq;
+	bool exit_mask = false, last_timeout = false;
+	char buf[TASK_COMM_LEN];
+
+	set_mask_bits(&worker->flags, 0,
+		      BIT(IO_WORKER_F_UP) | BIT(IO_WORKER_F_RUNNING));
+
+	snprintf(buf, sizeof(buf), "iou-wrk-%d", wq->task->pid);
+	set_task_comm(current, buf);
+
+	while (!test_bit(IO_WQ_BIT_EXIT, &wq->state)) {
+		long ret;
+
+		set_current_state(TASK_INTERRUPTIBLE);
+
+		/*
+		 * If we have work to do, io_acct_run_queue() returns with
+		 * the acct->lock held. If not, it will drop it.
+		 */
+		while (io_acct_run_queue(acct))
+			io_worker_handle_work(acct, worker);
+
+		raw_spin_lock(&wq->lock);
+		/*
+		 * Last sleep timed out. Exit if we're not the last worker,
+		 * or if someone modified our affinity.
+		 */
+		if (last_timeout && (exit_mask || acct->nr_workers > 1)) {
+			acct->nr_workers--;
+			raw_spin_unlock(&wq->lock);
+			__set_current_state(TASK_RUNNING);
+			break;
+		}
+		last_timeout = false;
+		__io_worker_idle(wq, worker);
+		raw_spin_unlock(&wq->lock);
+		if (io_run_task_work())
+			continue;
+		ret = schedule_timeout(WORKER_IDLE_TIMEOUT);
+		if (signal_pending(current)) {
+			struct ksignal ksig;
+
+			if (!get_signal(&ksig))
+				continue;
+			break;
+		}
+		if (!ret) {
+			last_timeout = true;
+			exit_mask = !cpumask_test_cpu(raw_smp_processor_id(),
+							wq->cpu_mask);
+		}
+	}
+
+	if (test_bit(IO_WQ_BIT_EXIT, &wq->state) && io_acct_run_queue(acct))
+		io_worker_handle_work(acct, worker);
+
+	io_worker_exit(worker);
+	return 0;
+}
+static void io_worker_exit(struct io_worker *worker)
+{
+	struct io_wq *wq = worker->wq;
+
+	while (1) {
+		struct callback_head *cb = task_work_cancel_match(wq->task,
+						io_task_worker_match, worker);
+
+		if (!cb)
+			break;
+		io_worker_cancel_cb(worker);
+	}
+
+	io_worker_release(worker);
+	wait_for_completion(&worker->ref_done);
+
+	raw_spin_lock(&wq->lock);
+	if (test_bit(IO_WORKER_F_FREE, &worker->flags))
+		hlist_nulls_del_rcu(&worker->nulls_node);
+	list_del_rcu(&worker->all_list);
+	raw_spin_unlock(&wq->lock);
+	io_wq_dec_running(worker);
+	/*
+	 * this worker is a goner, clear ->worker_private to avoid any
+	 * inc/dec running calls that could happen as part of exit from
+	 * touching 'worker'.
+	 */
+	current->worker_private = NULL;
+
+	kfree_rcu(worker, rcu);
+	io_worker_ref_put(wq);
+	do_exit(0);
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+static int cryptomgr_probe(void *data)
+{
+	struct cryptomgr_param *param = data;
+	struct crypto_template *tmpl;
+	int err;
+
+	tmpl = crypto_lookup_template(param->template);
+	if (!tmpl)
+		goto out;
+
+	do {
+		err = tmpl->create(tmpl, param->tb);
+	} while (err == -EAGAIN && !signal_pending(current));
+
+	crypto_tmpl_put(tmpl);
+
+out:
+	complete_all(&param->larval->completion);
+	crypto_alg_put(&param->larval->alg);
+	kfree(param);
+	module_put_and_kthread_exit(0);
+}
+void __noreturn __module_put_and_kthread_exit(struct module *mod, long code)
+{
+	module_put(mod);
+	kthread_exit(code);
+}
+void __noreturn kthread_exit(long result)
+{
+	struct kthread *kthread = to_kthread(current);
+	kthread->result = result;
+	do_exit(0);
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+static int nfs4_run_state_manager(void *ptr)
+{
+	struct nfs_client *clp = ptr;
+	struct rpc_clnt *cl = clp->cl_rpcclient;
+
+	while (cl != cl->cl_parent)
+		cl = cl->cl_parent;
+
+	allow_signal(SIGKILL);
+again:
+	nfs4_state_manager(clp);
+
+	if (test_bit(NFS4CLNT_MANAGER_AVAILABLE, &clp->cl_state) &&
+	    !test_bit(NFS4CLNT_MANAGER_RUNNING, &clp->cl_state)) {
+		wait_var_event_interruptible(&clp->cl_state,
+					     test_bit(NFS4CLNT_RUN_MANAGER,
+						      &clp->cl_state));
+		if (!atomic_read(&cl->cl_swapper))
+			clear_bit(NFS4CLNT_MANAGER_AVAILABLE, &clp->cl_state);
+		if (refcount_read(&clp->cl_count) > 1 && !signalled() &&
+		    !test_and_set_bit(NFS4CLNT_MANAGER_RUNNING, &clp->cl_state))
+			goto again;
+		/* Either no longer a swapper, or were signalled */
+		clear_bit(NFS4CLNT_MANAGER_AVAILABLE, &clp->cl_state);
+	}
+
+	if (refcount_read(&clp->cl_count) > 1 && !signalled() &&
+	    test_bit(NFS4CLNT_RUN_MANAGER, &clp->cl_state) &&
+	    !test_and_set_bit(NFS4CLNT_MANAGER_RUNNING, &clp->cl_state))
+		goto again;
+
+	nfs_put_client(clp);
+	module_put_and_kthread_exit(0);
+	return 0;
+}
+void __noreturn __module_put_and_kthread_exit(struct module *mod, long code)
+{
+	module_put(mod);
+	kthread_exit(code);
+}
+void __noreturn kthread_exit(long result)
+{
+	struct kthread *kthread = to_kthread(current);
+	kthread->result = result;
+	do_exit(0);
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+kthread(void *vp)
+{
+	struct ktstate *k;
+	DECLARE_WAITQUEUE(wait, current);
+	int more;
+
+	k = vp;
+	current->flags |= PF_NOFREEZE;
+	set_user_nice(current, -10);
+	complete(&k->rendez);	/* tell spawner we're running */
+	do {
+		spin_lock_irq(k->lock);
+		more = k->fn(k->id);
+		if (!more) {
+			add_wait_queue(k->waitq, &wait);
+			__set_current_state(TASK_INTERRUPTIBLE);
+		}
+		spin_unlock_irq(k->lock);
+		if (!more) {
+			schedule();
+			remove_wait_queue(k->waitq, &wait);
+		} else
+			cond_resched();
+	} while (!kthread_should_stop());
+	complete(&k->rendez);	/* tell spawner we're stopping */
+	return 0;
+}
+void __noreturn kthread_exit(long result)
+{
+	struct kthread *kthread = to_kthread(current);
+	kthread->result = result;
+	do_exit(0);
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+void __noreturn kthread_complete_and_exit(struct completion *comp, long code)
+{
+	if (comp)
+		complete(comp);
+
+	kthread_exit(code);
+}
+void __noreturn kthread_exit(long result)
+{
+	struct kthread *kthread = to_kthread(current);
+	kthread->result = result;
+	do_exit(0);
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+void __noreturn make_task_dead(int signr)
+{
+	/*
+	 * Take the task off the cpu after something catastrophic has
+	 * happened.
+	 *
+	 * We can get here from a kernel oops, sometimes with preemption off.
+	 * Start by checking for critical errors.
+	 * Then fix up important state like USER_DS and preemption.
+	 * Then do everything else.
+	 */
+	struct task_struct *tsk = current;
+	unsigned int limit;
+
+	if (unlikely(in_interrupt()))
+		panic("Aiee, killing interrupt handler!");
+	if (unlikely(!tsk->pid))
+		panic("Attempted to kill the idle task!");
+
+	if (unlikely(irqs_disabled())) {
+		pr_info("note: %s[%d] exited with irqs disabled\n",
+			current->comm, task_pid_nr(current));
+		local_irq_enable();
+	}
+	if (unlikely(in_atomic())) {
+		pr_info("note: %s[%d] exited with preempt_count %d\n",
+			current->comm, task_pid_nr(current),
+			preempt_count());
+		preempt_count_set(PREEMPT_ENABLED);
+	}
+
+	/*
+	 * Every time the system oopses, if the oops happens while a reference
+	 * to an object was held, the reference leaks.
+	 * If the oops doesn't also leak memory, repeated oopsing can cause
+	 * reference counters to wrap around (if they're not using refcount_t).
+	 * This means that repeated oopsing can make unexploitable-looking bugs
+	 * exploitable through repeated oopsing.
+	 * To make sure this can't happen, place an upper bound on how often the
+	 * kernel may oops without panic().
+	 */
+	limit = READ_ONCE(oops_limit);
+	if (atomic_inc_return(&oops_count) >= limit && limit)
+		panic("Oopsed too often (kernel.oops_limit is %d)", limit);
+
+	/*
+	 * We're taking recursive faults here in make_task_dead. Safest is to just
+	 * leave this task alone and wait for reboot.
+	 */
+	if (unlikely(tsk->flags & PF_EXITING)) {
+		pr_alert("Fixing recursive fault but reboot is needed!\n");
+		futex_exit_recursive(tsk);
+		tsk->exit_state = EXIT_DEAD;
+		refcount_inc(&tsk->rcu_users);
+		do_task_dead();
+	}
+
+	do_exit(signr);
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
+SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+		void __user *, arg)
+{
+	struct pid_namespace *pid_ns = task_active_pid_ns(current);
+	char buffer[256];
+	int ret = 0;
+
+	/* We only trust the superuser with rebooting the system. */
+	if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
+		return -EPERM;
+
+	/* For safety, we require "magic" arguments. */
+	if (magic1 != LINUX_REBOOT_MAGIC1 ||
+			(magic2 != LINUX_REBOOT_MAGIC2 &&
+			magic2 != LINUX_REBOOT_MAGIC2A &&
+			magic2 != LINUX_REBOOT_MAGIC2B &&
+			magic2 != LINUX_REBOOT_MAGIC2C))
+		return -EINVAL;
+
+	/*
+	 * If pid namespaces are enabled and the current task is in a child
+	 * pid_namespace, the command is handled by reboot_pid_ns() which will
+	 * call do_exit().
+	 */
+	ret = reboot_pid_ns(pid_ns, cmd);
+	if (ret)
+		return ret;
+
+	/* Instead of trying to make the power_off code look like
+	 * halt when pm_power_off is not set do it the easy way.
+	 */
+	if ((cmd == LINUX_REBOOT_CMD_POWER_OFF) && !kernel_can_power_off()) {
+		poweroff_fallback_to_halt = true;
+		cmd = LINUX_REBOOT_CMD_HALT;
+	}
+
+	mutex_lock(&system_transition_mutex);
+	switch (cmd) {
+	case LINUX_REBOOT_CMD_RESTART:
+		kernel_restart(NULL);
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_ON:
+		C_A_D = 1;
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_OFF:
+		C_A_D = 0;
+		break;
+
+	case LINUX_REBOOT_CMD_HALT:
+		kernel_halt();
+		do_exit(0);
+
+	case LINUX_REBOOT_CMD_POWER_OFF:
+		kernel_power_off();
+		do_exit(0);
+		break;
+
+	case LINUX_REBOOT_CMD_RESTART2:
+		ret = strncpy_from_user(&buffer[0], arg, sizeof(buffer) - 1);
+		if (ret < 0) {
+			ret = -EFAULT;
+			break;
+		}
+		buffer[sizeof(buffer) - 1] = '\0';
+
+		kernel_restart(buffer);
+		break;
+
+#ifdef CONFIG_KEXEC_CORE
+	case LINUX_REBOOT_CMD_KEXEC:
+		ret = kernel_kexec();
+		break;
+#endif
+
+#ifdef CONFIG_HIBERNATION
+	case LINUX_REBOOT_CMD_SW_SUSPEND:
+		ret = hibernate();
+		break;
+#endif
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&system_transition_mutex);
+	return ret;
+}
+int reboot_pid_ns(struct pid_namespace *pid_ns, int cmd)
+{
+	if (pid_ns == &init_pid_ns)
+		return 0;
+
+	switch (cmd) {
+	case LINUX_REBOOT_CMD_RESTART2:
+	case LINUX_REBOOT_CMD_RESTART:
+		pid_ns->reboot = SIGHUP;
+		break;
+
+	case LINUX_REBOOT_CMD_POWER_OFF:
+	case LINUX_REBOOT_CMD_HALT:
+		pid_ns->reboot = SIGINT;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	read_lock(&tasklist_lock);
+	send_sig(SIGKILL, pid_ns->child_reaper, 1);
+	read_unlock(&tasklist_lock);
+
+	do_exit(0);
+
+	/* Not reached */
+	return 0;
+}
+void __noreturn do_exit(long code)
+{
+	struct task_struct *tsk = current;
+	int group_dead;
+
+	WARN_ON(irqs_disabled());
+
+	synchronize_group_exit(tsk, code);
+
+	WARN_ON(tsk->plug);
+
+	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
+
+	coredump_task_exit(tsk);
+	ptrace_event(PTRACE_EVENT_EXIT, code);
+	user_events_exit(tsk);
+
+	io_uring_files_cancel();
+	exit_signals(tsk);  /* sets PF_EXITING */
+
+	acct_update_integrals(tsk);
+	group_dead = atomic_dec_and_test(&tsk->signal->live);
+	if (group_dead) {
+		/*
+		 * If the last thread of global init has exited, panic
+		 * immediately to get a useable coredump.
+		 */
+		if (unlikely(is_global_init(tsk)))
+			panic("Attempted to kill init! exitcode=0x%08x\n",
+				tsk->signal->group_exit_code ?: (int)code);
+
+#ifdef CONFIG_POSIX_TIMERS
+		hrtimer_cancel(&tsk->signal->real_timer);
+		exit_itimers(tsk);
+#endif
+		if (tsk->mm)
+			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
+	}
+	acct_collect(code, group_dead);
+	if (group_dead)
+		tty_audit_exit();
+	audit_free(tsk);
+
+	tsk->exit_code = code;
+	taskstats_exit(tsk, group_dead);
+
+	exit_mm();
+
+	if (group_dead)
+		acct_process();
+	trace_sched_process_exit(tsk);
+
+	exit_sem(tsk);
+	exit_shm(tsk);
+	exit_files(tsk);
+	exit_fs(tsk);
+	if (group_dead)
+		disassociate_ctty(1);
+	exit_task_namespaces(tsk);
+	exit_task_work(tsk);
+	exit_thread(tsk);
+
+	/*
+	 * Flush inherited counters to the parent - before the parent
+	 * gets woken up by child-exit notifications.
+	 *
+	 * because of cgroup mode, must be called before cgroup_exit()
+	 */
+	perf_event_exit_task(tsk);
+
+	sched_autogroup_exit_task(tsk);
+	cgroup_exit(tsk);
+
+	/*
+	 * FIXME: do that only when needed, using sched_exit tracepoint
+	 */
+	flush_ptrace_hw_breakpoint(tsk);
+
+	exit_tasks_rcu_start();
+	exit_notify(tsk, group_dead);
+	proc_exit_connector(tsk);
+	mpol_put_task_policy(tsk);
+#ifdef CONFIG_FUTEX
+	if (unlikely(current->pi_state_cache))
+		kfree(current->pi_state_cache);
+#endif
+	/*
+	 * Make sure we are holding no locks:
+	 */
+	debug_check_no_locks_held();
+
+	if (tsk->io_context)
+		exit_io_context(tsk);
+
+	if (tsk->splice_pipe)
+		free_pipe_info(tsk->splice_pipe);
+
+	if (tsk->task_frag.page)
+		put_page(tsk->task_frag.page);
+
+	exit_task_stack_account(tsk);
+
+	check_stack_usage();
+	preempt_disable();
+	if (tsk->nr_dirtied)
+		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+	exit_rcu();
+	exit_tasks_rcu_finish();
+
+	lockdep_free_task(tsk);
+	do_task_dead();
+}
