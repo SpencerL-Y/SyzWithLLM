@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import random as rnd
 
 
 
@@ -43,34 +44,62 @@ def sifting_target_functions_with_depth():
             result_dict[target_function_steps] = map_set
     sorted_file.close()
     return result_dict
-    
+
+def generate_random_target_functions_list(sifted_dict):
+    final_result = []
+    for item in sifted_dict:
+        map_set = sifted_dict[item]
+        random_selection = []
+        if len(map_set) > 5:
+            random_selection = rnd.sample(map_set, 5)
+        else:
+            for set_item in map_set:
+                random_selection.append(set_item)
+        for target_func in random_selection:
+            final_result.append([target_func])
+    # write to target_functions_list.txt
+    flist_file = open(target_functions_list_file_path, "w")
+    for target_functions in final_result:
+        if len(target_functions) > 0:
+            flist_file.write("----- target functions\n")
+            for target_function in target_functions:
+                flist_file.write(target_function + "\n")
+    flist_file.close()
+    return final_result
 
 
 if __name__ == "__main__":
     print("START EXP")
     timeout_in_hours = 2  # 2小时
     timeout_in_seconds = timeout_in_hours * 3600  # 将小时转换为秒
-    target_functions_list = parse_target_functions_list()
+    # target_functions_list = parse_target_functions_list()
+    sifted_dict = sifting_target_functions_with_depth()
+    target_functions_list = generate_random_target_functions_list(sifted_dict)
     print("is llm enable: " + sys.argv[1])
     print("close range: " + sys.argv[2])
     root_cwd = os.getcwd()
     
+    folder_index = 0
     for functions in target_functions_list:
         print("CURRENT TARGET FUNCTIONS: ")
         for func in functions:
             print(func)
         os.truncate(target_functions_file_path, 0)
         print("write target_functions.txt")
+        target_functions_file = open(target_functions_file_path, "w")
         for function in functions:
-            target_functions_file = open(target_functions_file_path, "w")
             target_functions_file.write(function + "\n")
-            target_functions_file.close()
-            try:
-                command_compenent = ["python3", "./run_experiment.py", "run", sys.argv[1], sys.argv[2]]
-                # command = " ".join(command_compenent)
-                result = subprocess.run(command_compenent, timeout=timeout_in_seconds, cwd=root_cwd)
-            except subprocess.TimeoutExpired:
-                print("TIME REACHED" + str(timeout_in_hours) + "h")
-
+        target_functions_file.close()
+        try:
+            running_command_compenent = ["python3", "./run_experiment.py", "run", sys.argv[1], sys.argv[2]]
+            # command = " ".join(command_compenent)
+            result = subprocess.run(running_command_compenent, timeout=timeout_in_seconds, cwd=root_cwd)
+        except subprocess.TimeoutExpired:
+            print("TIME REACHED" + str(timeout_in_hours) + "h")
+        # copy result to ./experiment_result/temp/[folder_index]
+        copy_command_component = ["python3", "./run_experiment.py", "copy", str(folder_index)]
+        result = subprocess.run(copy_command_component, cwd=root_cwd)
+        
+        folder_index += 1
             
         

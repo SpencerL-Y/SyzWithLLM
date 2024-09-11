@@ -27,6 +27,7 @@ def clear_old_files():
 
 if __name__ == "__main__":
     if "copy" in sys.argv[1]:
+        folder_index_str = sys.argv[2]
         target_functions_file_name = "./target_functions.txt"
         path_file = "./ChatAnalyzer/pathsFile.txt"
         path_source_code_file = "./ChatAnalyzer/path_source_code.txt"
@@ -37,6 +38,8 @@ if __name__ == "__main__":
         func2addr_info_file = "./linuxRepo/line2addr/func2addr_info.txt"
         result_addr_info_file = "./linuxRepo/line2addr/result_addr_info.txt"
         # cov_raw_folder = "./syzkaller/cov_fodler_vm*"
+        copy_dest_folder = "./experiment_result/temp/" + sys.argv[2]
+        print("mkdir " + copy_dest_folder)
         cov_raw_folder = ""
         print("cp -rf " + path_file + " " + path_source_code_file + " " + target_functions_file_name + " " + syz_comm_content + " " + syz_comm_sig + " " + close_function_file + " " + func2addr_info_file + " " + result_addr_info_file + " " + cov_raw_folder + "  ./experiment_result")
         os.system("cp -rf " + path_file + " " + path_source_code_file + " " + syz_comm_content + " " + syz_comm_sig + " " + close_function_file + " " + func2addr_info_file + " " + result_addr_info_file + " "  + "  ./experiment_result")
