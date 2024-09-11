@@ -51,7 +51,7 @@ def generate_random_target_functions_list(sifted_dict):
         map_set = sifted_dict[item]
         random_selection = []
         if len(map_set) > 5:
-            random_selection = rnd.sample(map_set, 5)
+            random_selection = rnd.sample(sorted(map_set), 5)
         else:
             for set_item in map_set:
                 random_selection.append(set_item)
