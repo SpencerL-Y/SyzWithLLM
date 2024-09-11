@@ -36,11 +36,13 @@ if __name__ == "__main__":
         close_cov_result_file = "./syzkaller/close_cov_result.txt"
         func2addr_info_file = "./linuxRepo/line2addr/func2addr_info.txt"
         result_addr_info_file = "./linuxRepo/line2addr/result_addr_info.txt"
-        cov_raw_folder = "./syzkaller/cov_fodler_vm*"
-        print("cp -rf" + path_file + " " + path_source_code_file + " " + target_functions_file_name + " " + syz_comm_content + " " + syz_comm_sig + " " + close_function_file + " " + func2addr_info_file + " " + result_addr_info_file + " " + cov_raw_folder + "  ./experiment_result")
+        # cov_raw_folder = "./syzkaller/cov_fodler_vm*"
+        cov_raw_folder = ""
+        print("cp -rf " + path_file + " " + path_source_code_file + " " + target_functions_file_name + " " + syz_comm_content + " " + syz_comm_sig + " " + close_function_file + " " + func2addr_info_file + " " + result_addr_info_file + " " + cov_raw_folder + "  ./experiment_result")
         os.system("cp -rf " + path_file + " " + path_source_code_file + " " + syz_comm_content + " " + syz_comm_sig + " " + close_function_file + " " + func2addr_info_file + " " + result_addr_info_file + " "  + "  ./experiment_result")
-        print("cp -rf " + cov_raw_folder + "  ./experiment_result")
-        os.system("cp -rf " + cov_raw_folder + "  ./experiment_result")
+        # print("cp -rf " + cov_raw_folder + "  ./experiment_result")
+        # os.system("cp -rf " + cov_raw_folder + "  ./experiment_result")
+        os.system("cp ./target_functions.txt ./experiment_result")
         print("cp ./syzkaller/experiment_output_llmenabled.txt ./experiment_result")
         os.system("cp ./syzkaller/experiment_output_llmenabled.txt ./experiment_result")
     elif "run" in sys.argv[1]:
@@ -48,6 +50,12 @@ if __name__ == "__main__":
         llm_enabled = False
         if "1" in llm_enabled_str:
             llm_enabled = True 
+            print("LLM ENABLED")
+        else:
+            print("LLM DISABLED")
+        close_function_range_str = sys.argv[3]
+        close_function_range = int(close_function_range_str)
+        print("CLOSE RANGE: " + str(close_function_range))
         # pass
         clear_old_files()
         target_functions_file_name = "./target_functions.txt"
@@ -62,10 +70,11 @@ if __name__ == "__main__":
             target_functions_file.seek(0)
         else:
             os.chdir("./ChatAnalyzer")
+        print(os.getcwd())
         for line in target_functions_file.readlines():
             function_name = line.strip().replace("\n", "")
-            print("python3 chat_interface.py close " + function_name + " 2")
-            os.system("python3 chat_interface.py close " + function_name + " 2")
+            print("python3 chat_interface.py close " + function_name + " " + str(close_function_range))
+            os.system("python3 chat_interface.py close " + function_name + " " + str(close_function_range))
         target_functions_file.close()
         os.chdir("../linuxRepo/line2addr")
         print(os.getcwd())
