@@ -1,0 +1,76 @@
+COMPAT_SYSCALL_DEFINE6(pselect6_time32, int, n, compat_ulong_t __user *, inp,
+	compat_ulong_t __user *, outp, compat_ulong_t __user *, exp,
+	struct old_timespec32 __user *, tsp, void __user *, sig)
+{
+	struct compat_sigset_argpack x = {0, 0};
+
+	if (get_compat_sigset_argpack(&x, sig))
+		return -EFAULT;
+
+	return do_compat_pselect(n, inp, outp, exp, tsp, compat_ptr(x.p),
+				 x.size, PT_OLD_TIMESPEC);
+}
+static long do_pselect(int n, fd_set __user *inp, fd_set __user *outp,
+		       fd_set __user *exp, void __user *tsp,
+		       const sigset_t __user *sigmask, size_t sigsetsize,
+		       enum poll_time_type type)
+{
+	struct timespec64 ts, end_time, *to = NULL;
+	int ret;
+
+	if (tsp) {
+		switch (type) {
+		case PT_TIMESPEC:
+			if (get_timespec64(&ts, tsp))
+				return -EFAULT;
+			break;
+		case PT_OLD_TIMESPEC:
+			if (get_old_timespec32(&ts, tsp))
+				return -EFAULT;
+			break;
+		default:
+			BUG();
+		}
+
+		to = &end_time;
+		if (poll_select_set_timeout(to, ts.tv_sec, ts.tv_nsec))
+			return -EINVAL;
+	}
+
+	ret = set_user_sigmask(sigmask, sigsetsize);
+	if (ret)
+		return ret;
+
+	ret = core_sys_select(n, inp, outp, exp, to);
+	return poll_select_finish(&end_time, tsp, type, ret);
+}
+COMPAT_SYSCALL_DEFINE1(old_select, struct compat_sel_arg_struct __user *, arg)
+{
+	struct compat_sel_arg_struct a;
+
+	if (copy_from_user(&a, arg, sizeof(a)))
+		return -EFAULT;
+	return do_compat_select(a.n, compat_ptr(a.inp), compat_ptr(a.outp),
+				compat_ptr(a.exp), compat_ptr(a.tvp));
+}
+static int kern_select(int n, fd_set __user *inp, fd_set __user *outp,
+		       fd_set __user *exp, struct __kernel_old_timeval __user *tvp)
+{
+	struct timespec64 end_time, *to = NULL;
+	struct __kernel_old_timeval tv;
+	int ret;
+
+	if (tvp) {
+		if (copy_from_user(&tv, tvp, sizeof(tv)))
+			return -EFAULT;
+
+		to = &end_time;
+		if (poll_select_set_timeout(to,
+				tv.tv_sec + (tv.tv_usec / USEC_PER_SEC),
+				(tv.tv_usec % USEC_PER_SEC) * NSEC_PER_USEC))
+			return -EINVAL;
+	}
+
+	ret = core_sys_select(n, inp, outp, exp, to);
+	return poll_select_finish(&end_time, tvp, PT_TIMEVAL, ret);
+}

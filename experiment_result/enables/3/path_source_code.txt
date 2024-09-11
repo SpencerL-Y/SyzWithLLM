@@ -1,0 +1,1483 @@
+COMPAT_SYSCALL_DEFINE3(execve, const char __user *, filename,
+	const compat_uptr_t __user *, argv,
+	const compat_uptr_t __user *, envp)
+{
+	return compat_do_execve(getname(filename), argv, envp);
+}
+static int do_execve(struct filename *filename,
+	const char __user *const __user *__argv,
+	const char __user *const __user *__envp)
+{
+	struct user_arg_ptr argv = { .ptr.native = __argv };
+	struct user_arg_ptr envp = { .ptr.native = __envp };
+	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
+}
+static int do_execveat_common(int fd, struct filename *filename,
+			      struct user_arg_ptr argv,
+			      struct user_arg_ptr envp,
+			      int flags)
+{
+	struct linux_binprm *bprm;
+	int retval;
+
+	if (IS_ERR(filename))
+		return PTR_ERR(filename);
+
+	/*
+	 * We move the actual failure in case of RLIMIT_NPROC excess from
+	 * set*uid() to execve() because too many poorly written programs
+	 * don't check setuid() return code.  Here we additionally recheck
+	 * whether NPROC limit is still exceeded.
+	 */
+	if ((current->flags & PF_NPROC_EXCEEDED) &&
+	    is_rlimit_overlimit(current_ucounts(), UCOUNT_RLIMIT_NPROC, rlimit(RLIMIT_NPROC))) {
+		retval = -EAGAIN;
+		goto out_ret;
+	}
+
+	/* We're below the limit (still or again), so we don't want to make
+	 * further execve() calls fail. */
+	current->flags &= ~PF_NPROC_EXCEEDED;
+
+	bprm = alloc_bprm(fd, filename, flags);
+	if (IS_ERR(bprm)) {
+		retval = PTR_ERR(bprm);
+		goto out_ret;
+	}
+
+	retval = count(argv, MAX_ARG_STRINGS);
+	if (retval == 0)
+		pr_warn_once("process '%s' launched '%s' with NULL argv: empty string added\n",
+			     current->comm, bprm->filename);
+	if (retval < 0)
+		goto out_free;
+	bprm->argc = retval;
+
+	retval = count(envp, MAX_ARG_STRINGS);
+	if (retval < 0)
+		goto out_free;
+	bprm->envc = retval;
+
+	retval = bprm_stack_limits(bprm);
+	if (retval < 0)
+		goto out_free;
+
+	retval = copy_string_kernel(bprm->filename, bprm);
+	if (retval < 0)
+		goto out_free;
+	bprm->exec = bprm->p;
+
+	retval = copy_strings(bprm->envc, envp, bprm);
+	if (retval < 0)
+		goto out_free;
+
+	retval = copy_strings(bprm->argc, argv, bprm);
+	if (retval < 0)
+		goto out_free;
+
+	/*
+	 * When argv is empty, add an empty string ("") as argv[0] to
+	 * ensure confused userspace programs that start processing
+	 * from argv[1] won't end up walking envp. See also
+	 * bprm_stack_limits().
+	 */
+	if (bprm->argc == 0) {
+		retval = copy_string_kernel("", bprm);
+		if (retval < 0)
+			goto out_free;
+		bprm->argc = 1;
+	}
+
+	retval = bprm_execve(bprm);
+out_free:
+	free_bprm(bprm);
+
+out_ret:
+	putname(filename);
+	return retval;
+}
+static struct linux_binprm *alloc_bprm(int fd, struct filename *filename, int flags)
+{
+	struct linux_binprm *bprm;
+	struct file *file;
+	int retval = -ENOMEM;
+
+	file = do_open_execat(fd, filename, flags);
+	if (IS_ERR(file))
+		return ERR_CAST(file);
+
+	bprm = kzalloc(sizeof(*bprm), GFP_KERNEL);
+	if (!bprm) {
+		do_close_execat(file);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	bprm->file = file;
+
+	if (fd == AT_FDCWD || filename->name[0] == '/') {
+		bprm->filename = filename->name;
+	} else {
+		if (filename->name[0] == '\0')
+			bprm->fdpath = kasprintf(GFP_KERNEL, "/dev/fd/%d", fd);
+		else
+			bprm->fdpath = kasprintf(GFP_KERNEL, "/dev/fd/%d/%s",
+						  fd, filename->name);
+		if (!bprm->fdpath)
+			goto out_free;
+
+		/*
+		 * Record that a name derived from an O_CLOEXEC fd will be
+		 * inaccessible after exec.  This allows the code in exec to
+		 * choose to fail when the executable is not mmaped into the
+		 * interpreter and an open file descriptor is not passed to
+		 * the interpreter.  This makes for a better user experience
+		 * than having the interpreter start and then immediately fail
+		 * when it finds the executable is inaccessible.
+		 */
+		if (get_close_on_exec(fd))
+			bprm->interp_flags |= BINPRM_FLAGS_PATH_INACCESSIBLE;
+
+		bprm->filename = bprm->fdpath;
+	}
+	bprm->interp = bprm->filename;
+
+	retval = bprm_mm_init(bprm);
+	if (!retval)
+		return bprm;
+
+out_free:
+	free_bprm(bprm);
+	return ERR_PTR(retval);
+}
+COMPAT_SYSCALL_DEFINE5(execveat, int, fd,
+		       const char __user *, filename,
+		       const compat_uptr_t __user *, argv,
+		       const compat_uptr_t __user *, envp,
+		       int,  flags)
+{
+	return compat_do_execveat(fd,
+				  getname_uflags(filename, flags),
+				  argv, envp, flags);
+}
+static int do_execveat(int fd, struct filename *filename,
+		const char __user *const __user *__argv,
+		const char __user *const __user *__envp,
+		int flags)
+{
+	struct user_arg_ptr argv = { .ptr.native = __argv };
+	struct user_arg_ptr envp = { .ptr.native = __envp };
+
+	return do_execveat_common(fd, filename, argv, envp, flags);
+}
+static int do_execveat_common(int fd, struct filename *filename,
+			      struct user_arg_ptr argv,
+			      struct user_arg_ptr envp,
+			      int flags)
+{
+	struct linux_binprm *bprm;
+	int retval;
+
+	if (IS_ERR(filename))
+		return PTR_ERR(filename);
+
+	/*
+	 * We move the actual failure in case of RLIMIT_NPROC excess from
+	 * set*uid() to execve() because too many poorly written programs
+	 * don't check setuid() return code.  Here we additionally recheck
+	 * whether NPROC limit is still exceeded.
+	 */
+	if ((current->flags & PF_NPROC_EXCEEDED) &&
+	    is_rlimit_overlimit(current_ucounts(), UCOUNT_RLIMIT_NPROC, rlimit(RLIMIT_NPROC))) {
+		retval = -EAGAIN;
+		goto out_ret;
+	}
+
+	/* We're below the limit (still or again), so we don't want to make
+	 * further execve() calls fail. */
+	current->flags &= ~PF_NPROC_EXCEEDED;
+
+	bprm = alloc_bprm(fd, filename, flags);
+	if (IS_ERR(bprm)) {
+		retval = PTR_ERR(bprm);
+		goto out_ret;
+	}
+
+	retval = count(argv, MAX_ARG_STRINGS);
+	if (retval == 0)
+		pr_warn_once("process '%s' launched '%s' with NULL argv: empty string added\n",
+			     current->comm, bprm->filename);
+	if (retval < 0)
+		goto out_free;
+	bprm->argc = retval;
+
+	retval = count(envp, MAX_ARG_STRINGS);
+	if (retval < 0)
+		goto out_free;
+	bprm->envc = retval;
+
+	retval = bprm_stack_limits(bprm);
+	if (retval < 0)
+		goto out_free;
+
+	retval = copy_string_kernel(bprm->filename, bprm);
+	if (retval < 0)
+		goto out_free;
+	bprm->exec = bprm->p;
+
+	retval = copy_strings(bprm->envc, envp, bprm);
+	if (retval < 0)
+		goto out_free;
+
+	retval = copy_strings(bprm->argc, argv, bprm);
+	if (retval < 0)
+		goto out_free;
+
+	/*
+	 * When argv is empty, add an empty string ("") as argv[0] to
+	 * ensure confused userspace programs that start processing
+	 * from argv[1] won't end up walking envp. See also
+	 * bprm_stack_limits().
+	 */
+	if (bprm->argc == 0) {
+		retval = copy_string_kernel("", bprm);
+		if (retval < 0)
+			goto out_free;
+		bprm->argc = 1;
+	}
+
+	retval = bprm_execve(bprm);
+out_free:
+	free_bprm(bprm);
+
+out_ret:
+	putname(filename);
+	return retval;
+}
+static struct linux_binprm *alloc_bprm(int fd, struct filename *filename, int flags)
+{
+	struct linux_binprm *bprm;
+	struct file *file;
+	int retval = -ENOMEM;
+
+	file = do_open_execat(fd, filename, flags);
+	if (IS_ERR(file))
+		return ERR_CAST(file);
+
+	bprm = kzalloc(sizeof(*bprm), GFP_KERNEL);
+	if (!bprm) {
+		do_close_execat(file);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	bprm->file = file;
+
+	if (fd == AT_FDCWD || filename->name[0] == '/') {
+		bprm->filename = filename->name;
+	} else {
+		if (filename->name[0] == '\0')
+			bprm->fdpath = kasprintf(GFP_KERNEL, "/dev/fd/%d", fd);
+		else
+			bprm->fdpath = kasprintf(GFP_KERNEL, "/dev/fd/%d/%s",
+						  fd, filename->name);
+		if (!bprm->fdpath)
+			goto out_free;
+
+		/*
+		 * Record that a name derived from an O_CLOEXEC fd will be
+		 * inaccessible after exec.  This allows the code in exec to
+		 * choose to fail when the executable is not mmaped into the
+		 * interpreter and an open file descriptor is not passed to
+		 * the interpreter.  This makes for a better user experience
+		 * than having the interpreter start and then immediately fail
+		 * when it finds the executable is inaccessible.
+		 */
+		if (get_close_on_exec(fd))
+			bprm->interp_flags |= BINPRM_FLAGS_PATH_INACCESSIBLE;
+
+		bprm->filename = bprm->fdpath;
+	}
+	bprm->interp = bprm->filename;
+
+	retval = bprm_mm_init(bprm);
+	if (!retval)
+		return bprm;
+
+out_free:
+	free_bprm(bprm);
+	return ERR_PTR(retval);
+}
+static int call_usermodehelper_exec_async(void *data)
+{
+	struct subprocess_info *sub_info = data;
+	struct cred *new;
+	int retval;
+
+	spin_lock_irq(&current->sighand->siglock);
+	flush_signal_handlers(current, 1);
+	spin_unlock_irq(&current->sighand->siglock);
+
+	/*
+	 * Initial kernel threads share ther FS with init, in order to
+	 * get the init root directory. But we've now created a new
+	 * thread that is going to execve a user process and has its own
+	 * 'struct fs_struct'. Reset umask to the default.
+	 */
+	current->fs->umask = 0022;
+
+	/*
+	 * Our parent (unbound workqueue) runs with elevated scheduling
+	 * priority. Avoid propagating that into the userspace child.
+	 */
+	set_user_nice(current, 0);
+
+	retval = -ENOMEM;
+	new = prepare_kernel_cred(current);
+	if (!new)
+		goto out;
+
+	spin_lock(&umh_sysctl_lock);
+	new->cap_bset = cap_intersect(usermodehelper_bset, new->cap_bset);
+	new->cap_inheritable = cap_intersect(usermodehelper_inheritable,
+					     new->cap_inheritable);
+	spin_unlock(&umh_sysctl_lock);
+
+	if (sub_info->init) {
+		retval = sub_info->init(sub_info, new);
+		if (retval) {
+			abort_creds(new);
+			goto out;
+		}
+	}
+
+	commit_creds(new);
+
+	wait_for_initramfs();
+	retval = kernel_execve(sub_info->path,
+			       (const char *const *)sub_info->argv,
+			       (const char *const *)sub_info->envp);
+out:
+	sub_info->retval = retval;
+	/*
+	 * call_usermodehelper_exec_sync() will call umh_complete
+	 * if UHM_WAIT_PROC.
+	 */
+	if (!(sub_info->wait & UMH_WAIT_PROC))
+		umh_complete(sub_info);
+	if (!retval)
+		return 0;
+	do_exit(0);
+}
+int kernel_execve(const char *kernel_filename,
+		  const char *const *argv, const char *const *envp)
+{
+	struct filename *filename;
+	struct linux_binprm *bprm;
+	int fd = AT_FDCWD;
+	int retval;
+
+	/* It is non-sense for kernel threads to call execve */
+	if (WARN_ON_ONCE(current->flags & PF_KTHREAD))
+		return -EINVAL;
+
+	filename = getname_kernel(kernel_filename);
+	if (IS_ERR(filename))
+		return PTR_ERR(filename);
+
+	bprm = alloc_bprm(fd, filename, 0);
+	if (IS_ERR(bprm)) {
+		retval = PTR_ERR(bprm);
+		goto out_ret;
+	}
+
+	retval = count_strings_kernel(argv);
+	if (WARN_ON_ONCE(retval == 0))
+		retval = -EINVAL;
+	if (retval < 0)
+		goto out_free;
+	bprm->argc = retval;
+
+	retval = count_strings_kernel(envp);
+	if (retval < 0)
+		goto out_free;
+	bprm->envc = retval;
+
+	retval = bprm_stack_limits(bprm);
+	if (retval < 0)
+		goto out_free;
+
+	retval = copy_string_kernel(bprm->filename, bprm);
+	if (retval < 0)
+		goto out_free;
+	bprm->exec = bprm->p;
+
+	retval = copy_strings_kernel(bprm->envc, envp, bprm);
+	if (retval < 0)
+		goto out_free;
+
+	retval = copy_strings_kernel(bprm->argc, argv, bprm);
+	if (retval < 0)
+		goto out_free;
+
+	retval = bprm_execve(bprm);
+out_free:
+	free_bprm(bprm);
+out_ret:
+	putname(filename);
+	return retval;
+}
+static struct linux_binprm *alloc_bprm(int fd, struct filename *filename, int flags)
+{
+	struct linux_binprm *bprm;
+	struct file *file;
+	int retval = -ENOMEM;
+
+	file = do_open_execat(fd, filename, flags);
+	if (IS_ERR(file))
+		return ERR_CAST(file);
+
+	bprm = kzalloc(sizeof(*bprm), GFP_KERNEL);
+	if (!bprm) {
+		do_close_execat(file);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	bprm->file = file;
+
+	if (fd == AT_FDCWD || filename->name[0] == '/') {
+		bprm->filename = filename->name;
+	} else {
+		if (filename->name[0] == '\0')
+			bprm->fdpath = kasprintf(GFP_KERNEL, "/dev/fd/%d", fd);
+		else
+			bprm->fdpath = kasprintf(GFP_KERNEL, "/dev/fd/%d/%s",
+						  fd, filename->name);
+		if (!bprm->fdpath)
+			goto out_free;
+
+		/*
+		 * Record that a name derived from an O_CLOEXEC fd will be
+		 * inaccessible after exec.  This allows the code in exec to
+		 * choose to fail when the executable is not mmaped into the
+		 * interpreter and an open file descriptor is not passed to
+		 * the interpreter.  This makes for a better user experience
+		 * than having the interpreter start and then immediately fail
+		 * when it finds the executable is inaccessible.
+		 */
+		if (get_close_on_exec(fd))
+			bprm->interp_flags |= BINPRM_FLAGS_PATH_INACCESSIBLE;
+
+		bprm->filename = bprm->fdpath;
+	}
+	bprm->interp = bprm->filename;
+
+	retval = bprm_mm_init(bprm);
+	if (!retval)
+		return bprm;
+
+out_free:
+	free_bprm(bprm);
+	return ERR_PTR(retval);
+}
+static int __ref kernel_init(void *unused)
+{
+	int ret;
+
+	/*
+	 * Wait until kthreadd is all set-up.
+	 */
+	wait_for_completion(&kthreadd_done);
+
+	kernel_init_freeable();
+	/* need to finish all async __init code before freeing the memory */
+	async_synchronize_full();
+
+	system_state = SYSTEM_FREEING_INITMEM;
+	kprobe_free_init_mem();
+	ftrace_free_init_mem();
+	kgdb_free_init_mem();
+	exit_boot_config();
+	free_initmem();
+	mark_readonly();
+
+	/*
+	 * Kernel mappings are now finalized - update the userspace page-table
+	 * to finalize PTI.
+	 */
+	pti_finalize();
+
+	system_state = SYSTEM_RUNNING;
+	numa_default_policy();
+
+	rcu_end_inkernel_boot();
+
+	do_sysctl_args();
+
+	if (ramdisk_execute_command) {
+		ret = run_init_process(ramdisk_execute_command);
+		if (!ret)
+			return 0;
+		pr_err("Failed to execute %s (error %d)\n",
+		       ramdisk_execute_command, ret);
+	}
+
+	/*
+	 * We try each of these until one succeeds.
+	 *
+	 * The Bourne shell can be used instead of init if we are
+	 * trying to recover a really broken machine.
+	 */
+	if (execute_command) {
+		ret = run_init_process(execute_command);
+		if (!ret)
+			return 0;
+		panic("Requested init %s failed (error %d).",
+		      execute_command, ret);
+	}
+
+	if (CONFIG_DEFAULT_INIT[0] != '\0') {
+		ret = run_init_process(CONFIG_DEFAULT_INIT);
+		if (ret)
+			pr_err("Default init %s failed (error %d)\n",
+			       CONFIG_DEFAULT_INIT, ret);
+		else
+			return 0;
+	}
+
+	if (!try_to_run_init_process("/sbin/init") ||
+	    !try_to_run_init_process("/etc/init") ||
+	    !try_to_run_init_process("/bin/init") ||
+	    !try_to_run_init_process("/bin/sh"))
+		return 0;
+
+	panic("No working init found.  Try passing init= option to kernel. "
+	      "See Linux Documentation/admin-guide/init.rst for guidance.");
+}
+static int run_init_process(const char *init_filename)
+{
+	const char *const *p;
+
+	argv_init[0] = init_filename;
+	pr_info("Run %s as init process\n", init_filename);
+	pr_debug("  with arguments:\n");
+	for (p = argv_init; *p; p++)
+		pr_debug("    %s\n", *p);
+	pr_debug("  with environment:\n");
+	for (p = envp_init; *p; p++)
+		pr_debug("    %s\n", *p);
+	return kernel_execve(init_filename, argv_init, envp_init);
+}
+int kernel_execve(const char *kernel_filename,
+		  const char *const *argv, const char *const *envp)
+{
+	struct filename *filename;
+	struct linux_binprm *bprm;
+	int fd = AT_FDCWD;
+	int retval;
+
+	/* It is non-sense for kernel threads to call execve */
+	if (WARN_ON_ONCE(current->flags & PF_KTHREAD))
+		return -EINVAL;
+
+	filename = getname_kernel(kernel_filename);
+	if (IS_ERR(filename))
+		return PTR_ERR(filename);
+
+	bprm = alloc_bprm(fd, filename, 0);
+	if (IS_ERR(bprm)) {
+		retval = PTR_ERR(bprm);
+		goto out_ret;
+	}
+
+	retval = count_strings_kernel(argv);
+	if (WARN_ON_ONCE(retval == 0))
+		retval = -EINVAL;
+	if (retval < 0)
+		goto out_free;
+	bprm->argc = retval;
+
+	retval = count_strings_kernel(envp);
+	if (retval < 0)
+		goto out_free;
+	bprm->envc = retval;
+
+	retval = bprm_stack_limits(bprm);
+	if (retval < 0)
+		goto out_free;
+
+	retval = copy_string_kernel(bprm->filename, bprm);
+	if (retval < 0)
+		goto out_free;
+	bprm->exec = bprm->p;
+
+	retval = copy_strings_kernel(bprm->envc, envp, bprm);
+	if (retval < 0)
+		goto out_free;
+
+	retval = copy_strings_kernel(bprm->argc, argv, bprm);
+	if (retval < 0)
+		goto out_free;
+
+	retval = bprm_execve(bprm);
+out_free:
+	free_bprm(bprm);
+out_ret:
+	putname(filename);
+	return retval;
+}
+static struct linux_binprm *alloc_bprm(int fd, struct filename *filename, int flags)
+{
+	struct linux_binprm *bprm;
+	struct file *file;
+	int retval = -ENOMEM;
+
+	file = do_open_execat(fd, filename, flags);
+	if (IS_ERR(file))
+		return ERR_CAST(file);
+
+	bprm = kzalloc(sizeof(*bprm), GFP_KERNEL);
+	if (!bprm) {
+		do_close_execat(file);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	bprm->file = file;
+
+	if (fd == AT_FDCWD || filename->name[0] == '/') {
+		bprm->filename = filename->name;
+	} else {
+		if (filename->name[0] == '\0')
+			bprm->fdpath = kasprintf(GFP_KERNEL, "/dev/fd/%d", fd);
+		else
+			bprm->fdpath = kasprintf(GFP_KERNEL, "/dev/fd/%d/%s",
+						  fd, filename->name);
+		if (!bprm->fdpath)
+			goto out_free;
+
+		/*
+		 * Record that a name derived from an O_CLOEXEC fd will be
+		 * inaccessible after exec.  This allows the code in exec to
+		 * choose to fail when the executable is not mmaped into the
+		 * interpreter and an open file descriptor is not passed to
+		 * the interpreter.  This makes for a better user experience
+		 * than having the interpreter start and then immediately fail
+		 * when it finds the executable is inaccessible.
+		 */
+		if (get_close_on_exec(fd))
+			bprm->interp_flags |= BINPRM_FLAGS_PATH_INACCESSIBLE;
+
+		bprm->filename = bprm->fdpath;
+	}
+	bprm->interp = bprm->filename;
+
+	retval = bprm_mm_init(bprm);
+	if (!retval)
+		return bprm;
+
+out_free:
+	free_bprm(bprm);
+	return ERR_PTR(retval);
+}
+static ssize_t bm_register_write(struct file *file, const char __user *buffer,
+			       size_t count, loff_t *ppos)
+{
+	Node *e;
+	struct inode *inode;
+	struct super_block *sb = file_inode(file)->i_sb;
+	struct dentry *root = sb->s_root, *dentry;
+	struct binfmt_misc *misc;
+	int err = 0;
+	struct file *f = NULL;
+
+	e = create_entry(buffer, count);
+
+	if (IS_ERR(e))
+		return PTR_ERR(e);
+
+	if (e->flags & MISC_FMT_OPEN_FILE) {
+		const struct cred *old_cred;
+
+		/*
+		 * Now that we support unprivileged binfmt_misc mounts make
+		 * sure we use the credentials that the register @file was
+		 * opened with to also open the interpreter. Before that this
+		 * didn't matter much as only a privileged process could open
+		 * the register file.
+		 */
+		old_cred = override_creds(file->f_cred);
+		f = open_exec(e->interpreter);
+		revert_creds(old_cred);
+		if (IS_ERR(f)) {
+			pr_notice("register: failed to install interpreter file %s\n",
+				 e->interpreter);
+			kfree(e);
+			return PTR_ERR(f);
+		}
+		e->interp_file = f;
+	}
+
+	inode_lock(d_inode(root));
+	dentry = lookup_one_len(e->name, root, strlen(e->name));
+	err = PTR_ERR(dentry);
+	if (IS_ERR(dentry))
+		goto out;
+
+	err = -EEXIST;
+	if (d_really_is_positive(dentry))
+		goto out2;
+
+	inode = bm_get_inode(sb, S_IFREG | 0644);
+
+	err = -ENOMEM;
+	if (!inode)
+		goto out2;
+
+	refcount_set(&e->users, 1);
+	e->dentry = dget(dentry);
+	inode->i_private = e;
+	inode->i_fop = &bm_entry_operations;
+
+	d_instantiate(dentry, inode);
+	misc = i_binfmt_misc(inode);
+	write_lock(&misc->entries_lock);
+	list_add(&e->list, &misc->entries);
+	write_unlock(&misc->entries_lock);
+
+	err = 0;
+out2:
+	dput(dentry);
+out:
+	inode_unlock(d_inode(root));
+
+	if (err) {
+		if (f)
+			filp_close(f, NULL);
+		kfree(e);
+		return err;
+	}
+	return count;
+}
+struct file *open_exec(const char *name)
+{
+	struct filename *filename = getname_kernel(name);
+	struct file *f = ERR_CAST(filename);
+
+	if (!IS_ERR(filename)) {
+		f = do_open_execat(AT_FDCWD, filename, 0);
+		putname(filename);
+	}
+	return f;
+}
+static int load_elf_binary(struct linux_binprm *bprm)
+{
+	struct file *interpreter = NULL; /* to shut gcc up */
+	unsigned long load_bias = 0, phdr_addr = 0;
+	int first_pt_load = 1;
+	unsigned long error;
+	struct elf_phdr *elf_ppnt, *elf_phdata, *interp_elf_phdata = NULL;
+	struct elf_phdr *elf_property_phdata = NULL;
+	unsigned long elf_brk;
+	int retval, i;
+	unsigned long elf_entry;
+	unsigned long e_entry;
+	unsigned long interp_load_addr = 0;
+	unsigned long start_code, end_code, start_data, end_data;
+	unsigned long reloc_func_desc __maybe_unused = 0;
+	int executable_stack = EXSTACK_DEFAULT;
+	struct elfhdr *elf_ex = (struct elfhdr *)bprm->buf;
+	struct elfhdr *interp_elf_ex = NULL;
+	struct arch_elf_state arch_state = INIT_ARCH_ELF_STATE;
+	struct mm_struct *mm;
+	struct pt_regs *regs;
+
+	retval = -ENOEXEC;
+	/* First of all, some simple consistency checks */
+	if (memcmp(elf_ex->e_ident, ELFMAG, SELFMAG) != 0)
+		goto out;
+
+	if (elf_ex->e_type != ET_EXEC && elf_ex->e_type != ET_DYN)
+		goto out;
+	if (!elf_check_arch(elf_ex))
+		goto out;
+	if (elf_check_fdpic(elf_ex))
+		goto out;
+	if (!bprm->file->f_op->mmap)
+		goto out;
+
+	elf_phdata = load_elf_phdrs(elf_ex, bprm->file);
+	if (!elf_phdata)
+		goto out;
+
+	elf_ppnt = elf_phdata;
+	for (i = 0; i < elf_ex->e_phnum; i++, elf_ppnt++) {
+		char *elf_interpreter;
+
+		if (elf_ppnt->p_type == PT_GNU_PROPERTY) {
+			elf_property_phdata = elf_ppnt;
+			continue;
+		}
+
+		if (elf_ppnt->p_type != PT_INTERP)
+			continue;
+
+		/*
+		 * This is the program interpreter used for shared libraries -
+		 * for now assume that this is an a.out format binary.
+		 */
+		retval = -ENOEXEC;
+		if (elf_ppnt->p_filesz > PATH_MAX || elf_ppnt->p_filesz < 2)
+			goto out_free_ph;
+
+		retval = -ENOMEM;
+		elf_interpreter = kmalloc(elf_ppnt->p_filesz, GFP_KERNEL);
+		if (!elf_interpreter)
+			goto out_free_ph;
+
+		retval = elf_read(bprm->file, elf_interpreter, elf_ppnt->p_filesz,
+				  elf_ppnt->p_offset);
+		if (retval < 0)
+			goto out_free_interp;
+		/* make sure path is NULL terminated */
+		retval = -ENOEXEC;
+		if (elf_interpreter[elf_ppnt->p_filesz - 1] != '\0')
+			goto out_free_interp;
+
+		interpreter = open_exec(elf_interpreter);
+		kfree(elf_interpreter);
+		retval = PTR_ERR(interpreter);
+		if (IS_ERR(interpreter))
+			goto out_free_ph;
+
+		/*
+		 * If the binary is not readable then enforce mm->dumpable = 0
+		 * regardless of the interpreter's permissions.
+		 */
+		would_dump(bprm, interpreter);
+
+		interp_elf_ex = kmalloc(sizeof(*interp_elf_ex), GFP_KERNEL);
+		if (!interp_elf_ex) {
+			retval = -ENOMEM;
+			goto out_free_file;
+		}
+
+		/* Get the exec headers */
+		retval = elf_read(interpreter, interp_elf_ex,
+				  sizeof(*interp_elf_ex), 0);
+		if (retval < 0)
+			goto out_free_dentry;
+
+		break;
+
+out_free_interp:
+		kfree(elf_interpreter);
+		goto out_free_ph;
+	}
+
+	elf_ppnt = elf_phdata;
+	for (i = 0; i < elf_ex->e_phnum; i++, elf_ppnt++)
+		switch (elf_ppnt->p_type) {
+		case PT_GNU_STACK:
+			if (elf_ppnt->p_flags & PF_X)
+				executable_stack = EXSTACK_ENABLE_X;
+			else
+				executable_stack = EXSTACK_DISABLE_X;
+			break;
+
+		case PT_LOPROC ... PT_HIPROC:
+			retval = arch_elf_pt_proc(elf_ex, elf_ppnt,
+						  bprm->file, false,
+						  &arch_state);
+			if (retval)
+				goto out_free_dentry;
+			break;
+		}
+
+	/* Some simple consistency checks for the interpreter */
+	if (interpreter) {
+		retval = -ELIBBAD;
+		/* Not an ELF interpreter */
+		if (memcmp(interp_elf_ex->e_ident, ELFMAG, SELFMAG) != 0)
+			goto out_free_dentry;
+		/* Verify the interpreter has a valid arch */
+		if (!elf_check_arch(interp_elf_ex) ||
+		    elf_check_fdpic(interp_elf_ex))
+			goto out_free_dentry;
+
+		/* Load the interpreter program headers */
+		interp_elf_phdata = load_elf_phdrs(interp_elf_ex,
+						   interpreter);
+		if (!interp_elf_phdata)
+			goto out_free_dentry;
+
+		/* Pass PT_LOPROC..PT_HIPROC headers to arch code */
+		elf_property_phdata = NULL;
+		elf_ppnt = interp_elf_phdata;
+		for (i = 0; i < interp_elf_ex->e_phnum; i++, elf_ppnt++)
+			switch (elf_ppnt->p_type) {
+			case PT_GNU_PROPERTY:
+				elf_property_phdata = elf_ppnt;
+				break;
+
+			case PT_LOPROC ... PT_HIPROC:
+				retval = arch_elf_pt_proc(interp_elf_ex,
+							  elf_ppnt, interpreter,
+							  true, &arch_state);
+				if (retval)
+					goto out_free_dentry;
+				break;
+			}
+	}
+
+	retval = parse_elf_properties(interpreter ?: bprm->file,
+				      elf_property_phdata, &arch_state);
+	if (retval)
+		goto out_free_dentry;
+
+	/*
+	 * Allow arch code to reject the ELF at this point, whilst it's
+	 * still possible to return an error to the code that invoked
+	 * the exec syscall.
+	 */
+	retval = arch_check_elf(elf_ex,
+				!!interpreter, interp_elf_ex,
+				&arch_state);
+	if (retval)
+		goto out_free_dentry;
+
+	/* Flush all traces of the currently running executable */
+	retval = begin_new_exec(bprm);
+	if (retval)
+		goto out_free_dentry;
+
+	/* Do this immediately, since STACK_TOP as used in setup_arg_pages
+	   may depend on the personality.  */
+	SET_PERSONALITY2(*elf_ex, &arch_state);
+	if (elf_read_implies_exec(*elf_ex, executable_stack))
+		current->personality |= READ_IMPLIES_EXEC;
+
+	if (!(current->personality & ADDR_NO_RANDOMIZE) && randomize_va_space)
+		current->flags |= PF_RANDOMIZE;
+
+	setup_new_exec(bprm);
+
+	/* Do this so that we can load the interpreter, if need be.  We will
+	   change some of these later */
+	retval = setup_arg_pages(bprm, randomize_stack_top(STACK_TOP),
+				 executable_stack);
+	if (retval < 0)
+		goto out_free_dentry;
+
+	elf_brk = 0;
+
+	start_code = ~0UL;
+	end_code = 0;
+	start_data = 0;
+	end_data = 0;
+
+	/* Now we do a little grungy work by mmapping the ELF image into
+	   the correct location in memory. */
+	for(i = 0, elf_ppnt = elf_phdata;
+	    i < elf_ex->e_phnum; i++, elf_ppnt++) {
+		int elf_prot, elf_flags;
+		unsigned long k, vaddr;
+		unsigned long total_size = 0;
+		unsigned long alignment;
+
+		if (elf_ppnt->p_type != PT_LOAD)
+			continue;
+
+		elf_prot = make_prot(elf_ppnt->p_flags, &arch_state,
+				     !!interpreter, false);
+
+		elf_flags = MAP_PRIVATE;
+
+		vaddr = elf_ppnt->p_vaddr;
+		/*
+		 * The first time through the loop, first_pt_load is true:
+		 * layout will be calculated. Once set, use MAP_FIXED since
+		 * we know we've already safely mapped the entire region with
+		 * MAP_FIXED_NOREPLACE in the once-per-binary logic following.
+		 */
+		if (!first_pt_load) {
+			elf_flags |= MAP_FIXED;
+		} else if (elf_ex->e_type == ET_EXEC) {
+			/*
+			 * This logic is run once for the first LOAD Program
+			 * Header for ET_EXEC binaries. No special handling
+			 * is needed.
+			 */
+			elf_flags |= MAP_FIXED_NOREPLACE;
+		} else if (elf_ex->e_type == ET_DYN) {
+			/*
+			 * This logic is run once for the first LOAD Program
+			 * Header for ET_DYN binaries to calculate the
+			 * randomization (load_bias) for all the LOAD
+			 * Program Headers.
+			 *
+			 * There are effectively two types of ET_DYN
+			 * binaries: programs (i.e. PIE: ET_DYN with INTERP)
+			 * and loaders (ET_DYN without INTERP, since they
+			 * _are_ the ELF interpreter). The loaders must
+			 * be loaded away from programs since the program
+			 * may otherwise collide with the loader (especially
+			 * for ET_EXEC which does not have a randomized
+			 * position). For example to handle invocations of
+			 * "./ld.so someprog" to test out a new version of
+			 * the loader, the subsequent program that the
+			 * loader loads must avoid the loader itself, so
+			 * they cannot share the same load range. Sufficient
+			 * room for the brk must be allocated with the
+			 * loader as well, since brk must be available with
+			 * the loader.
+			 *
+			 * Therefore, programs are loaded offset from
+			 * ELF_ET_DYN_BASE and loaders are loaded into the
+			 * independently randomized mmap region (0 load_bias
+			 * without MAP_FIXED nor MAP_FIXED_NOREPLACE).
+			 */
+			if (interpreter) {
+				load_bias = ELF_ET_DYN_BASE;
+				if (current->flags & PF_RANDOMIZE)
+					load_bias += arch_mmap_rnd();
+				alignment = maximum_alignment(elf_phdata, elf_ex->e_phnum);
+				if (alignment)
+					load_bias &= ~(alignment - 1);
+				elf_flags |= MAP_FIXED_NOREPLACE;
+			} else
+				load_bias = 0;
+
+			/*
+			 * Since load_bias is used for all subsequent loading
+			 * calculations, we must lower it by the first vaddr
+			 * so that the remaining calculations based on the
+			 * ELF vaddrs will be correctly offset. The result
+			 * is then page aligned.
+			 */
+			load_bias = ELF_PAGESTART(load_bias - vaddr);
+
+			/*
+			 * Calculate the entire size of the ELF mapping
+			 * (total_size), used for the initial mapping,
+			 * due to load_addr_set which is set to true later
+			 * once the initial mapping is performed.
+			 *
+			 * Note that this is only sensible when the LOAD
+			 * segments are contiguous (or overlapping). If
+			 * used for LOADs that are far apart, this would
+			 * cause the holes between LOADs to be mapped,
+			 * running the risk of having the mapping fail,
+			 * as it would be larger than the ELF file itself.
+			 *
+			 * As a result, only ET_DYN does this, since
+			 * some ET_EXEC (e.g. ia64) may have large virtual
+			 * memory holes between LOADs.
+			 *
+			 */
+			total_size = total_mapping_size(elf_phdata,
+							elf_ex->e_phnum);
+			if (!total_size) {
+				retval = -EINVAL;
+				goto out_free_dentry;
+			}
+		}
+
+		error = elf_load(bprm->file, load_bias + vaddr, elf_ppnt,
+				elf_prot, elf_flags, total_size);
+		if (BAD_ADDR(error)) {
+			retval = IS_ERR_VALUE(error) ?
+				PTR_ERR((void*)error) : -EINVAL;
+			goto out_free_dentry;
+		}
+
+		if (first_pt_load) {
+			first_pt_load = 0;
+			if (elf_ex->e_type == ET_DYN) {
+				load_bias += error -
+				             ELF_PAGESTART(load_bias + vaddr);
+				reloc_func_desc = load_bias;
+			}
+		}
+
+		/*
+		 * Figure out which segment in the file contains the Program
+		 * Header table, and map to the associated memory address.
+		 */
+		if (elf_ppnt->p_offset <= elf_ex->e_phoff &&
+		    elf_ex->e_phoff < elf_ppnt->p_offset + elf_ppnt->p_filesz) {
+			phdr_addr = elf_ex->e_phoff - elf_ppnt->p_offset +
+				    elf_ppnt->p_vaddr;
+		}
+
+		k = elf_ppnt->p_vaddr;
+		if ((elf_ppnt->p_flags & PF_X) && k < start_code)
+			start_code = k;
+		if (start_data < k)
+			start_data = k;
+
+		/*
+		 * Check to see if the section's size will overflow the
+		 * allowed task size. Note that p_filesz must always be
+		 * <= p_memsz so it is only necessary to check p_memsz.
+		 */
+		if (BAD_ADDR(k) || elf_ppnt->p_filesz > elf_ppnt->p_memsz ||
+		    elf_ppnt->p_memsz > TASK_SIZE ||
+		    TASK_SIZE - elf_ppnt->p_memsz < k) {
+			/* set_brk can never work. Avoid overflows. */
+			retval = -EINVAL;
+			goto out_free_dentry;
+		}
+
+		k = elf_ppnt->p_vaddr + elf_ppnt->p_filesz;
+
+		if ((elf_ppnt->p_flags & PF_X) && end_code < k)
+			end_code = k;
+		if (end_data < k)
+			end_data = k;
+		k = elf_ppnt->p_vaddr + elf_ppnt->p_memsz;
+		if (k > elf_brk)
+			elf_brk = k;
+	}
+
+	e_entry = elf_ex->e_entry + load_bias;
+	phdr_addr += load_bias;
+	elf_brk += load_bias;
+	start_code += load_bias;
+	end_code += load_bias;
+	start_data += load_bias;
+	end_data += load_bias;
+
+	current->mm->start_brk = current->mm->brk = ELF_PAGEALIGN(elf_brk);
+
+	if (interpreter) {
+		elf_entry = load_elf_interp(interp_elf_ex,
+					    interpreter,
+					    load_bias, interp_elf_phdata,
+					    &arch_state);
+		if (!IS_ERR_VALUE(elf_entry)) {
+			/*
+			 * load_elf_interp() returns relocation
+			 * adjustment
+			 */
+			interp_load_addr = elf_entry;
+			elf_entry += interp_elf_ex->e_entry;
+		}
+		if (BAD_ADDR(elf_entry)) {
+			retval = IS_ERR_VALUE(elf_entry) ?
+					(int)elf_entry : -EINVAL;
+			goto out_free_dentry;
+		}
+		reloc_func_desc = interp_load_addr;
+
+		allow_write_access(interpreter);
+		fput(interpreter);
+
+		kfree(interp_elf_ex);
+		kfree(interp_elf_phdata);
+	} else {
+		elf_entry = e_entry;
+		if (BAD_ADDR(elf_entry)) {
+			retval = -EINVAL;
+			goto out_free_dentry;
+		}
+	}
+
+	kfree(elf_phdata);
+
+	set_binfmt(&elf_format);
+
+#ifdef ARCH_HAS_SETUP_ADDITIONAL_PAGES
+	retval = ARCH_SETUP_ADDITIONAL_PAGES(bprm, elf_ex, !!interpreter);
+	if (retval < 0)
+		goto out;
+#endif /* ARCH_HAS_SETUP_ADDITIONAL_PAGES */
+
+	retval = create_elf_tables(bprm, elf_ex, interp_load_addr,
+				   e_entry, phdr_addr);
+	if (retval < 0)
+		goto out;
+
+	mm = current->mm;
+	mm->end_code = end_code;
+	mm->start_code = start_code;
+	mm->start_data = start_data;
+	mm->end_data = end_data;
+	mm->start_stack = bprm->p;
+
+	if ((current->flags & PF_RANDOMIZE) && (randomize_va_space > 1)) {
+		/*
+		 * For architectures with ELF randomization, when executing
+		 * a loader directly (i.e. no interpreter listed in ELF
+		 * headers), move the brk area out of the mmap region
+		 * (since it grows up, and may collide early with the stack
+		 * growing down), and into the unused ELF_ET_DYN_BASE region.
+		 */
+		if (IS_ENABLED(CONFIG_ARCH_HAS_ELF_RANDOMIZE) &&
+		    elf_ex->e_type == ET_DYN && !interpreter) {
+			mm->brk = mm->start_brk = ELF_ET_DYN_BASE;
+		} else {
+			/* Otherwise leave a gap between .bss and brk. */
+			mm->brk = mm->start_brk = mm->brk + PAGE_SIZE;
+		}
+
+		mm->brk = mm->start_brk = arch_randomize_brk(mm);
+#ifdef compat_brk_randomized
+		current->brk_randomized = 1;
+#endif
+	}
+
+	if (current->personality & MMAP_PAGE_ZERO) {
+		/* Why this, you ask???  Well SVr4 maps page 0 as read-only,
+		   and some applications "depend" upon this behavior.
+		   Since we do not have the power to recompile these, we
+		   emulate the SVr4 behavior. Sigh. */
+		error = vm_mmap(NULL, 0, PAGE_SIZE, PROT_READ | PROT_EXEC,
+				MAP_FIXED | MAP_PRIVATE, 0);
+	}
+
+	regs = current_pt_regs();
+#ifdef ELF_PLAT_INIT
+	/*
+	 * The ABI may specify that certain registers be set up in special
+	 * ways (on i386 %edx is the address of a DT_FINI function, for
+	 * example.  In addition, it may also specify (eg, PowerPC64 ELF)
+	 * that the e_entry field is the address of the function descriptor
+	 * for the startup routine, rather than the address of the startup
+	 * routine itself.  This macro performs whatever initialization to
+	 * the regs structure is required as well as any relocations to the
+	 * function descriptor entries when executing dynamically links apps.
+	 */
+	ELF_PLAT_INIT(regs, reloc_func_desc);
+#endif
+
+	finalize_exec(bprm);
+	START_THREAD(elf_ex, regs, elf_entry, bprm->p);
+	retval = 0;
+out:
+	return retval;
+
+	/* error cleanup */
+out_free_dentry:
+	kfree(interp_elf_ex);
+	kfree(interp_elf_phdata);
+out_free_file:
+	allow_write_access(interpreter);
+	if (interpreter)
+		fput(interpreter);
+out_free_ph:
+	kfree(elf_phdata);
+	goto out;
+}
+struct file *open_exec(const char *name)
+{
+	struct filename *filename = getname_kernel(name);
+	struct file *f = ERR_CAST(filename);
+
+	if (!IS_ERR(filename)) {
+		f = do_open_execat(AT_FDCWD, filename, 0);
+		putname(filename);
+	}
+	return f;
+}
+static int load_misc_binary(struct linux_binprm *bprm)
+{
+	Node *fmt;
+	struct file *interp_file = NULL;
+	int retval = -ENOEXEC;
+	struct binfmt_misc *misc;
+
+	misc = load_binfmt_misc();
+	if (!misc->enabled)
+		return retval;
+
+	fmt = get_binfmt_handler(misc, bprm);
+	if (!fmt)
+		return retval;
+
+	/* Need to be able to load the file after exec */
+	retval = -ENOENT;
+	if (bprm->interp_flags & BINPRM_FLAGS_PATH_INACCESSIBLE)
+		goto ret;
+
+	if (fmt->flags & MISC_FMT_PRESERVE_ARGV0) {
+		bprm->interp_flags |= BINPRM_FLAGS_PRESERVE_ARGV0;
+	} else {
+		retval = remove_arg_zero(bprm);
+		if (retval)
+			goto ret;
+	}
+
+	if (fmt->flags & MISC_FMT_OPEN_BINARY)
+		bprm->have_execfd = 1;
+
+	/* make argv[1] be the path to the binary */
+	retval = copy_string_kernel(bprm->interp, bprm);
+	if (retval < 0)
+		goto ret;
+	bprm->argc++;
+
+	/* add the interp as argv[0] */
+	retval = copy_string_kernel(fmt->interpreter, bprm);
+	if (retval < 0)
+		goto ret;
+	bprm->argc++;
+
+	/* Update interp in case binfmt_script needs it. */
+	retval = bprm_change_interp(fmt->interpreter, bprm);
+	if (retval < 0)
+		goto ret;
+
+	if (fmt->flags & MISC_FMT_OPEN_FILE) {
+		interp_file = file_clone_open(fmt->interp_file);
+		if (!IS_ERR(interp_file))
+			deny_write_access(interp_file);
+	} else {
+		interp_file = open_exec(fmt->interpreter);
+	}
+	retval = PTR_ERR(interp_file);
+	if (IS_ERR(interp_file))
+		goto ret;
+
+	bprm->interpreter = interp_file;
+	if (fmt->flags & MISC_FMT_CREDENTIALS)
+		bprm->execfd_creds = 1;
+
+	retval = 0;
+ret:
+
+	/*
+	 * If we actually put the node here all concurrent calls to
+	 * load_misc_binary() will have finished. We also know
+	 * that for the refcount to be zero someone must have concurently
+	 * removed the binary type handler from the list and it's our job to
+	 * free it.
+	 */
+	put_binfmt_handler(fmt);
+
+	return retval;
+}
+struct file *open_exec(const char *name)
+{
+	struct filename *filename = getname_kernel(name);
+	struct file *f = ERR_CAST(filename);
+
+	if (!IS_ERR(filename)) {
+		f = do_open_execat(AT_FDCWD, filename, 0);
+		putname(filename);
+	}
+	return f;
+}
+static int load_script(struct linux_binprm *bprm)
+{
+	const char *i_name, *i_sep, *i_arg, *i_end, *buf_end;
+	struct file *file;
+	int retval;
+
+	/* Not ours to exec if we don't start with "#!". */
+	if ((bprm->buf[0] != '#') || (bprm->buf[1] != '!'))
+		return -ENOEXEC;
+
+	/*
+	 * This section handles parsing the #! line into separate
+	 * interpreter path and argument strings. We must be careful
+	 * because bprm->buf is not yet guaranteed to be NUL-terminated
+	 * (though the buffer will have trailing NUL padding when the
+	 * file size was smaller than the buffer size).
+	 *
+	 * We do not want to exec a truncated interpreter path, so either
+	 * we find a newline (which indicates nothing is truncated), or
+	 * we find a space/tab/NUL after the interpreter path (which
+	 * itself may be preceded by spaces/tabs). Truncating the
+	 * arguments is fine: the interpreter can re-read the script to
+	 * parse them on its own.
+	 */
+	buf_end = bprm->buf + sizeof(bprm->buf) - 1;
+	i_end = strnchr(bprm->buf, sizeof(bprm->buf), '\n');
+	if (!i_end) {
+		i_end = next_non_spacetab(bprm->buf + 2, buf_end);
+		if (!i_end)
+			return -ENOEXEC; /* Entire buf is spaces/tabs */
+		/*
+		 * If there is no later space/tab/NUL we must assume the
+		 * interpreter path is truncated.
+		 */
+		if (!next_terminator(i_end, buf_end))
+			return -ENOEXEC;
+		i_end = buf_end;
+	}
+	/* Trim any trailing spaces/tabs from i_end */
+	while (spacetab(i_end[-1]))
+		i_end--;
+
+	/* Skip over leading spaces/tabs */
+	i_name = next_non_spacetab(bprm->buf+2, i_end);
+	if (!i_name || (i_name == i_end))
+		return -ENOEXEC; /* No interpreter name found */
+
+	/* Is there an optional argument? */
+	i_arg = NULL;
+	i_sep = next_terminator(i_name, i_end);
+	if (i_sep && (*i_sep != '\0'))
+		i_arg = next_non_spacetab(i_sep, i_end);
+
+	/*
+	 * If the script filename will be inaccessible after exec, typically
+	 * because it is a "/dev/fd/<fd>/.." path against an O_CLOEXEC fd, give
+	 * up now (on the assumption that the interpreter will want to load
+	 * this file).
+	 */
+	if (bprm->interp_flags & BINPRM_FLAGS_PATH_INACCESSIBLE)
+		return -ENOENT;
+
+	/*
+	 * OK, we've parsed out the interpreter name and
+	 * (optional) argument.
+	 * Splice in (1) the interpreter's name for argv[0]
+	 *           (2) (optional) argument to interpreter
+	 *           (3) filename of shell script (replace argv[0])
+	 *
+	 * This is done in reverse order, because of how the
+	 * user environment and arguments are stored.
+	 */
+	retval = remove_arg_zero(bprm);
+	if (retval)
+		return retval;
+	retval = copy_string_kernel(bprm->interp, bprm);
+	if (retval < 0)
+		return retval;
+	bprm->argc++;
+	*((char *)i_end) = '\0';
+	if (i_arg) {
+		*((char *)i_sep) = '\0';
+		retval = copy_string_kernel(i_arg, bprm);
+		if (retval < 0)
+			return retval;
+		bprm->argc++;
+	}
+	retval = copy_string_kernel(i_name, bprm);
+	if (retval)
+		return retval;
+	bprm->argc++;
+	retval = bprm_change_interp(i_name, bprm);
+	if (retval < 0)
+		return retval;
+
+	/*
+	 * OK, now restart the process with the interpreter's dentry.
+	 */
+	file = open_exec(i_name);
+	if (IS_ERR(file))
+		return PTR_ERR(file);
+
+	bprm->interpreter = file;
+	return 0;
+}
+struct file *open_exec(const char *name)
+{
+	struct filename *filename = getname_kernel(name);
+	struct file *f = ERR_CAST(filename);
+
+	if (!IS_ERR(filename)) {
+		f = do_open_execat(AT_FDCWD, filename, 0);
+		putname(filename);
+	}
+	return f;
+}
