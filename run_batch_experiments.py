@@ -1,7 +1,9 @@
 import os
 import sys
 import subprocess
+import signal
 import random as rnd
+from multiprocessing import active_children
 
 
 
@@ -70,18 +72,16 @@ def generate_random_target_functions_list(sifted_dict):
 
 if __name__ == "__main__":
     print("START EXP")
-    timeout_in_hours = 2  # 2小时
-    timeout_in_seconds = timeout_in_hours * 3600  # 将小时转换为秒
-    # target_functions_list = parse_target_functions_list()
-    sifted_dict = sifting_target_functions_with_depth()
-    target_functions_list = generate_random_target_functions_list(sifted_dict)
+    target_functions_list = parse_target_functions_list()
+    # sifted_dict = sifting_target_functions_with_depth()
+    # target_functions_list = generate_random_target_functions_list(sifted_dict)
     print("is llm enable: " + sys.argv[1])
     print("close range: " + sys.argv[2])
     root_cwd = os.getcwd()
     
     folder_index = 0
     for functions in target_functions_list:
-        print("CURRENT TARGET FUNCTIONS: ")
+        print(str(folder_index) + " CURRENT TARGET FUNCTIONS: ")
         for func in functions:
             print(func)
         os.truncate(target_functions_file_path, 0)
@@ -90,14 +90,13 @@ if __name__ == "__main__":
         for function in functions:
             target_functions_file.write(function + "\n")
         target_functions_file.close()
-        try:
-            running_command_compenent = ["python3", "./run_experiment.py", "run", sys.argv[1], sys.argv[2]]
-            # command = " ".join(command_compenent)
-            result = subprocess.run(running_command_compenent, timeout=timeout_in_seconds, cwd=root_cwd)
-        except subprocess.TimeoutExpired:
-            print("TIME REACHED" + str(timeout_in_hours) + "h")
-        # copy result to ./experiment_result/temp/[folder_index]
+        
+        running_command_compenent = ["python3", "./run_experiment.py", "run", sys.argv[1], sys.argv[2]]
+        # run experiment process
+        experiment_process = subprocess.run(running_command_compenent, cwd=root_cwd)
+        # copy experiment result
         copy_command_component = ["python3", "./run_experiment.py", "copy", str(folder_index)]
+        print(" ".join(copy_command_component))
         result = subprocess.run(copy_command_component, cwd=root_cwd)
         
         folder_index += 1
