@@ -58,7 +58,7 @@ if __name__ == "__main__":
         os.mkdir(copy_dest_folder)
         cov_raw_folder = ""
         print("cp -rf " + path_file + " " + path_source_code_file + " " + target_functions_file_name + " " + syz_comm_content + " " + syz_comm_sig + " " + close_function_file + " " + func2addr_info_file + " " + result_addr_info_file + " " + cov_raw_folder + "  ./experiment_result")
-        os.system("cp -rf " + path_file + " " + path_source_code_file + " " + syz_comm_content + " " + syz_comm_sig + " " + close_function_file + " " + func2addr_info_file + " " + result_addr_info_file + " "  + "  ./experiment_result")
+        os.system("cp -rf " + path_file + " " + path_source_code_file + " " + syz_comm_content + " " + syz_comm_sig + " " + close_function_file + " " + func2addr_info_file + " " + result_addr_info_file + " "  + "  ./experiment_result/temp/" + folder_index_str)
         # print("cp -rf " + cov_raw_folder + "  ./experiment_result")
         # os.system("cp -rf " + cov_raw_folder + "  ./experiment_result")
         os.system("cp ./target_functions.txt ./experiment_result")
