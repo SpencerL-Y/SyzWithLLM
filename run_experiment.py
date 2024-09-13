@@ -90,8 +90,8 @@ if __name__ == "__main__":
                 # os.system("python3 chat_interface.py init " + function_name)
                 init_result = subprocess.run(init_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 init_output = init_result.stdout
-                # if "HALT!!" in init_output:
-                if True:
+                if "HALT!!" in init_output:
+                # if True:
                     print("LLM content too long, HALT")
                     sys.exit(0)
             target_functions_file.seek(0)
