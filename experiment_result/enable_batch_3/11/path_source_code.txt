@@ -1,0 +1,1766 @@
+int anon_inode_create_getfd(const char *name, const struct file_operations *fops,
+			    void *priv, int flags,
+			    const struct inode *context_inode)
+{
+	return __anon_inode_getfd(name, fops, priv, flags, context_inode, true);
+}
+static int __anon_inode_getfd(const char *name,
+			      const struct file_operations *fops,
+			      void *priv, int flags,
+			      const struct inode *context_inode,
+			      bool make_inode)
+{
+	int error, fd;
+	struct file *file;
+
+	error = get_unused_fd_flags(flags);
+	if (error < 0)
+		return error;
+	fd = error;
+
+	file = __anon_inode_getfile(name, fops, priv, flags, context_inode,
+				    make_inode);
+	if (IS_ERR(file)) {
+		error = PTR_ERR(file);
+		goto err_put_unused_fd;
+	}
+	fd_install(fd, file);
+
+	return fd;
+
+err_put_unused_fd:
+	put_unused_fd(fd);
+	return error;
+}
+SYSCALL_DEFINE0(inotify_init)
+{
+	return do_inotify_init(0);
+}
+static int do_inotify_init(int flags)
+{
+	struct fsnotify_group *group;
+	int ret;
+
+	/* Check the IN_* constants for consistency.  */
+	BUILD_BUG_ON(IN_CLOEXEC != O_CLOEXEC);
+	BUILD_BUG_ON(IN_NONBLOCK != O_NONBLOCK);
+
+	if (flags & ~(IN_CLOEXEC | IN_NONBLOCK))
+		return -EINVAL;
+
+	/* fsnotify_obtain_group took a reference to group, we put this when we kill the file in the end */
+	group = inotify_new_group(inotify_max_queued_events);
+	if (IS_ERR(group))
+		return PTR_ERR(group);
+
+	ret = anon_inode_getfd("inotify", &inotify_fops, group,
+				  O_RDONLY | flags);
+	if (ret < 0)
+		fsnotify_destroy_group(group);
+
+	return ret;
+}
+int anon_inode_getfd(const char *name, const struct file_operations *fops,
+		     void *priv, int flags)
+{
+	return __anon_inode_getfd(name, fops, priv, flags, NULL, false);
+}
+static int __anon_inode_getfd(const char *name,
+			      const struct file_operations *fops,
+			      void *priv, int flags,
+			      const struct inode *context_inode,
+			      bool make_inode)
+{
+	int error, fd;
+	struct file *file;
+
+	error = get_unused_fd_flags(flags);
+	if (error < 0)
+		return error;
+	fd = error;
+
+	file = __anon_inode_getfile(name, fops, priv, flags, context_inode,
+				    make_inode);
+	if (IS_ERR(file)) {
+		error = PTR_ERR(file);
+		goto err_put_unused_fd;
+	}
+	fd_install(fd, file);
+
+	return fd;
+
+err_put_unused_fd:
+	put_unused_fd(fd);
+	return error;
+}
+SYSCALL_DEFINE1(inotify_init1, int, flags)
+{
+	return do_inotify_init(flags);
+}
+static int do_inotify_init(int flags)
+{
+	struct fsnotify_group *group;
+	int ret;
+
+	/* Check the IN_* constants for consistency.  */
+	BUILD_BUG_ON(IN_CLOEXEC != O_CLOEXEC);
+	BUILD_BUG_ON(IN_NONBLOCK != O_NONBLOCK);
+
+	if (flags & ~(IN_CLOEXEC | IN_NONBLOCK))
+		return -EINVAL;
+
+	/* fsnotify_obtain_group took a reference to group, we put this when we kill the file in the end */
+	group = inotify_new_group(inotify_max_queued_events);
+	if (IS_ERR(group))
+		return PTR_ERR(group);
+
+	ret = anon_inode_getfd("inotify", &inotify_fops, group,
+				  O_RDONLY | flags);
+	if (ret < 0)
+		fsnotify_destroy_group(group);
+
+	return ret;
+}
+int anon_inode_getfd(const char *name, const struct file_operations *fops,
+		     void *priv, int flags)
+{
+	return __anon_inode_getfd(name, fops, priv, flags, NULL, false);
+}
+static int __anon_inode_getfd(const char *name,
+			      const struct file_operations *fops,
+			      void *priv, int flags,
+			      const struct inode *context_inode,
+			      bool make_inode)
+{
+	int error, fd;
+	struct file *file;
+
+	error = get_unused_fd_flags(flags);
+	if (error < 0)
+		return error;
+	fd = error;
+
+	file = __anon_inode_getfile(name, fops, priv, flags, context_inode,
+				    make_inode);
+	if (IS_ERR(file)) {
+		error = PTR_ERR(file);
+		goto err_put_unused_fd;
+	}
+	fd_install(fd, file);
+
+	return fd;
+
+err_put_unused_fd:
+	put_unused_fd(fd);
+	return error;
+}
+SYSCALL_DEFINE2(fsopen, const char __user *, _fs_name, unsigned int, flags)
+{
+	struct file_system_type *fs_type;
+	struct fs_context *fc;
+	const char *fs_name;
+	int ret;
+
+	if (!may_mount())
+		return -EPERM;
+
+	if (flags & ~FSOPEN_CLOEXEC)
+		return -EINVAL;
+
+	fs_name = strndup_user(_fs_name, PAGE_SIZE);
+	if (IS_ERR(fs_name))
+		return PTR_ERR(fs_name);
+
+	fs_type = get_fs_type(fs_name);
+	kfree(fs_name);
+	if (!fs_type)
+		return -ENODEV;
+
+	fc = fs_context_for_mount(fs_type, 0);
+	put_filesystem(fs_type);
+	if (IS_ERR(fc))
+		return PTR_ERR(fc);
+
+	fc->phase = FS_CONTEXT_CREATE_PARAMS;
+
+	ret = fscontext_alloc_log(fc);
+	if (ret < 0)
+		goto err_fc;
+
+	return fscontext_create_fd(fc, flags & FSOPEN_CLOEXEC ? O_CLOEXEC : 0);
+
+err_fc:
+	put_fs_context(fc);
+	return ret;
+}
+static int fscontext_create_fd(struct fs_context *fc, unsigned int o_flags)
+{
+	int fd;
+
+	fd = anon_inode_getfd("[fscontext]", &fscontext_fops, fc,
+			      O_RDWR | o_flags);
+	if (fd < 0)
+		put_fs_context(fc);
+	return fd;
+}
+int anon_inode_getfd(const char *name, const struct file_operations *fops,
+		     void *priv, int flags)
+{
+	return __anon_inode_getfd(name, fops, priv, flags, NULL, false);
+}
+static int __anon_inode_getfd(const char *name,
+			      const struct file_operations *fops,
+			      void *priv, int flags,
+			      const struct inode *context_inode,
+			      bool make_inode)
+{
+	int error, fd;
+	struct file *file;
+
+	error = get_unused_fd_flags(flags);
+	if (error < 0)
+		return error;
+	fd = error;
+
+	file = __anon_inode_getfile(name, fops, priv, flags, context_inode,
+				    make_inode);
+	if (IS_ERR(file)) {
+		error = PTR_ERR(file);
+		goto err_put_unused_fd;
+	}
+	fd_install(fd, file);
+
+	return fd;
+
+err_put_unused_fd:
+	put_unused_fd(fd);
+	return error;
+}
+SYSCALL_DEFINE3(fspick, int, dfd, const char __user *, path, unsigned int, flags)
+{
+	struct fs_context *fc;
+	struct path target;
+	unsigned int lookup_flags;
+	int ret;
+
+	if (!may_mount())
+		return -EPERM;
+
+	if ((flags & ~(FSPICK_CLOEXEC |
+		       FSPICK_SYMLINK_NOFOLLOW |
+		       FSPICK_NO_AUTOMOUNT |
+		       FSPICK_EMPTY_PATH)) != 0)
+		return -EINVAL;
+
+	lookup_flags = LOOKUP_FOLLOW | LOOKUP_AUTOMOUNT;
+	if (flags & FSPICK_SYMLINK_NOFOLLOW)
+		lookup_flags &= ~LOOKUP_FOLLOW;
+	if (flags & FSPICK_NO_AUTOMOUNT)
+		lookup_flags &= ~LOOKUP_AUTOMOUNT;
+	if (flags & FSPICK_EMPTY_PATH)
+		lookup_flags |= LOOKUP_EMPTY;
+	ret = user_path_at(dfd, path, lookup_flags, &target);
+	if (ret < 0)
+		goto err;
+
+	ret = -EINVAL;
+	if (target.mnt->mnt_root != target.dentry)
+		goto err_path;
+
+	fc = fs_context_for_reconfigure(target.dentry, 0, 0);
+	if (IS_ERR(fc)) {
+		ret = PTR_ERR(fc);
+		goto err_path;
+	}
+
+	fc->phase = FS_CONTEXT_RECONF_PARAMS;
+
+	ret = fscontext_alloc_log(fc);
+	if (ret < 0)
+		goto err_fc;
+
+	path_put(&target);
+	return fscontext_create_fd(fc, flags & FSPICK_CLOEXEC ? O_CLOEXEC : 0);
+
+err_fc:
+	put_fs_context(fc);
+err_path:
+	path_put(&target);
+err:
+	return ret;
+}
+static int fscontext_create_fd(struct fs_context *fc, unsigned int o_flags)
+{
+	int fd;
+
+	fd = anon_inode_getfd("[fscontext]", &fscontext_fops, fc,
+			      O_RDWR | o_flags);
+	if (fd < 0)
+		put_fs_context(fc);
+	return fd;
+}
+int anon_inode_getfd(const char *name, const struct file_operations *fops,
+		     void *priv, int flags)
+{
+	return __anon_inode_getfd(name, fops, priv, flags, NULL, false);
+}
+static int __anon_inode_getfd(const char *name,
+			      const struct file_operations *fops,
+			      void *priv, int flags,
+			      const struct inode *context_inode,
+			      bool make_inode)
+{
+	int error, fd;
+	struct file *file;
+
+	error = get_unused_fd_flags(flags);
+	if (error < 0)
+		return error;
+	fd = error;
+
+	file = __anon_inode_getfile(name, fops, priv, flags, context_inode,
+				    make_inode);
+	if (IS_ERR(file)) {
+		error = PTR_ERR(file);
+		goto err_put_unused_fd;
+	}
+	fd_install(fd, file);
+
+	return fd;
+
+err_put_unused_fd:
+	put_unused_fd(fd);
+	return error;
+}
+int i915_perf_open_ioctl(struct drm_device *dev, void *data,
+			 struct drm_file *file)
+{
+	struct i915_perf *perf = &to_i915(dev)->perf;
+	struct drm_i915_perf_open_param *param = data;
+	struct intel_gt *gt;
+	struct perf_open_properties props;
+	u32 known_open_flags;
+	int ret;
+
+	if (!perf->i915)
+		return -ENOTSUPP;
+
+	known_open_flags = I915_PERF_FLAG_FD_CLOEXEC |
+			   I915_PERF_FLAG_FD_NONBLOCK |
+			   I915_PERF_FLAG_DISABLED;
+	if (param->flags & ~known_open_flags) {
+		drm_dbg(&perf->i915->drm,
+			"Unknown drm_i915_perf_open_param flag\n");
+		return -EINVAL;
+	}
+
+	ret = read_properties_unlocked(perf,
+				       u64_to_user_ptr(param->properties_ptr),
+				       param->num_properties,
+				       &props);
+	if (ret)
+		return ret;
+
+	gt = props.engine->gt;
+
+	mutex_lock(&gt->perf.lock);
+	ret = i915_perf_open_ioctl_locked(perf, param, &props, file);
+	mutex_unlock(&gt->perf.lock);
+
+	return ret;
+}
+i915_perf_open_ioctl_locked(struct i915_perf *perf,
+			    struct drm_i915_perf_open_param *param,
+			    struct perf_open_properties *props,
+			    struct drm_file *file)
+{
+	struct i915_gem_context *specific_ctx = NULL;
+	struct i915_perf_stream *stream = NULL;
+	unsigned long f_flags = 0;
+	bool privileged_op = true;
+	int stream_fd;
+	int ret;
+
+	if (props->single_context) {
+		u32 ctx_handle = props->ctx_handle;
+		struct drm_i915_file_private *file_priv = file->driver_priv;
+
+		specific_ctx = i915_gem_context_lookup(file_priv, ctx_handle);
+		if (IS_ERR(specific_ctx)) {
+			drm_dbg(&perf->i915->drm,
+				"Failed to look up context with ID %u for opening perf stream\n",
+				  ctx_handle);
+			ret = PTR_ERR(specific_ctx);
+			goto err;
+		}
+	}
+
+	/*
+	 * On Haswell the OA unit supports clock gating off for a specific
+	 * context and in this mode there's no visibility of metrics for the
+	 * rest of the system, which we consider acceptable for a
+	 * non-privileged client.
+	 *
+	 * For Gen8->11 the OA unit no longer supports clock gating off for a
+	 * specific context and the kernel can't securely stop the counters
+	 * from updating as system-wide / global values. Even though we can
+	 * filter reports based on the included context ID we can't block
+	 * clients from seeing the raw / global counter values via
+	 * MI_REPORT_PERF_COUNT commands and so consider it a privileged op to
+	 * enable the OA unit by default.
+	 *
+	 * For Gen12+ we gain a new OAR unit that only monitors the RCS on a
+	 * per context basis. So we can relax requirements there if the user
+	 * doesn't request global stream access (i.e. query based sampling
+	 * using MI_RECORD_PERF_COUNT.
+	 */
+	if (IS_HASWELL(perf->i915) && specific_ctx)
+		privileged_op = false;
+	else if (GRAPHICS_VER(perf->i915) == 12 && specific_ctx &&
+		 (props->sample_flags & SAMPLE_OA_REPORT) == 0)
+		privileged_op = false;
+
+	if (props->hold_preemption) {
+		if (!props->single_context) {
+			drm_dbg(&perf->i915->drm,
+				"preemption disable with no context\n");
+			ret = -EINVAL;
+			goto err;
+		}
+		privileged_op = true;
+	}
+
+	/*
+	 * Asking for SSEU configuration is a priviliged operation.
+	 */
+	if (props->has_sseu)
+		privileged_op = true;
+	else
+		get_default_sseu_config(&props->sseu, props->engine);
+
+	/* Similar to perf's kernel.perf_paranoid_cpu sysctl option
+	 * we check a dev.i915.perf_stream_paranoid sysctl option
+	 * to determine if it's ok to access system wide OA counters
+	 * without CAP_PERFMON or CAP_SYS_ADMIN privileges.
+	 */
+	if (privileged_op &&
+	    i915_perf_stream_paranoid && !perfmon_capable()) {
+		drm_dbg(&perf->i915->drm,
+			"Insufficient privileges to open i915 perf stream\n");
+		ret = -EACCES;
+		goto err_ctx;
+	}
+
+	stream = kzalloc(sizeof(*stream), GFP_KERNEL);
+	if (!stream) {
+		ret = -ENOMEM;
+		goto err_ctx;
+	}
+
+	stream->perf = perf;
+	stream->ctx = specific_ctx;
+	stream->poll_oa_period = props->poll_oa_period;
+
+	ret = i915_oa_stream_init(stream, param, props);
+	if (ret)
+		goto err_alloc;
+
+	/* we avoid simply assigning stream->sample_flags = props->sample_flags
+	 * to have _stream_init check the combination of sample flags more
+	 * thoroughly, but still this is the expected result at this point.
+	 */
+	if (WARN_ON(stream->sample_flags != props->sample_flags)) {
+		ret = -ENODEV;
+		goto err_flags;
+	}
+
+	if (param->flags & I915_PERF_FLAG_FD_CLOEXEC)
+		f_flags |= O_CLOEXEC;
+	if (param->flags & I915_PERF_FLAG_FD_NONBLOCK)
+		f_flags |= O_NONBLOCK;
+
+	stream_fd = anon_inode_getfd("[i915_perf]", &fops, stream, f_flags);
+	if (stream_fd < 0) {
+		ret = stream_fd;
+		goto err_flags;
+	}
+
+	if (!(param->flags & I915_PERF_FLAG_DISABLED))
+		i915_perf_enable_locked(stream);
+
+	/* Take a reference on the driver that will be kept with stream_fd
+	 * until its release.
+	 */
+	drm_dev_get(&perf->i915->drm);
+
+	return stream_fd;
+
+err_flags:
+	if (stream->ops->destroy)
+		stream->ops->destroy(stream);
+err_alloc:
+	kfree(stream);
+err_ctx:
+	if (specific_ctx)
+		i915_gem_context_put(specific_ctx);
+err:
+	return ret;
+}
+int anon_inode_getfd(const char *name, const struct file_operations *fops,
+		     void *priv, int flags)
+{
+	return __anon_inode_getfd(name, fops, priv, flags, NULL, false);
+}
+static int __anon_inode_getfd(const char *name,
+			      const struct file_operations *fops,
+			      void *priv, int flags,
+			      const struct inode *context_inode,
+			      bool make_inode)
+{
+	int error, fd;
+	struct file *file;
+
+	error = get_unused_fd_flags(flags);
+	if (error < 0)
+		return error;
+	fd = error;
+
+	file = __anon_inode_getfile(name, fops, priv, flags, context_inode,
+				    make_inode);
+	if (IS_ERR(file)) {
+		error = PTR_ERR(file);
+		goto err_put_unused_fd;
+	}
+	fd_install(fd, file);
+
+	return fd;
+
+err_put_unused_fd:
+	put_unused_fd(fd);
+	return error;
+}
+SYSCALL_DEFINE5(perf_event_open,
+		struct perf_event_attr __user *, attr_uptr,
+		pid_t, pid, int, cpu, int, group_fd, unsigned long, flags)
+{
+	struct perf_event *group_leader = NULL, *output_event = NULL;
+	struct perf_event_pmu_context *pmu_ctx;
+	struct perf_event *event, *sibling;
+	struct perf_event_attr attr;
+	struct perf_event_context *ctx;
+	struct file *event_file = NULL;
+	struct fd group = {NULL, 0};
+	struct task_struct *task = NULL;
+	struct pmu *pmu;
+	int event_fd;
+	int move_group = 0;
+	int err;
+	int f_flags = O_RDWR;
+	int cgroup_fd = -1;
+
+	/* for future expandability... */
+	if (flags & ~PERF_FLAG_ALL)
+		return -EINVAL;
+
+	err = perf_copy_attr(attr_uptr, &attr);
+	if (err)
+		return err;
+
+	/* Do we allow access to perf_event_open(2) ? */
+	err = security_perf_event_open(&attr, PERF_SECURITY_OPEN);
+	if (err)
+		return err;
+
+	if (!attr.exclude_kernel) {
+		err = perf_allow_kernel(&attr);
+		if (err)
+			return err;
+	}
+
+	if (attr.namespaces) {
+		if (!perfmon_capable())
+			return -EACCES;
+	}
+
+	if (attr.freq) {
+		if (attr.sample_freq > sysctl_perf_event_sample_rate)
+			return -EINVAL;
+	} else {
+		if (attr.sample_period & (1ULL << 63))
+			return -EINVAL;
+	}
+
+	/* Only privileged users can get physical addresses */
+	if ((attr.sample_type & PERF_SAMPLE_PHYS_ADDR)) {
+		err = perf_allow_kernel(&attr);
+		if (err)
+			return err;
+	}
+
+	/* REGS_INTR can leak data, lockdown must prevent this */
+	if (attr.sample_type & PERF_SAMPLE_REGS_INTR) {
+		err = security_locked_down(LOCKDOWN_PERF);
+		if (err)
+			return err;
+	}
+
+	/*
+	 * In cgroup mode, the pid argument is used to pass the fd
+	 * opened to the cgroup directory in cgroupfs. The cpu argument
+	 * designates the cpu on which to monitor threads from that
+	 * cgroup.
+	 */
+	if ((flags & PERF_FLAG_PID_CGROUP) && (pid == -1 || cpu == -1))
+		return -EINVAL;
+
+	if (flags & PERF_FLAG_FD_CLOEXEC)
+		f_flags |= O_CLOEXEC;
+
+	event_fd = get_unused_fd_flags(f_flags);
+	if (event_fd < 0)
+		return event_fd;
+
+	if (group_fd != -1) {
+		err = perf_fget_light(group_fd, &group);
+		if (err)
+			goto err_fd;
+		group_leader = group.file->private_data;
+		if (flags & PERF_FLAG_FD_OUTPUT)
+			output_event = group_leader;
+		if (flags & PERF_FLAG_FD_NO_GROUP)
+			group_leader = NULL;
+	}
+
+	if (pid != -1 && !(flags & PERF_FLAG_PID_CGROUP)) {
+		task = find_lively_task_by_vpid(pid);
+		if (IS_ERR(task)) {
+			err = PTR_ERR(task);
+			goto err_group_fd;
+		}
+	}
+
+	if (task && group_leader &&
+	    group_leader->attr.inherit != attr.inherit) {
+		err = -EINVAL;
+		goto err_task;
+	}
+
+	if (flags & PERF_FLAG_PID_CGROUP)
+		cgroup_fd = pid;
+
+	event = perf_event_alloc(&attr, cpu, task, group_leader, NULL,
+				 NULL, NULL, cgroup_fd);
+	if (IS_ERR(event)) {
+		err = PTR_ERR(event);
+		goto err_task;
+	}
+
+	if (is_sampling_event(event)) {
+		if (event->pmu->capabilities & PERF_PMU_CAP_NO_INTERRUPT) {
+			err = -EOPNOTSUPP;
+			goto err_alloc;
+		}
+	}
+
+	/*
+	 * Special case software events and allow them to be part of
+	 * any hardware group.
+	 */
+	pmu = event->pmu;
+
+	if (attr.use_clockid) {
+		err = perf_event_set_clock(event, attr.clockid);
+		if (err)
+			goto err_alloc;
+	}
+
+	if (pmu->task_ctx_nr == perf_sw_context)
+		event->event_caps |= PERF_EV_CAP_SOFTWARE;
+
+	if (task) {
+		err = down_read_interruptible(&task->signal->exec_update_lock);
+		if (err)
+			goto err_alloc;
+
+		/*
+		 * We must hold exec_update_lock across this and any potential
+		 * perf_install_in_context() call for this new event to
+		 * serialize against exec() altering our credentials (and the
+		 * perf_event_exit_task() that could imply).
+		 */
+		err = -EACCES;
+		if (!perf_check_permission(&attr, task))
+			goto err_cred;
+	}
+
+	/*
+	 * Get the target context (task or percpu):
+	 */
+	ctx = find_get_context(task, event);
+	if (IS_ERR(ctx)) {
+		err = PTR_ERR(ctx);
+		goto err_cred;
+	}
+
+	mutex_lock(&ctx->mutex);
+
+	if (ctx->task == TASK_TOMBSTONE) {
+		err = -ESRCH;
+		goto err_locked;
+	}
+
+	if (!task) {
+		/*
+		 * Check if the @cpu we're creating an event for is online.
+		 *
+		 * We use the perf_cpu_context::ctx::mutex to serialize against
+		 * the hotplug notifiers. See perf_event_{init,exit}_cpu().
+		 */
+		struct perf_cpu_context *cpuctx = per_cpu_ptr(&perf_cpu_context, event->cpu);
+
+		if (!cpuctx->online) {
+			err = -ENODEV;
+			goto err_locked;
+		}
+	}
+
+	if (group_leader) {
+		err = -EINVAL;
+
+		/*
+		 * Do not allow a recursive hierarchy (this new sibling
+		 * becoming part of another group-sibling):
+		 */
+		if (group_leader->group_leader != group_leader)
+			goto err_locked;
+
+		/* All events in a group should have the same clock */
+		if (group_leader->clock != event->clock)
+			goto err_locked;
+
+		/*
+		 * Make sure we're both events for the same CPU;
+		 * grouping events for different CPUs is broken; since
+		 * you can never concurrently schedule them anyhow.
+		 */
+		if (group_leader->cpu != event->cpu)
+			goto err_locked;
+
+		/*
+		 * Make sure we're both on the same context; either task or cpu.
+		 */
+		if (group_leader->ctx != ctx)
+			goto err_locked;
+
+		/*
+		 * Only a group leader can be exclusive or pinned
+		 */
+		if (attr.exclusive || attr.pinned)
+			goto err_locked;
+
+		if (is_software_event(event) &&
+		    !in_software_context(group_leader)) {
+			/*
+			 * If the event is a sw event, but the group_leader
+			 * is on hw context.
+			 *
+			 * Allow the addition of software events to hw
+			 * groups, this is safe because software events
+			 * never fail to schedule.
+			 *
+			 * Note the comment that goes with struct
+			 * perf_event_pmu_context.
+			 */
+			pmu = group_leader->pmu_ctx->pmu;
+		} else if (!is_software_event(event)) {
+			if (is_software_event(group_leader) &&
+			    (group_leader->group_caps & PERF_EV_CAP_SOFTWARE)) {
+				/*
+				 * In case the group is a pure software group, and we
+				 * try to add a hardware event, move the whole group to
+				 * the hardware context.
+				 */
+				move_group = 1;
+			}
+
+			/* Don't allow group of multiple hw events from different pmus */
+			if (!in_software_context(group_leader) &&
+			    group_leader->pmu_ctx->pmu != pmu)
+				goto err_locked;
+		}
+	}
+
+	/*
+	 * Now that we're certain of the pmu; find the pmu_ctx.
+	 */
+	pmu_ctx = find_get_pmu_context(pmu, ctx, event);
+	if (IS_ERR(pmu_ctx)) {
+		err = PTR_ERR(pmu_ctx);
+		goto err_locked;
+	}
+	event->pmu_ctx = pmu_ctx;
+
+	if (output_event) {
+		err = perf_event_set_output(event, output_event);
+		if (err)
+			goto err_context;
+	}
+
+	if (!perf_event_validate_size(event)) {
+		err = -E2BIG;
+		goto err_context;
+	}
+
+	if (perf_need_aux_event(event) && !perf_get_aux_event(event, group_leader)) {
+		err = -EINVAL;
+		goto err_context;
+	}
+
+	/*
+	 * Must be under the same ctx::mutex as perf_install_in_context(),
+	 * because we need to serialize with concurrent event creation.
+	 */
+	if (!exclusive_event_installable(event, ctx)) {
+		err = -EBUSY;
+		goto err_context;
+	}
+
+	WARN_ON_ONCE(ctx->parent_ctx);
+
+	event_file = anon_inode_getfile("[perf_event]", &perf_fops, event, f_flags);
+	if (IS_ERR(event_file)) {
+		err = PTR_ERR(event_file);
+		event_file = NULL;
+		goto err_context;
+	}
+
+	/*
+	 * This is the point on no return; we cannot fail hereafter. This is
+	 * where we start modifying current state.
+	 */
+
+	if (move_group) {
+		perf_remove_from_context(group_leader, 0);
+		put_pmu_ctx(group_leader->pmu_ctx);
+
+		for_each_sibling_event(sibling, group_leader) {
+			perf_remove_from_context(sibling, 0);
+			put_pmu_ctx(sibling->pmu_ctx);
+		}
+
+		/*
+		 * Install the group siblings before the group leader.
+		 *
+		 * Because a group leader will try and install the entire group
+		 * (through the sibling list, which is still in-tact), we can
+		 * end up with siblings installed in the wrong context.
+		 *
+		 * By installing siblings first we NO-OP because they're not
+		 * reachable through the group lists.
+		 */
+		for_each_sibling_event(sibling, group_leader) {
+			sibling->pmu_ctx = pmu_ctx;
+			get_pmu_ctx(pmu_ctx);
+			perf_event__state_init(sibling);
+			perf_install_in_context(ctx, sibling, sibling->cpu);
+		}
+
+		/*
+		 * Removing from the context ends up with disabled
+		 * event. What we want here is event in the initial
+		 * startup state, ready to be add into new context.
+		 */
+		group_leader->pmu_ctx = pmu_ctx;
+		get_pmu_ctx(pmu_ctx);
+		perf_event__state_init(group_leader);
+		perf_install_in_context(ctx, group_leader, group_leader->cpu);
+	}
+
+	/*
+	 * Precalculate sample_data sizes; do while holding ctx::mutex such
+	 * that we're serialized against further additions and before
+	 * perf_install_in_context() which is the point the event is active and
+	 * can use these values.
+	 */
+	perf_event__header_size(event);
+	perf_event__id_header_size(event);
+
+	event->owner = current;
+
+	perf_install_in_context(ctx, event, event->cpu);
+	perf_unpin_context(ctx);
+
+	mutex_unlock(&ctx->mutex);
+
+	if (task) {
+		up_read(&task->signal->exec_update_lock);
+		put_task_struct(task);
+	}
+
+	mutex_lock(&current->perf_event_mutex);
+	list_add_tail(&event->owner_entry, &current->perf_event_list);
+	mutex_unlock(&current->perf_event_mutex);
+
+	/*
+	 * Drop the reference on the group_event after placing the
+	 * new event on the sibling_list. This ensures destruction
+	 * of the group leader will find the pointer to itself in
+	 * perf_group_detach().
+	 */
+	fdput(group);
+	fd_install(event_fd, event_file);
+	return event_fd;
+
+err_context:
+	put_pmu_ctx(event->pmu_ctx);
+	event->pmu_ctx = NULL; /* _free_event() */
+err_locked:
+	mutex_unlock(&ctx->mutex);
+	perf_unpin_context(ctx);
+	put_ctx(ctx);
+err_cred:
+	if (task)
+		up_read(&task->signal->exec_update_lock);
+err_alloc:
+	free_event(event);
+err_task:
+	if (task)
+		put_task_struct(task);
+err_group_fd:
+	fdput(group);
+err_fd:
+	put_unused_fd(event_fd);
+	return err;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+SYSCALL_DEFINE2(timerfd_create, int, clockid, int, flags)
+{
+	int ufd;
+	struct timerfd_ctx *ctx;
+	struct file *file;
+
+	/* Check the TFD_* constants for consistency.  */
+	BUILD_BUG_ON(TFD_CLOEXEC != O_CLOEXEC);
+	BUILD_BUG_ON(TFD_NONBLOCK != O_NONBLOCK);
+
+	if ((flags & ~TFD_CREATE_FLAGS) ||
+	    (clockid != CLOCK_MONOTONIC &&
+	     clockid != CLOCK_REALTIME &&
+	     clockid != CLOCK_REALTIME_ALARM &&
+	     clockid != CLOCK_BOOTTIME &&
+	     clockid != CLOCK_BOOTTIME_ALARM))
+		return -EINVAL;
+
+	if ((clockid == CLOCK_REALTIME_ALARM ||
+	     clockid == CLOCK_BOOTTIME_ALARM) &&
+	    !capable(CAP_WAKE_ALARM))
+		return -EPERM;
+
+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return -ENOMEM;
+
+	init_waitqueue_head(&ctx->wqh);
+	spin_lock_init(&ctx->cancel_lock);
+	ctx->clockid = clockid;
+
+	if (isalarm(ctx))
+		alarm_init(&ctx->t.alarm,
+			   ctx->clockid == CLOCK_REALTIME_ALARM ?
+			   ALARM_REALTIME : ALARM_BOOTTIME,
+			   timerfd_alarmproc);
+	else
+		hrtimer_init(&ctx->t.tmr, clockid, HRTIMER_MODE_ABS);
+
+	ctx->moffs = ktime_mono_to_real(0);
+
+	ufd = get_unused_fd_flags(flags & TFD_SHARED_FCNTL_FLAGS);
+	if (ufd < 0) {
+		kfree(ctx);
+		return ufd;
+	}
+
+	file = anon_inode_getfile("[timerfd]", &timerfd_fops, ctx,
+				    O_RDWR | (flags & TFD_SHARED_FCNTL_FLAGS));
+	if (IS_ERR(file)) {
+		put_unused_fd(ufd);
+		kfree(ctx);
+		return PTR_ERR(file);
+	}
+
+	file->f_mode |= FMODE_NOWAIT;
+	fd_install(ufd, file);
+	return ufd;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+SYSCALL_DEFINE1(epoll_create, int, size)
+{
+	if (size <= 0)
+		return -EINVAL;
+
+	return do_epoll_create(0);
+}
+static int do_epoll_create(int flags)
+{
+	int error, fd;
+	struct eventpoll *ep = NULL;
+	struct file *file;
+
+	/* Check the EPOLL_* constant for consistency.  */
+	BUILD_BUG_ON(EPOLL_CLOEXEC != O_CLOEXEC);
+
+	if (flags & ~EPOLL_CLOEXEC)
+		return -EINVAL;
+	/*
+	 * Create the internal data structure ("struct eventpoll").
+	 */
+	error = ep_alloc(&ep);
+	if (error < 0)
+		return error;
+	/*
+	 * Creates all the items needed to setup an eventpoll file. That is,
+	 * a file structure and a free file descriptor.
+	 */
+	fd = get_unused_fd_flags(O_RDWR | (flags & O_CLOEXEC));
+	if (fd < 0) {
+		error = fd;
+		goto out_free_ep;
+	}
+	file = anon_inode_getfile("[eventpoll]", &eventpoll_fops, ep,
+				 O_RDWR | (flags & O_CLOEXEC));
+	if (IS_ERR(file)) {
+		error = PTR_ERR(file);
+		goto out_free_fd;
+	}
+#ifdef CONFIG_NET_RX_BUSY_POLL
+	ep->busy_poll_usecs = 0;
+	ep->busy_poll_budget = 0;
+	ep->prefer_busy_poll = false;
+#endif
+	ep->file = file;
+	fd_install(fd, file);
+	return fd;
+
+out_free_fd:
+	put_unused_fd(fd);
+out_free_ep:
+	ep_clear_and_put(ep);
+	return error;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+SYSCALL_DEFINE1(epoll_create1, int, flags)
+{
+	return do_epoll_create(flags);
+}
+static int do_epoll_create(int flags)
+{
+	int error, fd;
+	struct eventpoll *ep = NULL;
+	struct file *file;
+
+	/* Check the EPOLL_* constant for consistency.  */
+	BUILD_BUG_ON(EPOLL_CLOEXEC != O_CLOEXEC);
+
+	if (flags & ~EPOLL_CLOEXEC)
+		return -EINVAL;
+	/*
+	 * Create the internal data structure ("struct eventpoll").
+	 */
+	error = ep_alloc(&ep);
+	if (error < 0)
+		return error;
+	/*
+	 * Creates all the items needed to setup an eventpoll file. That is,
+	 * a file structure and a free file descriptor.
+	 */
+	fd = get_unused_fd_flags(O_RDWR | (flags & O_CLOEXEC));
+	if (fd < 0) {
+		error = fd;
+		goto out_free_ep;
+	}
+	file = anon_inode_getfile("[eventpoll]", &eventpoll_fops, ep,
+				 O_RDWR | (flags & O_CLOEXEC));
+	if (IS_ERR(file)) {
+		error = PTR_ERR(file);
+		goto out_free_fd;
+	}
+#ifdef CONFIG_NET_RX_BUSY_POLL
+	ep->busy_poll_usecs = 0;
+	ep->busy_poll_budget = 0;
+	ep->prefer_busy_poll = false;
+#endif
+	ep->file = file;
+	fd_install(fd, file);
+	return fd;
+
+out_free_fd:
+	put_unused_fd(fd);
+out_free_ep:
+	ep_clear_and_put(ep);
+	return error;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+SYSCALL_DEFINE1(eventfd, unsigned int, count)
+{
+	return do_eventfd(count, 0);
+}
+static int do_eventfd(unsigned int count, int flags)
+{
+	struct eventfd_ctx *ctx;
+	struct file *file;
+	int fd;
+
+	/* Check the EFD_* constants for consistency.  */
+	BUILD_BUG_ON(EFD_CLOEXEC != O_CLOEXEC);
+	BUILD_BUG_ON(EFD_NONBLOCK != O_NONBLOCK);
+	BUILD_BUG_ON(EFD_SEMAPHORE != (1 << 0));
+
+	if (flags & ~EFD_FLAGS_SET)
+		return -EINVAL;
+
+	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return -ENOMEM;
+
+	kref_init(&ctx->kref);
+	init_waitqueue_head(&ctx->wqh);
+	ctx->count = count;
+	ctx->flags = flags;
+	ctx->id = ida_alloc(&eventfd_ida, GFP_KERNEL);
+
+	flags &= EFD_SHARED_FCNTL_FLAGS;
+	flags |= O_RDWR;
+	fd = get_unused_fd_flags(flags);
+	if (fd < 0)
+		goto err;
+
+	file = anon_inode_getfile("[eventfd]", &eventfd_fops, ctx, flags);
+	if (IS_ERR(file)) {
+		put_unused_fd(fd);
+		fd = PTR_ERR(file);
+		goto err;
+	}
+
+	file->f_mode |= FMODE_NOWAIT;
+	fd_install(fd, file);
+	return fd;
+err:
+	eventfd_free_ctx(ctx);
+	return fd;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+SYSCALL_DEFINE2(eventfd2, unsigned int, count, int, flags)
+{
+	return do_eventfd(count, flags);
+}
+static int do_eventfd(unsigned int count, int flags)
+{
+	struct eventfd_ctx *ctx;
+	struct file *file;
+	int fd;
+
+	/* Check the EFD_* constants for consistency.  */
+	BUILD_BUG_ON(EFD_CLOEXEC != O_CLOEXEC);
+	BUILD_BUG_ON(EFD_NONBLOCK != O_NONBLOCK);
+	BUILD_BUG_ON(EFD_SEMAPHORE != (1 << 0));
+
+	if (flags & ~EFD_FLAGS_SET)
+		return -EINVAL;
+
+	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return -ENOMEM;
+
+	kref_init(&ctx->kref);
+	init_waitqueue_head(&ctx->wqh);
+	ctx->count = count;
+	ctx->flags = flags;
+	ctx->id = ida_alloc(&eventfd_ida, GFP_KERNEL);
+
+	flags &= EFD_SHARED_FCNTL_FLAGS;
+	flags |= O_RDWR;
+	fd = get_unused_fd_flags(flags);
+	if (fd < 0)
+		goto err;
+
+	file = anon_inode_getfile("[eventfd]", &eventfd_fops, ctx, flags);
+	if (IS_ERR(file)) {
+		put_unused_fd(fd);
+		fd = PTR_ERR(file);
+		goto err;
+	}
+
+	file->f_mode |= FMODE_NOWAIT;
+	fd_install(fd, file);
+	return fd;
+err:
+	eventfd_free_ctx(ctx);
+	return fd;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+COMPAT_SYSCALL_DEFINE3(signalfd, int, ufd,
+		     const compat_sigset_t __user *, user_mask,
+		     compat_size_t, sigsetsize)
+{
+	return do_compat_signalfd4(ufd, user_mask, sigsetsize, 0);
+}
+static int do_signalfd4(int ufd, sigset_t *mask, int flags)
+{
+	struct signalfd_ctx *ctx;
+
+	/* Check the SFD_* constants for consistency.  */
+	BUILD_BUG_ON(SFD_CLOEXEC != O_CLOEXEC);
+	BUILD_BUG_ON(SFD_NONBLOCK != O_NONBLOCK);
+
+	if (flags & ~(SFD_CLOEXEC | SFD_NONBLOCK))
+		return -EINVAL;
+
+	sigdelsetmask(mask, sigmask(SIGKILL) | sigmask(SIGSTOP));
+	signotset(mask);
+
+	if (ufd == -1) {
+		struct file *file;
+
+		ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
+		if (!ctx)
+			return -ENOMEM;
+
+		ctx->sigmask = *mask;
+
+		ufd = get_unused_fd_flags(flags & O_CLOEXEC);
+		if (ufd < 0) {
+			kfree(ctx);
+			return ufd;
+		}
+
+		file = anon_inode_getfile("[signalfd]", &signalfd_fops, ctx,
+				       O_RDWR | (flags & O_NONBLOCK));
+		if (IS_ERR(file)) {
+			put_unused_fd(ufd);
+			kfree(ctx);
+			return ufd;
+		}
+		file->f_mode |= FMODE_NOWAIT;
+
+		/*
+		 * When we call this, the initialization must be complete, since
+		 * anon_inode_getfd() will install the fd.
+		 */
+		fd_install(ufd, file);
+	} else {
+		struct fd f = fdget(ufd);
+		if (!f.file)
+			return -EBADF;
+		ctx = f.file->private_data;
+		if (f.file->f_op != &signalfd_fops) {
+			fdput(f);
+			return -EINVAL;
+		}
+		spin_lock_irq(&current->sighand->siglock);
+		ctx->sigmask = *mask;
+		spin_unlock_irq(&current->sighand->siglock);
+
+		wake_up(&current->sighand->signalfd_wqh);
+		fdput(f);
+	}
+
+	return ufd;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+COMPAT_SYSCALL_DEFINE4(signalfd4, int, ufd,
+		     const compat_sigset_t __user *, user_mask,
+		     compat_size_t, sigsetsize,
+		     int, flags)
+{
+	return do_compat_signalfd4(ufd, user_mask, sigsetsize, flags);
+}
+static int do_signalfd4(int ufd, sigset_t *mask, int flags)
+{
+	struct signalfd_ctx *ctx;
+
+	/* Check the SFD_* constants for consistency.  */
+	BUILD_BUG_ON(SFD_CLOEXEC != O_CLOEXEC);
+	BUILD_BUG_ON(SFD_NONBLOCK != O_NONBLOCK);
+
+	if (flags & ~(SFD_CLOEXEC | SFD_NONBLOCK))
+		return -EINVAL;
+
+	sigdelsetmask(mask, sigmask(SIGKILL) | sigmask(SIGSTOP));
+	signotset(mask);
+
+	if (ufd == -1) {
+		struct file *file;
+
+		ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
+		if (!ctx)
+			return -ENOMEM;
+
+		ctx->sigmask = *mask;
+
+		ufd = get_unused_fd_flags(flags & O_CLOEXEC);
+		if (ufd < 0) {
+			kfree(ctx);
+			return ufd;
+		}
+
+		file = anon_inode_getfile("[signalfd]", &signalfd_fops, ctx,
+				       O_RDWR | (flags & O_NONBLOCK));
+		if (IS_ERR(file)) {
+			put_unused_fd(ufd);
+			kfree(ctx);
+			return ufd;
+		}
+		file->f_mode |= FMODE_NOWAIT;
+
+		/*
+		 * When we call this, the initialization must be complete, since
+		 * anon_inode_getfd() will install the fd.
+		 */
+		fd_install(ufd, file);
+	} else {
+		struct fd f = fdget(ufd);
+		if (!f.file)
+			return -EBADF;
+		ctx = f.file->private_data;
+		if (f.file->f_op != &signalfd_fops) {
+			fdput(f);
+			return -EINVAL;
+		}
+		spin_lock_irq(&current->sighand->siglock);
+		ctx->sigmask = *mask;
+		spin_unlock_irq(&current->sighand->siglock);
+
+		wake_up(&current->sighand->signalfd_wqh);
+		fdput(f);
+	}
+
+	return ufd;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+drm_syncobj_handle_to_fd_ioctl(struct drm_device *dev, void *data,
+				   struct drm_file *file_private)
+{
+	struct drm_syncobj_handle *args = data;
+
+	if (!drm_core_check_feature(dev, DRIVER_SYNCOBJ))
+		return -EOPNOTSUPP;
+
+	if (args->pad)
+		return -EINVAL;
+
+	if (args->flags != 0 &&
+	    args->flags != DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE)
+		return -EINVAL;
+
+	if (args->flags & DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE)
+		return drm_syncobj_export_sync_file(file_private, args->handle,
+						    &args->fd);
+
+	return drm_syncobj_handle_to_fd(file_private, args->handle,
+					&args->fd);
+}
+static int drm_syncobj_handle_to_fd(struct drm_file *file_private,
+				    u32 handle, int *p_fd)
+{
+	struct drm_syncobj *syncobj = drm_syncobj_find(file_private, handle);
+	int ret;
+
+	if (!syncobj)
+		return -EINVAL;
+
+	ret = drm_syncobj_get_fd(syncobj, p_fd);
+	drm_syncobj_put(syncobj);
+	return ret;
+}
+int drm_syncobj_get_fd(struct drm_syncobj *syncobj, int *p_fd)
+{
+	struct file *file;
+	int fd;
+
+	fd = get_unused_fd_flags(O_CLOEXEC);
+	if (fd < 0)
+		return fd;
+
+	file = anon_inode_getfile("syncobj_file",
+				  &drm_syncobj_file_fops,
+				  syncobj, 0);
+	if (IS_ERR(file)) {
+		put_unused_fd(fd);
+		return PTR_ERR(file);
+	}
+
+	drm_syncobj_get(syncobj);
+	fd_install(fd, file);
+
+	*p_fd = fd;
+	return 0;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+int i915_gem_fb_mmap(struct drm_i915_gem_object *obj, struct vm_area_struct *vma)
+{
+	struct drm_i915_private *i915 = to_i915(obj->base.dev);
+	struct drm_device *dev = &i915->drm;
+	struct i915_mmap_offset *mmo = NULL;
+	enum i915_mmap_type mmap_type;
+	struct i915_ggtt *ggtt = to_gt(i915)->ggtt;
+
+	if (drm_dev_is_unplugged(dev))
+		return -ENODEV;
+
+	/* handle ttm object */
+	if (obj->ops->mmap_ops) {
+		/*
+		 * ttm fault handler, ttm_bo_vm_fault_reserved() uses fake offset
+		 * to calculate page offset so set that up.
+		 */
+		vma->vm_pgoff += drm_vma_node_start(&obj->base.vma_node);
+	} else {
+		/* handle stolen and smem objects */
+		mmap_type = i915_ggtt_has_aperture(ggtt) ? I915_MMAP_TYPE_GTT : I915_MMAP_TYPE_WC;
+		mmo = mmap_offset_attach(obj, mmap_type, NULL);
+		if (IS_ERR(mmo))
+			return PTR_ERR(mmo);
+	}
+
+	/*
+	 * When we install vm_ops for mmap we are too late for
+	 * the vm_ops->open() which increases the ref_count of
+	 * this obj and then it gets decreased by the vm_ops->close().
+	 * To balance this increase the obj ref_count here.
+	 */
+	obj = i915_gem_object_get(obj);
+	return i915_gem_object_mmap(obj, mmo, vma);
+}
+i915_gem_object_mmap(struct drm_i915_gem_object *obj,
+		     struct i915_mmap_offset *mmo,
+		     struct vm_area_struct *vma)
+{
+	struct drm_i915_private *i915 = to_i915(obj->base.dev);
+	struct drm_device *dev = &i915->drm;
+	struct file *anon;
+
+	if (i915_gem_object_is_readonly(obj)) {
+		if (vma->vm_flags & VM_WRITE) {
+			i915_gem_object_put(obj);
+			return -EINVAL;
+		}
+		vm_flags_clear(vma, VM_MAYWRITE);
+	}
+
+	anon = mmap_singleton(to_i915(dev));
+	if (IS_ERR(anon)) {
+		i915_gem_object_put(obj);
+		return PTR_ERR(anon);
+	}
+
+	vm_flags_set(vma, VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP | VM_IO);
+
+	/*
+	 * We keep the ref on mmo->obj, not vm_file, but we require
+	 * vma->vm_file->f_mapping, see vma_link(), for later revocation.
+	 * Our userspace is accustomed to having per-file resource cleanup
+	 * (i.e. contexts, objects and requests) on their close(fd), which
+	 * requires avoiding extraneous references to their filp, hence why
+	 * we prefer to use an anonymous file for their mmaps.
+	 */
+	vma_set_file(vma, anon);
+	/* Drop the initial creation reference, the vma is now holding one. */
+	fput(anon);
+
+	if (obj->ops->mmap_ops) {
+		vma->vm_page_prot = pgprot_decrypted(vm_get_page_prot(vma->vm_flags));
+		vma->vm_ops = obj->ops->mmap_ops;
+		vma->vm_private_data = obj->base.vma_node.driver_private;
+		return 0;
+	}
+
+	vma->vm_private_data = mmo;
+
+	switch (mmo->mmap_type) {
+	case I915_MMAP_TYPE_WC:
+		vma->vm_page_prot =
+			pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
+		vma->vm_ops = &vm_ops_cpu;
+		break;
+
+	case I915_MMAP_TYPE_FIXED:
+		GEM_WARN_ON(1);
+		fallthrough;
+	case I915_MMAP_TYPE_WB:
+		vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+		vma->vm_ops = &vm_ops_cpu;
+		break;
+
+	case I915_MMAP_TYPE_UC:
+		vma->vm_page_prot =
+			pgprot_noncached(vm_get_page_prot(vma->vm_flags));
+		vma->vm_ops = &vm_ops_cpu;
+		break;
+
+	case I915_MMAP_TYPE_GTT:
+		vma->vm_page_prot =
+			pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
+		vma->vm_ops = &vm_ops_gtt;
+		break;
+	}
+	vma->vm_page_prot = pgprot_decrypted(vma->vm_page_prot);
+
+	return 0;
+}
+static struct file *mmap_singleton(struct drm_i915_private *i915)
+{
+	struct file *file;
+
+	file = get_file_active(&i915->gem.mmap_singleton);
+	if (file)
+		return file;
+
+	file = anon_inode_getfile("i915.gem", &singleton_fops, i915, O_RDWR);
+	if (IS_ERR(file))
+		return file;
+
+	/* Everyone shares a single global address space */
+	file->f_mapping = i915->drm.anon_inode->i_mapping;
+
+	smp_store_mb(i915->gem.mmap_singleton, file);
+	drm_dev_get(&i915->drm);
+
+	return file;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+int i915_gem_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	struct drm_vma_offset_node *node;
+	struct drm_file *priv = filp->private_data;
+	struct drm_device *dev = priv->minor->dev;
+	struct drm_i915_gem_object *obj = NULL;
+	struct i915_mmap_offset *mmo = NULL;
+
+	if (drm_dev_is_unplugged(dev))
+		return -ENODEV;
+
+	rcu_read_lock();
+	drm_vma_offset_lock_lookup(dev->vma_offset_manager);
+	node = drm_vma_offset_exact_lookup_locked(dev->vma_offset_manager,
+						  vma->vm_pgoff,
+						  vma_pages(vma));
+	if (node && drm_vma_node_is_allowed(node, priv)) {
+		/*
+		 * Skip 0-refcnted objects as it is in the process of being
+		 * destroyed and will be invalid when the vma manager lock
+		 * is released.
+		 */
+		if (!node->driver_private) {
+			mmo = container_of(node, struct i915_mmap_offset, vma_node);
+			obj = i915_gem_object_get_rcu(mmo->obj);
+
+			GEM_BUG_ON(obj && obj->ops->mmap_ops);
+		} else {
+			obj = i915_gem_object_get_rcu
+				(container_of(node, struct drm_i915_gem_object,
+					      base.vma_node));
+
+			GEM_BUG_ON(obj && !obj->ops->mmap_ops);
+		}
+	}
+	drm_vma_offset_unlock_lookup(dev->vma_offset_manager);
+	rcu_read_unlock();
+	if (!obj)
+		return node ? -EACCES : -EINVAL;
+
+	return i915_gem_object_mmap(obj, mmo, vma);
+}
+i915_gem_object_mmap(struct drm_i915_gem_object *obj,
+		     struct i915_mmap_offset *mmo,
+		     struct vm_area_struct *vma)
+{
+	struct drm_i915_private *i915 = to_i915(obj->base.dev);
+	struct drm_device *dev = &i915->drm;
+	struct file *anon;
+
+	if (i915_gem_object_is_readonly(obj)) {
+		if (vma->vm_flags & VM_WRITE) {
+			i915_gem_object_put(obj);
+			return -EINVAL;
+		}
+		vm_flags_clear(vma, VM_MAYWRITE);
+	}
+
+	anon = mmap_singleton(to_i915(dev));
+	if (IS_ERR(anon)) {
+		i915_gem_object_put(obj);
+		return PTR_ERR(anon);
+	}
+
+	vm_flags_set(vma, VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP | VM_IO);
+
+	/*
+	 * We keep the ref on mmo->obj, not vm_file, but we require
+	 * vma->vm_file->f_mapping, see vma_link(), for later revocation.
+	 * Our userspace is accustomed to having per-file resource cleanup
+	 * (i.e. contexts, objects and requests) on their close(fd), which
+	 * requires avoiding extraneous references to their filp, hence why
+	 * we prefer to use an anonymous file for their mmaps.
+	 */
+	vma_set_file(vma, anon);
+	/* Drop the initial creation reference, the vma is now holding one. */
+	fput(anon);
+
+	if (obj->ops->mmap_ops) {
+		vma->vm_page_prot = pgprot_decrypted(vm_get_page_prot(vma->vm_flags));
+		vma->vm_ops = obj->ops->mmap_ops;
+		vma->vm_private_data = obj->base.vma_node.driver_private;
+		return 0;
+	}
+
+	vma->vm_private_data = mmo;
+
+	switch (mmo->mmap_type) {
+	case I915_MMAP_TYPE_WC:
+		vma->vm_page_prot =
+			pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
+		vma->vm_ops = &vm_ops_cpu;
+		break;
+
+	case I915_MMAP_TYPE_FIXED:
+		GEM_WARN_ON(1);
+		fallthrough;
+	case I915_MMAP_TYPE_WB:
+		vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+		vma->vm_ops = &vm_ops_cpu;
+		break;
+
+	case I915_MMAP_TYPE_UC:
+		vma->vm_page_prot =
+			pgprot_noncached(vm_get_page_prot(vma->vm_flags));
+		vma->vm_ops = &vm_ops_cpu;
+		break;
+
+	case I915_MMAP_TYPE_GTT:
+		vma->vm_page_prot =
+			pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
+		vma->vm_ops = &vm_ops_gtt;
+		break;
+	}
+	vma->vm_page_prot = pgprot_decrypted(vma->vm_page_prot);
+
+	return 0;
+}
+static struct file *mmap_singleton(struct drm_i915_private *i915)
+{
+	struct file *file;
+
+	file = get_file_active(&i915->gem.mmap_singleton);
+	if (file)
+		return file;
+
+	file = anon_inode_getfile("i915.gem", &singleton_fops, i915, O_RDWR);
+	if (IS_ERR(file))
+		return file;
+
+	/* Everyone shares a single global address space */
+	file->f_mapping = i915->drm.anon_inode->i_mapping;
+
+	smp_store_mb(i915->gem.mmap_singleton, file);
+	drm_dev_get(&i915->drm);
+
+	return file;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+struct file *mock_drm_getfile(struct drm_minor *minor, unsigned int flags)
+{
+	struct drm_device *dev = minor->dev;
+	struct drm_file *priv;
+	struct file *file;
+
+	priv = drm_file_alloc(minor);
+	if (IS_ERR(priv))
+		return ERR_CAST(priv);
+
+	file = anon_inode_getfile("drm", dev->driver->fops, priv, flags);
+	if (IS_ERR(file)) {
+		drm_file_free(priv);
+		return file;
+	}
+
+	/* Everyone shares a single global address space */
+	file->f_mapping = dev->anon_inode->i_mapping;
+
+	drm_dev_get(dev);
+	priv->filp = file;
+
+	return file;
+}
+struct file *anon_inode_getfile(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags)
+{
+	return __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+}
+struct file *anon_inode_getfile_fmode(const char *name,
+				const struct file_operations *fops,
+				void *priv, int flags, fmode_t f_mode)
+{
+	struct file *file;
+
+	file = __anon_inode_getfile(name, fops, priv, flags, NULL, false);
+	if (!IS_ERR(file))
+		file->f_mode |= f_mode;
+
+	return file;
+}

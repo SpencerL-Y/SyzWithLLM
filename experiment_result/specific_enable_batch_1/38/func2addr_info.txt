@@ -1,0 +1,643 @@
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+static int blk_ioctl_discard(struct block_device *bdev, blk_mode_t mode,
+----- addresses:
+ffffffff81eae3e2
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+unsigned int bs_mask = bdev_logical_block_size(bdev) - 1;
+----- addresses:
+ffffffff81eae3e2
+ffffffff81eae45a
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+struct inode *inode = bdev->bd_inode;
+----- addresses:
+ffffffff81eaeff1
+ffffffff81eae45e
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+uint64_t range[2], start, len, end;
+----- addresses:
+ffffffff81eae48d
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+struct bio *prev = NULL, *bio;
+----- addresses:
+ffffffff81eae48d
+ffffffff81eae6da
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+sector_t sector, nr_sects;
+----- addresses:
+ffffffff81eae48d
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+struct blk_plug plug;
+----- addresses:
+ffffffff81eae48d
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+int err;
+----- addresses:
+ffffffff81eae48d
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (!(mode & BLK_OPEN_WRITE))
+----- addresses:
+ffffffff81eae48d
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (!bdev_max_discard_sectors(bdev))
+----- addresses:
+ffffffff81eae4cd
+ffffffff81eae497
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (bdev_read_only(bdev))
+----- addresses:
+ffffffff81eae4db
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (copy_from_user(range, (void __user *)arg, sizeof(range)))
+----- addresses:
+ffffffff81eae5ce
+ffffffff81eae5e9
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+start = range[0];
+----- addresses:
+ffffffff81eae5f2
+ffffffff81eae5ff
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+len = range[1];
+----- addresses:
+ffffffff81eae607
+ffffffff81eae5f7
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (!len)
+----- addresses:
+ffffffff81eae607
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if ((start | len) & bs_mask)
+----- addresses:
+ffffffff81eae61b
+ffffffff81eae610
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (check_add_overflow(start, len, &end) ||
+----- addresses:
+ffffffff81eae663
+ffffffff81eae624
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+filemap_invalidate_lock(inode->i_mapping);
+----- addresses:
+ffffffff81eaf0c0
+ffffffff81eaf0b1
+ffffffff81eae66c
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+err = truncate_bdev_range(bdev, mode, start, start + len - 1);
+----- addresses:
+ffffffff81eae6b4
+ffffffff81eae6b0
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (err)
+----- addresses:
+ffffffff81eae6c5
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+sector = start >> SECTOR_SHIFT;
+----- addresses:
+ffffffff81eae6cd
+ffffffff81eae6d2
+ffffffff81eae6e5
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+nr_sects = len >> SECTOR_SHIFT;
+----- addresses:
+ffffffff81eae6d6
+ffffffff81eae6ea
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+blk_start_plug(&plug);
+----- addresses:
+ffffffff81eae6fd
+ffffffff81eae6ef
+ffffffff81eae6dd
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+while (1) {
+----- addresses:
+ffffffff81eae76f
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (fatal_signal_pending(current)) {
+----- addresses:
+ffffffff81eae76f
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (prev)
+----- addresses:
+ffffffff81eae7cf
+ffffffff81eae7c4
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+bio_await_chain(prev);
+----- addresses:
+ffffffff81eae7d4
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+err = -EINTR;
+----- addresses:
+ffffffff81eae7c9
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+bio = blk_alloc_discard_bio(bdev, &sector, &nr_sects,
+----- addresses:
+ffffffff81eae72a
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (!bio)
+----- addresses:
+ffffffff81eae753
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+prev = bio_chain_and_submit(prev, bio);
+----- addresses:
+ffffffff81eae75c
+ffffffff81eae761
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (prev) {
+----- addresses:
+ffffffff81eaef44
+ffffffff81eaef3f
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+err = submit_bio_wait(prev);
+----- addresses:
+ffffffff81eaef4d
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+if (err == -EOPNOTSUPP)
+----- addresses:
+ffffffff81eaef5a
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+bio_put(prev);
+----- addresses:
+ffffffff81eaef61
+ffffffff81eaef73
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+blk_finish_plug(&plug);
+----- addresses:
+ffffffff81eae7e1
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+filemap_invalidate_unlock(inode->i_mapping);
+----- addresses:
+ffffffff81eaefd5
+ffffffff81eae7f0
+----- funcname:
+blk_ioctl_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/ioctl.c
+----- source:
+return err;
+----- addresses:
+ffffffff81eae824
+ffffffff81eae829
+----- funcname:
+bio_discard_limit
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+static sector_t bio_discard_limit(struct block_device *bdev, sector_t sector)
+----- addresses:
+ffffffff81e800d6
+----- funcname:
+bio_discard_limit
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+unsigned int discard_granularity = bdev_discard_granularity(bdev);
+----- addresses:
+ffffffff81e800d6
+----- funcname:
+bio_discard_limit
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+sector_t granularity_aligned_sector;
+----- addresses:
+ffffffff81e80130
+----- funcname:
+bio_discard_limit
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+if (bdev_is_partition(bdev))
+----- addresses:
+ffffffff81e80157
+ffffffff81e80130
+----- funcname:
+bio_discard_limit
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+sector += bdev->bd_start_sect;
+----- addresses:
+ffffffff81e802e5
+ffffffff81e8017d
+ffffffff81e8015d
+ffffffff81e802d8
+----- funcname:
+bio_discard_limit
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+granularity_aligned_sector =
+----- addresses:
+ffffffff81e80195
+ffffffff81e80181
+----- funcname:
+bio_discard_limit
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+round_up(sector, discard_granularity >> SECTOR_SHIFT);
+----- addresses:
+ffffffff81e80181
+----- funcname:
+bio_discard_limit
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+if (granularity_aligned_sector != sector)
+----- addresses:
+ffffffff81e80199
+----- funcname:
+bio_discard_limit
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+return granularity_aligned_sector - sector;
+----- addresses:
+ffffffff81e801b7
+ffffffff81e801a7
+ffffffff81e801ac
+----- funcname:
+bio_discard_limit
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+return round_down(UINT_MAX, discard_granularity) >> SECTOR_SHIFT;
+----- addresses:
+ffffffff81e802b5
+ffffffff81e802b8
+ffffffff81e802b3
+ffffffff81e802ae
+----- funcname:
+__blkdev_issue_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+int __blkdev_issue_discard(struct block_device *bdev, sector_t sector,
+----- addresses:
+ffffffff81e803c4
+ffffffff81e8053d
+----- funcname:
+__blkdev_issue_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+sector_t nr_sects, gfp_t gfp_mask, struct bio **biop)
+----- addresses:
+ffffffff81e803c9
+ffffffff81e803ce
+----- funcname:
+__blkdev_issue_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+{
+----- addresses:
+ffffffff81e80353
+ffffffff81e80362
+ffffffff81e80375
+ffffffff81e80340
+ffffffff81e8041c
+ffffffff81e8036b
+ffffffff81e80367
+----- funcname:
+__blkdev_issue_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+while ((bio = blk_alloc_discard_bio(bdev, &sector, &nr_sects,
+----- addresses:
+ffffffff81e80552
+ffffffff81e8056e
+ffffffff81e803f5
+ffffffff81e80412
+----- funcname:
+__blkdev_issue_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+*biop = bio_chain_and_submit(*biop, bio);
+----- addresses:
+ffffffff81e803f2
+ffffffff81e803d0
+ffffffff81e80470
+ffffffff81e8035f
+ffffffff81e80544
+ffffffff81e80363
+ffffffff81e803eb
+ffffffff81e803d5
+ffffffff81e80463
+ffffffff81e8053f
+ffffffff81e80368
+----- funcname:
+__blkdev_issue_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+return 0;
+----- addresses:
+ffffffff81e80573
+ffffffff81e80417
+----- funcname:
+__blkdev_issue_discard
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+}
+----- addresses:
+ffffffff81e80455
+ffffffff81e8045a
+ffffffff81e8045c
+ffffffff81e80456
+ffffffff81e80485
+ffffffff81e80438
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+{
+----- addresses:
+ffffffff81e8008b
+ffffffff81e80074
+ffffffff81e80070
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+sector_t bio_sects = min(*nr_sects, bio_discard_limit(bdev, *sector));
+----- addresses:
+ffffffff81e802f2
+ffffffff81e800b6
+ffffffff81e80074
+ffffffff81e802e5
+ffffffff81e8008f
+ffffffff81e801b7
+ffffffff81e800d2
+ffffffff81e80094
+ffffffff81e801c3
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+struct bio *bio;
+----- addresses:
+ffffffff81e801c3
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+if (!bio_sects)
+----- addresses:
+ffffffff81e801c6
+ffffffff81e801c3
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+return NULL;
+----- addresses:
+ffffffff81e801c3
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+bio = bio_alloc(bdev, 0, REQ_OP_DISCARD, gfp_mask);
+----- addresses:
+ffffffff81e801cf
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+if (!bio)
+----- addresses:
+ffffffff81e801f1
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+bio->bi_iter.bi_sector = *sector;
+----- addresses:
+ffffffff81e8021e
+ffffffff81e80323
+ffffffff81e80241
+ffffffff81e80222
+ffffffff81e8021a
+ffffffff81e80309
+ffffffff81e801fa
+ffffffff81e801ff
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+bio->bi_iter.bi_size = bio_sects << SECTOR_SHIFT;
+----- addresses:
+ffffffff81e80245
+ffffffff81e80257
+ffffffff81e8023d
+ffffffff81e80247
+ffffffff81e8026a
+ffffffff81e802d1
+ffffffff81e80254
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+*sector += bio_sects;
+----- addresses:
+ffffffff81e8026e
+ffffffff81e8027c
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+*nr_sects -= bio_sects;
+----- addresses:
+ffffffff81e8026e
+ffffffff81e80280
+ffffffff81e80316
+ffffffff81e80267
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+cond_resched();
+----- addresses:
+ffffffff81e8028e
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+return bio;
+----- addresses:
+ffffffff81e80293
+----- funcname:
+blk_alloc_discard_bio
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-lib.c
+----- source:
+}
+----- addresses:
+ffffffff81e802a3
+ffffffff81e802a0
+ffffffff81e802a5
+ffffffff81e80298

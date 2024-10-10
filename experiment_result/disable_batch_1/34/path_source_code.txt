@@ -1,0 +1,1464 @@
+static void bio_alloc_rescue(struct work_struct *work)
+{
+	struct bio_set *bs = container_of(work, struct bio_set, rescue_work);
+	struct bio *bio;
+
+	while (1) {
+		spin_lock(&bs->rescue_lock);
+		bio = bio_list_pop(&bs->rescue_list);
+		spin_unlock(&bs->rescue_lock);
+
+		if (!bio)
+			break;
+
+		submit_bio_noacct(bio);
+	}
+}
+void submit_bio_noacct(struct bio *bio)
+{
+	struct block_device *bdev = bio->bi_bdev;
+	struct request_queue *q = bdev_get_queue(bdev);
+	blk_status_t status = BLK_STS_IOERR;
+
+	might_sleep();
+
+	/*
+	 * For a REQ_NOWAIT based request, return -EOPNOTSUPP
+	 * if queue does not support NOWAIT.
+	 */
+	if ((bio->bi_opf & REQ_NOWAIT) && !bdev_nowait(bdev))
+		goto not_supported;
+
+	if (should_fail_bio(bio))
+		goto end_io;
+	bio_check_ro(bio);
+	if (!bio_flagged(bio, BIO_REMAPPED)) {
+		if (unlikely(bio_check_eod(bio)))
+			goto end_io;
+		if (bdev->bd_partno && unlikely(blk_partition_remap(bio)))
+			goto end_io;
+	}
+
+	/*
+	 * Filter flush bio's early so that bio based drivers without flush
+	 * support don't have to worry about them.
+	 */
+	if (op_is_flush(bio->bi_opf)) {
+		if (WARN_ON_ONCE(bio_op(bio) != REQ_OP_WRITE &&
+				 bio_op(bio) != REQ_OP_ZONE_APPEND))
+			goto end_io;
+		if (!test_bit(QUEUE_FLAG_WC, &q->queue_flags)) {
+			bio->bi_opf &= ~(REQ_PREFLUSH | REQ_FUA);
+			if (!bio_sectors(bio)) {
+				status = BLK_STS_OK;
+				goto end_io;
+			}
+		}
+	}
+
+	if (!test_bit(QUEUE_FLAG_POLL, &q->queue_flags))
+		bio_clear_polled(bio);
+
+	switch (bio_op(bio)) {
+	case REQ_OP_READ:
+	case REQ_OP_WRITE:
+		break;
+	case REQ_OP_FLUSH:
+		/*
+		 * REQ_OP_FLUSH can't be submitted through bios, it is only
+		 * synthetized in struct request by the flush state machine.
+		 */
+		goto not_supported;
+	case REQ_OP_DISCARD:
+		if (!bdev_max_discard_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_SECURE_ERASE:
+		if (!bdev_max_secure_erase_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_APPEND:
+		status = blk_check_zone_append(q, bio);
+		if (status != BLK_STS_OK)
+			goto end_io;
+		break;
+	case REQ_OP_WRITE_ZEROES:
+		if (!q->limits.max_write_zeroes_sectors)
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET:
+	case REQ_OP_ZONE_OPEN:
+	case REQ_OP_ZONE_CLOSE:
+	case REQ_OP_ZONE_FINISH:
+		if (!bdev_is_zoned(bio->bi_bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET_ALL:
+		if (!bdev_is_zoned(bio->bi_bdev) || !blk_queue_zone_resetall(q))
+			goto not_supported;
+		break;
+	case REQ_OP_DRV_IN:
+	case REQ_OP_DRV_OUT:
+		/*
+		 * Driver private operations are only used with passthrough
+		 * requests.
+		 */
+		fallthrough;
+	default:
+		goto not_supported;
+	}
+
+	if (blk_throtl_bio(bio))
+		return;
+	submit_bio_noacct_nocheck(bio);
+	return;
+
+not_supported:
+	status = BLK_STS_NOTSUPP;
+end_io:
+	bio->bi_status = status;
+	bio_endio(bio);
+}
+void submit_bio_noacct_nocheck(struct bio *bio)
+{
+	blk_cgroup_bio_start(bio);
+	blkcg_bio_issue_init(bio);
+
+	if (!bio_flagged(bio, BIO_TRACE_COMPLETION)) {
+		trace_block_bio_queue(bio);
+		/*
+		 * Now that enqueuing has been traced, we need to trace
+		 * completion as well.
+		 */
+		bio_set_flag(bio, BIO_TRACE_COMPLETION);
+	}
+
+	/*
+	 * We only want one ->submit_bio to be active at a time, else stack
+	 * usage with stacked devices could be a problem.  Use current->bio_list
+	 * to collect a list of requests submited by a ->submit_bio method while
+	 * it is active, and then process them after it returned.
+	 */
+	if (current->bio_list)
+		bio_list_add(&current->bio_list[0], bio);
+	else if (!bio->bi_bdev->bd_has_submit_bio)
+		__submit_bio_noacct_mq(bio);
+	else
+		__submit_bio_noacct(bio);
+}
+static void dm_submit_bio(struct bio *bio)
+{
+	struct mapped_device *md = bio->bi_bdev->bd_disk->private_data;
+	int srcu_idx;
+	struct dm_table *map;
+
+	map = dm_get_live_table(md, &srcu_idx);
+
+	/* If suspended, or map not yet available, queue this IO for later */
+	if (unlikely(test_bit(DMF_BLOCK_IO_FOR_SUSPEND, &md->flags)) ||
+	    unlikely(!map)) {
+		if (bio->bi_opf & REQ_NOWAIT)
+			bio_wouldblock_error(bio);
+		else if (bio->bi_opf & REQ_RAHEAD)
+			bio_io_error(bio);
+		else
+			queue_io(md, bio);
+		goto out;
+	}
+
+	dm_split_and_process_bio(md, map, bio);
+out:
+	dm_put_live_table(md, srcu_idx);
+}
+static void dm_split_and_process_bio(struct mapped_device *md,
+				     struct dm_table *map, struct bio *bio)
+{
+	struct clone_info ci;
+	struct dm_io *io;
+	blk_status_t error = BLK_STS_OK;
+	bool is_abnormal, need_split;
+
+	need_split = is_abnormal = is_abnormal_io(bio);
+	if (static_branch_unlikely(&zoned_enabled))
+		need_split = is_abnormal || dm_zone_bio_needs_split(md, bio);
+
+	if (unlikely(need_split)) {
+		/*
+		 * Use bio_split_to_limits() for abnormal IO (e.g. discard, etc)
+		 * otherwise associated queue_limits won't be imposed.
+		 * Also split the BIO for mapped devices needing zone append
+		 * emulation to ensure that the BIO does not cross zone
+		 * boundaries.
+		 */
+		bio = bio_split_to_limits(bio);
+		if (!bio)
+			return;
+	}
+
+	/*
+	 * Use the block layer zone write plugging for mapped devices that
+	 * need zone append emulation (e.g. dm-crypt).
+	 */
+	if (static_branch_unlikely(&zoned_enabled) && dm_zone_plug_bio(md, bio))
+		return;
+
+	/* Only support nowait for normal IO */
+	if (unlikely(bio->bi_opf & REQ_NOWAIT) && !is_abnormal) {
+		io = alloc_io(md, bio, GFP_NOWAIT);
+		if (unlikely(!io)) {
+			/* Unable to do anything without dm_io. */
+			bio_wouldblock_error(bio);
+			return;
+		}
+	} else {
+		io = alloc_io(md, bio, GFP_NOIO);
+	}
+	init_clone_info(&ci, io, map, bio, is_abnormal);
+
+	if (bio->bi_opf & REQ_PREFLUSH) {
+		__send_empty_flush(&ci);
+		/* dm_io_complete submits any data associated with flush */
+		goto out;
+	}
+
+	error = __split_and_process_bio(&ci);
+	if (error || !ci.sector_count)
+		goto out;
+	/*
+	 * Remainder must be passed to submit_bio_noacct() so it gets handled
+	 * *after* bios already submitted have been completely processed.
+	 */
+	bio_trim(bio, io->sectors, ci.sector_count);
+	trace_block_split(bio, bio->bi_iter.bi_sector);
+	bio_inc_remaining(bio);
+	submit_bio_noacct(bio);
+out:
+	/*
+	 * Drop the extra reference count for non-POLLED bio, and hold one
+	 * reference for POLLED bio, which will be released in dm_poll_bio
+	 *
+	 * Add every dm_io instance into the dm_io list head which is stored
+	 * in bio->bi_private, so that dm_poll_bio can poll them all.
+	 */
+	if (error || !ci.submit_as_polled) {
+		/*
+		 * In case of submission failure, the extra reference for
+		 * submitting io isn't consumed yet
+		 */
+		if (error)
+			atomic_dec(&io->io_count);
+		dm_io_dec_pending(io, error);
+	} else
+		dm_queue_poll_io(bio, io);
+}
+void submit_bio_noacct(struct bio *bio)
+{
+	struct block_device *bdev = bio->bi_bdev;
+	struct request_queue *q = bdev_get_queue(bdev);
+	blk_status_t status = BLK_STS_IOERR;
+
+	might_sleep();
+
+	/*
+	 * For a REQ_NOWAIT based request, return -EOPNOTSUPP
+	 * if queue does not support NOWAIT.
+	 */
+	if ((bio->bi_opf & REQ_NOWAIT) && !bdev_nowait(bdev))
+		goto not_supported;
+
+	if (should_fail_bio(bio))
+		goto end_io;
+	bio_check_ro(bio);
+	if (!bio_flagged(bio, BIO_REMAPPED)) {
+		if (unlikely(bio_check_eod(bio)))
+			goto end_io;
+		if (bdev->bd_partno && unlikely(blk_partition_remap(bio)))
+			goto end_io;
+	}
+
+	/*
+	 * Filter flush bio's early so that bio based drivers without flush
+	 * support don't have to worry about them.
+	 */
+	if (op_is_flush(bio->bi_opf)) {
+		if (WARN_ON_ONCE(bio_op(bio) != REQ_OP_WRITE &&
+				 bio_op(bio) != REQ_OP_ZONE_APPEND))
+			goto end_io;
+		if (!test_bit(QUEUE_FLAG_WC, &q->queue_flags)) {
+			bio->bi_opf &= ~(REQ_PREFLUSH | REQ_FUA);
+			if (!bio_sectors(bio)) {
+				status = BLK_STS_OK;
+				goto end_io;
+			}
+		}
+	}
+
+	if (!test_bit(QUEUE_FLAG_POLL, &q->queue_flags))
+		bio_clear_polled(bio);
+
+	switch (bio_op(bio)) {
+	case REQ_OP_READ:
+	case REQ_OP_WRITE:
+		break;
+	case REQ_OP_FLUSH:
+		/*
+		 * REQ_OP_FLUSH can't be submitted through bios, it is only
+		 * synthetized in struct request by the flush state machine.
+		 */
+		goto not_supported;
+	case REQ_OP_DISCARD:
+		if (!bdev_max_discard_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_SECURE_ERASE:
+		if (!bdev_max_secure_erase_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_APPEND:
+		status = blk_check_zone_append(q, bio);
+		if (status != BLK_STS_OK)
+			goto end_io;
+		break;
+	case REQ_OP_WRITE_ZEROES:
+		if (!q->limits.max_write_zeroes_sectors)
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET:
+	case REQ_OP_ZONE_OPEN:
+	case REQ_OP_ZONE_CLOSE:
+	case REQ_OP_ZONE_FINISH:
+		if (!bdev_is_zoned(bio->bi_bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET_ALL:
+		if (!bdev_is_zoned(bio->bi_bdev) || !blk_queue_zone_resetall(q))
+			goto not_supported;
+		break;
+	case REQ_OP_DRV_IN:
+	case REQ_OP_DRV_OUT:
+		/*
+		 * Driver private operations are only used with passthrough
+		 * requests.
+		 */
+		fallthrough;
+	default:
+		goto not_supported;
+	}
+
+	if (blk_throtl_bio(bio))
+		return;
+	submit_bio_noacct_nocheck(bio);
+	return;
+
+not_supported:
+	status = BLK_STS_NOTSUPP;
+end_io:
+	bio->bi_status = status;
+	bio_endio(bio);
+}
+void submit_bio_noacct_nocheck(struct bio *bio)
+{
+	blk_cgroup_bio_start(bio);
+	blkcg_bio_issue_init(bio);
+
+	if (!bio_flagged(bio, BIO_TRACE_COMPLETION)) {
+		trace_block_bio_queue(bio);
+		/*
+		 * Now that enqueuing has been traced, we need to trace
+		 * completion as well.
+		 */
+		bio_set_flag(bio, BIO_TRACE_COMPLETION);
+	}
+
+	/*
+	 * We only want one ->submit_bio to be active at a time, else stack
+	 * usage with stacked devices could be a problem.  Use current->bio_list
+	 * to collect a list of requests submited by a ->submit_bio method while
+	 * it is active, and then process them after it returned.
+	 */
+	if (current->bio_list)
+		bio_list_add(&current->bio_list[0], bio);
+	else if (!bio->bi_bdev->bd_has_submit_bio)
+		__submit_bio_noacct_mq(bio);
+	else
+		__submit_bio_noacct(bio);
+}
+static void dm_wq_work(struct work_struct *work)
+{
+	struct mapped_device *md = container_of(work, struct mapped_device, work);
+	struct bio *bio;
+
+	while (!test_bit(DMF_BLOCK_IO_FOR_SUSPEND, &md->flags)) {
+		spin_lock_irq(&md->deferred_lock);
+		bio = bio_list_pop(&md->deferred);
+		spin_unlock_irq(&md->deferred_lock);
+
+		if (!bio)
+			break;
+
+		submit_bio_noacct(bio);
+		cond_resched();
+	}
+}
+void submit_bio_noacct(struct bio *bio)
+{
+	struct block_device *bdev = bio->bi_bdev;
+	struct request_queue *q = bdev_get_queue(bdev);
+	blk_status_t status = BLK_STS_IOERR;
+
+	might_sleep();
+
+	/*
+	 * For a REQ_NOWAIT based request, return -EOPNOTSUPP
+	 * if queue does not support NOWAIT.
+	 */
+	if ((bio->bi_opf & REQ_NOWAIT) && !bdev_nowait(bdev))
+		goto not_supported;
+
+	if (should_fail_bio(bio))
+		goto end_io;
+	bio_check_ro(bio);
+	if (!bio_flagged(bio, BIO_REMAPPED)) {
+		if (unlikely(bio_check_eod(bio)))
+			goto end_io;
+		if (bdev->bd_partno && unlikely(blk_partition_remap(bio)))
+			goto end_io;
+	}
+
+	/*
+	 * Filter flush bio's early so that bio based drivers without flush
+	 * support don't have to worry about them.
+	 */
+	if (op_is_flush(bio->bi_opf)) {
+		if (WARN_ON_ONCE(bio_op(bio) != REQ_OP_WRITE &&
+				 bio_op(bio) != REQ_OP_ZONE_APPEND))
+			goto end_io;
+		if (!test_bit(QUEUE_FLAG_WC, &q->queue_flags)) {
+			bio->bi_opf &= ~(REQ_PREFLUSH | REQ_FUA);
+			if (!bio_sectors(bio)) {
+				status = BLK_STS_OK;
+				goto end_io;
+			}
+		}
+	}
+
+	if (!test_bit(QUEUE_FLAG_POLL, &q->queue_flags))
+		bio_clear_polled(bio);
+
+	switch (bio_op(bio)) {
+	case REQ_OP_READ:
+	case REQ_OP_WRITE:
+		break;
+	case REQ_OP_FLUSH:
+		/*
+		 * REQ_OP_FLUSH can't be submitted through bios, it is only
+		 * synthetized in struct request by the flush state machine.
+		 */
+		goto not_supported;
+	case REQ_OP_DISCARD:
+		if (!bdev_max_discard_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_SECURE_ERASE:
+		if (!bdev_max_secure_erase_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_APPEND:
+		status = blk_check_zone_append(q, bio);
+		if (status != BLK_STS_OK)
+			goto end_io;
+		break;
+	case REQ_OP_WRITE_ZEROES:
+		if (!q->limits.max_write_zeroes_sectors)
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET:
+	case REQ_OP_ZONE_OPEN:
+	case REQ_OP_ZONE_CLOSE:
+	case REQ_OP_ZONE_FINISH:
+		if (!bdev_is_zoned(bio->bi_bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET_ALL:
+		if (!bdev_is_zoned(bio->bi_bdev) || !blk_queue_zone_resetall(q))
+			goto not_supported;
+		break;
+	case REQ_OP_DRV_IN:
+	case REQ_OP_DRV_OUT:
+		/*
+		 * Driver private operations are only used with passthrough
+		 * requests.
+		 */
+		fallthrough;
+	default:
+		goto not_supported;
+	}
+
+	if (blk_throtl_bio(bio))
+		return;
+	submit_bio_noacct_nocheck(bio);
+	return;
+
+not_supported:
+	status = BLK_STS_NOTSUPP;
+end_io:
+	bio->bi_status = status;
+	bio_endio(bio);
+}
+void submit_bio_noacct_nocheck(struct bio *bio)
+{
+	blk_cgroup_bio_start(bio);
+	blkcg_bio_issue_init(bio);
+
+	if (!bio_flagged(bio, BIO_TRACE_COMPLETION)) {
+		trace_block_bio_queue(bio);
+		/*
+		 * Now that enqueuing has been traced, we need to trace
+		 * completion as well.
+		 */
+		bio_set_flag(bio, BIO_TRACE_COMPLETION);
+	}
+
+	/*
+	 * We only want one ->submit_bio to be active at a time, else stack
+	 * usage with stacked devices could be a problem.  Use current->bio_list
+	 * to collect a list of requests submited by a ->submit_bio method while
+	 * it is active, and then process them after it returned.
+	 */
+	if (current->bio_list)
+		bio_list_add(&current->bio_list[0], bio);
+	else if (!bio->bi_bdev->bd_has_submit_bio)
+		__submit_bio_noacct_mq(bio);
+	else
+		__submit_bio_noacct(bio);
+}
+static void do_mirror(struct work_struct *work)
+{
+	struct mirror_set *ms = container_of(work, struct mirror_set,
+					     kmirrord_work);
+	struct bio_list reads, writes, failures;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ms->lock, flags);
+	reads = ms->reads;
+	writes = ms->writes;
+	failures = ms->failures;
+	bio_list_init(&ms->reads);
+	bio_list_init(&ms->writes);
+	bio_list_init(&ms->failures);
+	spin_unlock_irqrestore(&ms->lock, flags);
+
+	dm_rh_update_states(ms->rh, errors_handled(ms));
+	do_recovery(ms);
+	do_reads(ms, &reads);
+	do_writes(ms, &writes);
+	do_failures(ms, &failures);
+}
+static void do_writes(struct mirror_set *ms, struct bio_list *writes)
+{
+	int state;
+	struct bio *bio;
+	struct bio_list sync, nosync, recover, *this_list = NULL;
+	struct bio_list requeue;
+	struct dm_dirty_log *log = dm_rh_dirty_log(ms->rh);
+	region_t region;
+
+	if (!writes->head)
+		return;
+
+	/*
+	 * Classify each write.
+	 */
+	bio_list_init(&sync);
+	bio_list_init(&nosync);
+	bio_list_init(&recover);
+	bio_list_init(&requeue);
+
+	while ((bio = bio_list_pop(writes))) {
+		if ((bio->bi_opf & REQ_PREFLUSH) ||
+		    (bio_op(bio) == REQ_OP_DISCARD)) {
+			bio_list_add(&sync, bio);
+			continue;
+		}
+
+		region = dm_rh_bio_to_region(ms->rh, bio);
+
+		if (log->type->is_remote_recovering &&
+		    log->type->is_remote_recovering(log, region)) {
+			bio_list_add(&requeue, bio);
+			continue;
+		}
+
+		state = dm_rh_get_state(ms->rh, region, 1);
+		switch (state) {
+		case DM_RH_CLEAN:
+		case DM_RH_DIRTY:
+			this_list = &sync;
+			break;
+
+		case DM_RH_NOSYNC:
+			this_list = &nosync;
+			break;
+
+		case DM_RH_RECOVERING:
+			this_list = &recover;
+			break;
+		}
+
+		bio_list_add(this_list, bio);
+	}
+
+	/*
+	 * Add bios that are delayed due to remote recovery
+	 * back on to the write queue
+	 */
+	if (unlikely(requeue.head)) {
+		spin_lock_irq(&ms->lock);
+		bio_list_merge(&ms->writes, &requeue);
+		spin_unlock_irq(&ms->lock);
+		delayed_wake(ms);
+	}
+
+	/*
+	 * Increment the pending counts for any regions that will
+	 * be written to (writes to recover regions are going to
+	 * be delayed).
+	 */
+	dm_rh_inc_pending(ms->rh, &sync);
+	dm_rh_inc_pending(ms->rh, &nosync);
+
+	/*
+	 * If the flush fails on a previous call and succeeds here,
+	 * we must not reset the log_failure variable.  We need
+	 * userspace interaction to do that.
+	 */
+	ms->log_failure = dm_rh_flush(ms->rh) ? 1 : ms->log_failure;
+
+	/*
+	 * Dispatch io.
+	 */
+	if (unlikely(ms->log_failure) && errors_handled(ms)) {
+		spin_lock_irq(&ms->lock);
+		bio_list_merge(&ms->failures, &sync);
+		spin_unlock_irq(&ms->lock);
+		wakeup_mirrord(ms);
+	} else
+		while ((bio = bio_list_pop(&sync)))
+			do_write(ms, bio);
+
+	while ((bio = bio_list_pop(&recover)))
+		dm_rh_delay(ms->rh, bio);
+
+	while ((bio = bio_list_pop(&nosync))) {
+		if (unlikely(ms->leg_failure) && errors_handled(ms) && !keep_log(ms)) {
+			spin_lock_irq(&ms->lock);
+			bio_list_add(&ms->failures, bio);
+			spin_unlock_irq(&ms->lock);
+			wakeup_mirrord(ms);
+		} else {
+			map_bio(get_default_mirror(ms), bio);
+			submit_bio_noacct(bio);
+		}
+	}
+}
+void submit_bio_noacct(struct bio *bio)
+{
+	struct block_device *bdev = bio->bi_bdev;
+	struct request_queue *q = bdev_get_queue(bdev);
+	blk_status_t status = BLK_STS_IOERR;
+
+	might_sleep();
+
+	/*
+	 * For a REQ_NOWAIT based request, return -EOPNOTSUPP
+	 * if queue does not support NOWAIT.
+	 */
+	if ((bio->bi_opf & REQ_NOWAIT) && !bdev_nowait(bdev))
+		goto not_supported;
+
+	if (should_fail_bio(bio))
+		goto end_io;
+	bio_check_ro(bio);
+	if (!bio_flagged(bio, BIO_REMAPPED)) {
+		if (unlikely(bio_check_eod(bio)))
+			goto end_io;
+		if (bdev->bd_partno && unlikely(blk_partition_remap(bio)))
+			goto end_io;
+	}
+
+	/*
+	 * Filter flush bio's early so that bio based drivers without flush
+	 * support don't have to worry about them.
+	 */
+	if (op_is_flush(bio->bi_opf)) {
+		if (WARN_ON_ONCE(bio_op(bio) != REQ_OP_WRITE &&
+				 bio_op(bio) != REQ_OP_ZONE_APPEND))
+			goto end_io;
+		if (!test_bit(QUEUE_FLAG_WC, &q->queue_flags)) {
+			bio->bi_opf &= ~(REQ_PREFLUSH | REQ_FUA);
+			if (!bio_sectors(bio)) {
+				status = BLK_STS_OK;
+				goto end_io;
+			}
+		}
+	}
+
+	if (!test_bit(QUEUE_FLAG_POLL, &q->queue_flags))
+		bio_clear_polled(bio);
+
+	switch (bio_op(bio)) {
+	case REQ_OP_READ:
+	case REQ_OP_WRITE:
+		break;
+	case REQ_OP_FLUSH:
+		/*
+		 * REQ_OP_FLUSH can't be submitted through bios, it is only
+		 * synthetized in struct request by the flush state machine.
+		 */
+		goto not_supported;
+	case REQ_OP_DISCARD:
+		if (!bdev_max_discard_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_SECURE_ERASE:
+		if (!bdev_max_secure_erase_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_APPEND:
+		status = blk_check_zone_append(q, bio);
+		if (status != BLK_STS_OK)
+			goto end_io;
+		break;
+	case REQ_OP_WRITE_ZEROES:
+		if (!q->limits.max_write_zeroes_sectors)
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET:
+	case REQ_OP_ZONE_OPEN:
+	case REQ_OP_ZONE_CLOSE:
+	case REQ_OP_ZONE_FINISH:
+		if (!bdev_is_zoned(bio->bi_bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET_ALL:
+		if (!bdev_is_zoned(bio->bi_bdev) || !blk_queue_zone_resetall(q))
+			goto not_supported;
+		break;
+	case REQ_OP_DRV_IN:
+	case REQ_OP_DRV_OUT:
+		/*
+		 * Driver private operations are only used with passthrough
+		 * requests.
+		 */
+		fallthrough;
+	default:
+		goto not_supported;
+	}
+
+	if (blk_throtl_bio(bio))
+		return;
+	submit_bio_noacct_nocheck(bio);
+	return;
+
+not_supported:
+	status = BLK_STS_NOTSUPP;
+end_io:
+	bio->bi_status = status;
+	bio_endio(bio);
+}
+void submit_bio_noacct_nocheck(struct bio *bio)
+{
+	blk_cgroup_bio_start(bio);
+	blkcg_bio_issue_init(bio);
+
+	if (!bio_flagged(bio, BIO_TRACE_COMPLETION)) {
+		trace_block_bio_queue(bio);
+		/*
+		 * Now that enqueuing has been traced, we need to trace
+		 * completion as well.
+		 */
+		bio_set_flag(bio, BIO_TRACE_COMPLETION);
+	}
+
+	/*
+	 * We only want one ->submit_bio to be active at a time, else stack
+	 * usage with stacked devices could be a problem.  Use current->bio_list
+	 * to collect a list of requests submited by a ->submit_bio method while
+	 * it is active, and then process them after it returned.
+	 */
+	if (current->bio_list)
+		bio_list_add(&current->bio_list[0], bio);
+	else if (!bio->bi_bdev->bd_has_submit_bio)
+		__submit_bio_noacct_mq(bio);
+	else
+		__submit_bio_noacct(bio);
+}
+void md_submit_discard_bio(struct mddev *mddev, struct md_rdev *rdev,
+			struct bio *bio, sector_t start, sector_t size)
+{
+	struct bio *discard_bio = NULL;
+
+	if (__blkdev_issue_discard(rdev->bdev, start, size, GFP_NOIO,
+			&discard_bio) || !discard_bio)
+		return;
+
+	bio_chain(discard_bio, bio);
+	bio_clone_blkg_association(discard_bio, bio);
+	mddev_trace_remap(mddev, discard_bio, bio->bi_iter.bi_sector);
+	submit_bio_noacct(discard_bio);
+}
+void submit_bio_noacct(struct bio *bio)
+{
+	struct block_device *bdev = bio->bi_bdev;
+	struct request_queue *q = bdev_get_queue(bdev);
+	blk_status_t status = BLK_STS_IOERR;
+
+	might_sleep();
+
+	/*
+	 * For a REQ_NOWAIT based request, return -EOPNOTSUPP
+	 * if queue does not support NOWAIT.
+	 */
+	if ((bio->bi_opf & REQ_NOWAIT) && !bdev_nowait(bdev))
+		goto not_supported;
+
+	if (should_fail_bio(bio))
+		goto end_io;
+	bio_check_ro(bio);
+	if (!bio_flagged(bio, BIO_REMAPPED)) {
+		if (unlikely(bio_check_eod(bio)))
+			goto end_io;
+		if (bdev->bd_partno && unlikely(blk_partition_remap(bio)))
+			goto end_io;
+	}
+
+	/*
+	 * Filter flush bio's early so that bio based drivers without flush
+	 * support don't have to worry about them.
+	 */
+	if (op_is_flush(bio->bi_opf)) {
+		if (WARN_ON_ONCE(bio_op(bio) != REQ_OP_WRITE &&
+				 bio_op(bio) != REQ_OP_ZONE_APPEND))
+			goto end_io;
+		if (!test_bit(QUEUE_FLAG_WC, &q->queue_flags)) {
+			bio->bi_opf &= ~(REQ_PREFLUSH | REQ_FUA);
+			if (!bio_sectors(bio)) {
+				status = BLK_STS_OK;
+				goto end_io;
+			}
+		}
+	}
+
+	if (!test_bit(QUEUE_FLAG_POLL, &q->queue_flags))
+		bio_clear_polled(bio);
+
+	switch (bio_op(bio)) {
+	case REQ_OP_READ:
+	case REQ_OP_WRITE:
+		break;
+	case REQ_OP_FLUSH:
+		/*
+		 * REQ_OP_FLUSH can't be submitted through bios, it is only
+		 * synthetized in struct request by the flush state machine.
+		 */
+		goto not_supported;
+	case REQ_OP_DISCARD:
+		if (!bdev_max_discard_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_SECURE_ERASE:
+		if (!bdev_max_secure_erase_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_APPEND:
+		status = blk_check_zone_append(q, bio);
+		if (status != BLK_STS_OK)
+			goto end_io;
+		break;
+	case REQ_OP_WRITE_ZEROES:
+		if (!q->limits.max_write_zeroes_sectors)
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET:
+	case REQ_OP_ZONE_OPEN:
+	case REQ_OP_ZONE_CLOSE:
+	case REQ_OP_ZONE_FINISH:
+		if (!bdev_is_zoned(bio->bi_bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET_ALL:
+		if (!bdev_is_zoned(bio->bi_bdev) || !blk_queue_zone_resetall(q))
+			goto not_supported;
+		break;
+	case REQ_OP_DRV_IN:
+	case REQ_OP_DRV_OUT:
+		/*
+		 * Driver private operations are only used with passthrough
+		 * requests.
+		 */
+		fallthrough;
+	default:
+		goto not_supported;
+	}
+
+	if (blk_throtl_bio(bio))
+		return;
+	submit_bio_noacct_nocheck(bio);
+	return;
+
+not_supported:
+	status = BLK_STS_NOTSUPP;
+end_io:
+	bio->bi_status = status;
+	bio_endio(bio);
+}
+void submit_bio_noacct_nocheck(struct bio *bio)
+{
+	blk_cgroup_bio_start(bio);
+	blkcg_bio_issue_init(bio);
+
+	if (!bio_flagged(bio, BIO_TRACE_COMPLETION)) {
+		trace_block_bio_queue(bio);
+		/*
+		 * Now that enqueuing has been traced, we need to trace
+		 * completion as well.
+		 */
+		bio_set_flag(bio, BIO_TRACE_COMPLETION);
+	}
+
+	/*
+	 * We only want one ->submit_bio to be active at a time, else stack
+	 * usage with stacked devices could be a problem.  Use current->bio_list
+	 * to collect a list of requests submited by a ->submit_bio method while
+	 * it is active, and then process them after it returned.
+	 */
+	if (current->bio_list)
+		bio_list_add(&current->bio_list[0], bio);
+	else if (!bio->bi_bdev->bd_has_submit_bio)
+		__submit_bio_noacct_mq(bio);
+	else
+		__submit_bio_noacct(bio);
+}
+int iomap_read_folio(struct folio *folio, const struct iomap_ops *ops)
+{
+	struct iomap_iter iter = {
+		.inode		= folio->mapping->host,
+		.pos		= folio_pos(folio),
+		.len		= folio_size(folio),
+	};
+	struct iomap_readpage_ctx ctx = {
+		.cur_folio	= folio,
+	};
+	int ret;
+
+	trace_iomap_readpage(iter.inode, 1);
+
+	while ((ret = iomap_iter(&iter, ops)) > 0)
+		iter.processed = iomap_readpage_iter(&iter, &ctx, 0);
+
+	if (ret < 0)
+		folio_set_error(folio);
+
+	if (ctx.bio) {
+		submit_bio(ctx.bio);
+		WARN_ON_ONCE(!ctx.cur_folio_in_bio);
+	} else {
+		WARN_ON_ONCE(ctx.cur_folio_in_bio);
+		folio_unlock(folio);
+	}
+
+	/*
+	 * Just like mpage_readahead and block_read_full_folio, we always
+	 * return 0 and just set the folio error flag on errors.  This
+	 * should be cleaned up throughout the stack eventually.
+	 */
+	return 0;
+}
+void submit_bio(struct bio *bio)
+{
+	if (bio_op(bio) == REQ_OP_READ) {
+		task_io_account_read(bio->bi_iter.bi_size);
+		count_vm_events(PGPGIN, bio_sectors(bio));
+	} else if (bio_op(bio) == REQ_OP_WRITE) {
+		count_vm_events(PGPGOUT, bio_sectors(bio));
+	}
+
+	bio_set_ioprio(bio);
+	submit_bio_noacct(bio);
+}
+void submit_bio_noacct(struct bio *bio)
+{
+	struct block_device *bdev = bio->bi_bdev;
+	struct request_queue *q = bdev_get_queue(bdev);
+	blk_status_t status = BLK_STS_IOERR;
+
+	might_sleep();
+
+	/*
+	 * For a REQ_NOWAIT based request, return -EOPNOTSUPP
+	 * if queue does not support NOWAIT.
+	 */
+	if ((bio->bi_opf & REQ_NOWAIT) && !bdev_nowait(bdev))
+		goto not_supported;
+
+	if (should_fail_bio(bio))
+		goto end_io;
+	bio_check_ro(bio);
+	if (!bio_flagged(bio, BIO_REMAPPED)) {
+		if (unlikely(bio_check_eod(bio)))
+			goto end_io;
+		if (bdev->bd_partno && unlikely(blk_partition_remap(bio)))
+			goto end_io;
+	}
+
+	/*
+	 * Filter flush bio's early so that bio based drivers without flush
+	 * support don't have to worry about them.
+	 */
+	if (op_is_flush(bio->bi_opf)) {
+		if (WARN_ON_ONCE(bio_op(bio) != REQ_OP_WRITE &&
+				 bio_op(bio) != REQ_OP_ZONE_APPEND))
+			goto end_io;
+		if (!test_bit(QUEUE_FLAG_WC, &q->queue_flags)) {
+			bio->bi_opf &= ~(REQ_PREFLUSH | REQ_FUA);
+			if (!bio_sectors(bio)) {
+				status = BLK_STS_OK;
+				goto end_io;
+			}
+		}
+	}
+
+	if (!test_bit(QUEUE_FLAG_POLL, &q->queue_flags))
+		bio_clear_polled(bio);
+
+	switch (bio_op(bio)) {
+	case REQ_OP_READ:
+	case REQ_OP_WRITE:
+		break;
+	case REQ_OP_FLUSH:
+		/*
+		 * REQ_OP_FLUSH can't be submitted through bios, it is only
+		 * synthetized in struct request by the flush state machine.
+		 */
+		goto not_supported;
+	case REQ_OP_DISCARD:
+		if (!bdev_max_discard_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_SECURE_ERASE:
+		if (!bdev_max_secure_erase_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_APPEND:
+		status = blk_check_zone_append(q, bio);
+		if (status != BLK_STS_OK)
+			goto end_io;
+		break;
+	case REQ_OP_WRITE_ZEROES:
+		if (!q->limits.max_write_zeroes_sectors)
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET:
+	case REQ_OP_ZONE_OPEN:
+	case REQ_OP_ZONE_CLOSE:
+	case REQ_OP_ZONE_FINISH:
+		if (!bdev_is_zoned(bio->bi_bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET_ALL:
+		if (!bdev_is_zoned(bio->bi_bdev) || !blk_queue_zone_resetall(q))
+			goto not_supported;
+		break;
+	case REQ_OP_DRV_IN:
+	case REQ_OP_DRV_OUT:
+		/*
+		 * Driver private operations are only used with passthrough
+		 * requests.
+		 */
+		fallthrough;
+	default:
+		goto not_supported;
+	}
+
+	if (blk_throtl_bio(bio))
+		return;
+	submit_bio_noacct_nocheck(bio);
+	return;
+
+not_supported:
+	status = BLK_STS_NOTSUPP;
+end_io:
+	bio->bi_status = status;
+	bio_endio(bio);
+}
+void submit_bio_noacct_nocheck(struct bio *bio)
+{
+	blk_cgroup_bio_start(bio);
+	blkcg_bio_issue_init(bio);
+
+	if (!bio_flagged(bio, BIO_TRACE_COMPLETION)) {
+		trace_block_bio_queue(bio);
+		/*
+		 * Now that enqueuing has been traced, we need to trace
+		 * completion as well.
+		 */
+		bio_set_flag(bio, BIO_TRACE_COMPLETION);
+	}
+
+	/*
+	 * We only want one ->submit_bio to be active at a time, else stack
+	 * usage with stacked devices could be a problem.  Use current->bio_list
+	 * to collect a list of requests submited by a ->submit_bio method while
+	 * it is active, and then process them after it returned.
+	 */
+	if (current->bio_list)
+		bio_list_add(&current->bio_list[0], bio);
+	else if (!bio->bi_bdev->bd_has_submit_bio)
+		__submit_bio_noacct_mq(bio);
+	else
+		__submit_bio_noacct(bio);
+}
+void iomap_readahead(struct readahead_control *rac, const struct iomap_ops *ops)
+{
+	struct iomap_iter iter = {
+		.inode	= rac->mapping->host,
+		.pos	= readahead_pos(rac),
+		.len	= readahead_length(rac),
+	};
+	struct iomap_readpage_ctx ctx = {
+		.rac	= rac,
+	};
+
+	trace_iomap_readahead(rac->mapping->host, readahead_count(rac));
+
+	while (iomap_iter(&iter, ops) > 0)
+		iter.processed = iomap_readahead_iter(&iter, &ctx);
+
+	if (ctx.bio)
+		submit_bio(ctx.bio);
+	if (ctx.cur_folio) {
+		if (!ctx.cur_folio_in_bio)
+			folio_unlock(ctx.cur_folio);
+	}
+}
+void submit_bio(struct bio *bio)
+{
+	if (bio_op(bio) == REQ_OP_READ) {
+		task_io_account_read(bio->bi_iter.bi_size);
+		count_vm_events(PGPGIN, bio_sectors(bio));
+	} else if (bio_op(bio) == REQ_OP_WRITE) {
+		count_vm_events(PGPGOUT, bio_sectors(bio));
+	}
+
+	bio_set_ioprio(bio);
+	submit_bio_noacct(bio);
+}
+void submit_bio_noacct(struct bio *bio)
+{
+	struct block_device *bdev = bio->bi_bdev;
+	struct request_queue *q = bdev_get_queue(bdev);
+	blk_status_t status = BLK_STS_IOERR;
+
+	might_sleep();
+
+	/*
+	 * For a REQ_NOWAIT based request, return -EOPNOTSUPP
+	 * if queue does not support NOWAIT.
+	 */
+	if ((bio->bi_opf & REQ_NOWAIT) && !bdev_nowait(bdev))
+		goto not_supported;
+
+	if (should_fail_bio(bio))
+		goto end_io;
+	bio_check_ro(bio);
+	if (!bio_flagged(bio, BIO_REMAPPED)) {
+		if (unlikely(bio_check_eod(bio)))
+			goto end_io;
+		if (bdev->bd_partno && unlikely(blk_partition_remap(bio)))
+			goto end_io;
+	}
+
+	/*
+	 * Filter flush bio's early so that bio based drivers without flush
+	 * support don't have to worry about them.
+	 */
+	if (op_is_flush(bio->bi_opf)) {
+		if (WARN_ON_ONCE(bio_op(bio) != REQ_OP_WRITE &&
+				 bio_op(bio) != REQ_OP_ZONE_APPEND))
+			goto end_io;
+		if (!test_bit(QUEUE_FLAG_WC, &q->queue_flags)) {
+			bio->bi_opf &= ~(REQ_PREFLUSH | REQ_FUA);
+			if (!bio_sectors(bio)) {
+				status = BLK_STS_OK;
+				goto end_io;
+			}
+		}
+	}
+
+	if (!test_bit(QUEUE_FLAG_POLL, &q->queue_flags))
+		bio_clear_polled(bio);
+
+	switch (bio_op(bio)) {
+	case REQ_OP_READ:
+	case REQ_OP_WRITE:
+		break;
+	case REQ_OP_FLUSH:
+		/*
+		 * REQ_OP_FLUSH can't be submitted through bios, it is only
+		 * synthetized in struct request by the flush state machine.
+		 */
+		goto not_supported;
+	case REQ_OP_DISCARD:
+		if (!bdev_max_discard_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_SECURE_ERASE:
+		if (!bdev_max_secure_erase_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_APPEND:
+		status = blk_check_zone_append(q, bio);
+		if (status != BLK_STS_OK)
+			goto end_io;
+		break;
+	case REQ_OP_WRITE_ZEROES:
+		if (!q->limits.max_write_zeroes_sectors)
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET:
+	case REQ_OP_ZONE_OPEN:
+	case REQ_OP_ZONE_CLOSE:
+	case REQ_OP_ZONE_FINISH:
+		if (!bdev_is_zoned(bio->bi_bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET_ALL:
+		if (!bdev_is_zoned(bio->bi_bdev) || !blk_queue_zone_resetall(q))
+			goto not_supported;
+		break;
+	case REQ_OP_DRV_IN:
+	case REQ_OP_DRV_OUT:
+		/*
+		 * Driver private operations are only used with passthrough
+		 * requests.
+		 */
+		fallthrough;
+	default:
+		goto not_supported;
+	}
+
+	if (blk_throtl_bio(bio))
+		return;
+	submit_bio_noacct_nocheck(bio);
+	return;
+
+not_supported:
+	status = BLK_STS_NOTSUPP;
+end_io:
+	bio->bi_status = status;
+	bio_endio(bio);
+}
+void submit_bio_noacct_nocheck(struct bio *bio)
+{
+	blk_cgroup_bio_start(bio);
+	blkcg_bio_issue_init(bio);
+
+	if (!bio_flagged(bio, BIO_TRACE_COMPLETION)) {
+		trace_block_bio_queue(bio);
+		/*
+		 * Now that enqueuing has been traced, we need to trace
+		 * completion as well.
+		 */
+		bio_set_flag(bio, BIO_TRACE_COMPLETION);
+	}
+
+	/*
+	 * We only want one ->submit_bio to be active at a time, else stack
+	 * usage with stacked devices could be a problem.  Use current->bio_list
+	 * to collect a list of requests submited by a ->submit_bio method while
+	 * it is active, and then process them after it returned.
+	 */
+	if (current->bio_list)
+		bio_list_add(&current->bio_list[0], bio);
+	else if (!bio->bi_bdev->bd_has_submit_bio)
+		__submit_bio_noacct_mq(bio);
+	else
+		__submit_bio_noacct(bio);
+}
+static void submit_flushes(struct work_struct *ws)
+{
+	struct mddev *mddev = container_of(ws, struct mddev, flush_work);
+	struct md_rdev *rdev;
+
+	mddev->start_flush = ktime_get_boottime();
+	INIT_WORK(&mddev->flush_work, md_submit_flush_data);
+	atomic_set(&mddev->flush_pending, 1);
+	rcu_read_lock();
+	rdev_for_each_rcu(rdev, mddev)
+		if (rdev->raid_disk >= 0 &&
+		    !test_bit(Faulty, &rdev->flags)) {
+			struct bio *bi;
+
+			atomic_inc(&rdev->nr_pending);
+			rcu_read_unlock();
+			bi = bio_alloc_bioset(rdev->bdev, 0,
+					      REQ_OP_WRITE | REQ_PREFLUSH,
+					      GFP_NOIO, &mddev->bio_set);
+			bi->bi_end_io = md_end_flush;
+			bi->bi_private = rdev;
+			atomic_inc(&mddev->flush_pending);
+			submit_bio(bi);
+			rcu_read_lock();
+		}
+	rcu_read_unlock();
+	if (atomic_dec_and_test(&mddev->flush_pending)) {
+		/* The pair is percpu_ref_get() from md_flush_request() */
+		percpu_ref_put(&mddev->active_io);
+
+		queue_work(md_wq, &mddev->flush_work);
+	}
+}
+void submit_bio(struct bio *bio)
+{
+	if (bio_op(bio) == REQ_OP_READ) {
+		task_io_account_read(bio->bi_iter.bi_size);
+		count_vm_events(PGPGIN, bio_sectors(bio));
+	} else if (bio_op(bio) == REQ_OP_WRITE) {
+		count_vm_events(PGPGOUT, bio_sectors(bio));
+	}
+
+	bio_set_ioprio(bio);
+	submit_bio_noacct(bio);
+}
+void submit_bio_noacct(struct bio *bio)
+{
+	struct block_device *bdev = bio->bi_bdev;
+	struct request_queue *q = bdev_get_queue(bdev);
+	blk_status_t status = BLK_STS_IOERR;
+
+	might_sleep();
+
+	/*
+	 * For a REQ_NOWAIT based request, return -EOPNOTSUPP
+	 * if queue does not support NOWAIT.
+	 */
+	if ((bio->bi_opf & REQ_NOWAIT) && !bdev_nowait(bdev))
+		goto not_supported;
+
+	if (should_fail_bio(bio))
+		goto end_io;
+	bio_check_ro(bio);
+	if (!bio_flagged(bio, BIO_REMAPPED)) {
+		if (unlikely(bio_check_eod(bio)))
+			goto end_io;
+		if (bdev->bd_partno && unlikely(blk_partition_remap(bio)))
+			goto end_io;
+	}
+
+	/*
+	 * Filter flush bio's early so that bio based drivers without flush
+	 * support don't have to worry about them.
+	 */
+	if (op_is_flush(bio->bi_opf)) {
+		if (WARN_ON_ONCE(bio_op(bio) != REQ_OP_WRITE &&
+				 bio_op(bio) != REQ_OP_ZONE_APPEND))
+			goto end_io;
+		if (!test_bit(QUEUE_FLAG_WC, &q->queue_flags)) {
+			bio->bi_opf &= ~(REQ_PREFLUSH | REQ_FUA);
+			if (!bio_sectors(bio)) {
+				status = BLK_STS_OK;
+				goto end_io;
+			}
+		}
+	}
+
+	if (!test_bit(QUEUE_FLAG_POLL, &q->queue_flags))
+		bio_clear_polled(bio);
+
+	switch (bio_op(bio)) {
+	case REQ_OP_READ:
+	case REQ_OP_WRITE:
+		break;
+	case REQ_OP_FLUSH:
+		/*
+		 * REQ_OP_FLUSH can't be submitted through bios, it is only
+		 * synthetized in struct request by the flush state machine.
+		 */
+		goto not_supported;
+	case REQ_OP_DISCARD:
+		if (!bdev_max_discard_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_SECURE_ERASE:
+		if (!bdev_max_secure_erase_sectors(bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_APPEND:
+		status = blk_check_zone_append(q, bio);
+		if (status != BLK_STS_OK)
+			goto end_io;
+		break;
+	case REQ_OP_WRITE_ZEROES:
+		if (!q->limits.max_write_zeroes_sectors)
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET:
+	case REQ_OP_ZONE_OPEN:
+	case REQ_OP_ZONE_CLOSE:
+	case REQ_OP_ZONE_FINISH:
+		if (!bdev_is_zoned(bio->bi_bdev))
+			goto not_supported;
+		break;
+	case REQ_OP_ZONE_RESET_ALL:
+		if (!bdev_is_zoned(bio->bi_bdev) || !blk_queue_zone_resetall(q))
+			goto not_supported;
+		break;
+	case REQ_OP_DRV_IN:
+	case REQ_OP_DRV_OUT:
+		/*
+		 * Driver private operations are only used with passthrough
+		 * requests.
+		 */
+		fallthrough;
+	default:
+		goto not_supported;
+	}
+
+	if (blk_throtl_bio(bio))
+		return;
+	submit_bio_noacct_nocheck(bio);
+	return;
+
+not_supported:
+	status = BLK_STS_NOTSUPP;
+end_io:
+	bio->bi_status = status;
+	bio_endio(bio);
+}
+void submit_bio_noacct_nocheck(struct bio *bio)
+{
+	blk_cgroup_bio_start(bio);
+	blkcg_bio_issue_init(bio);
+
+	if (!bio_flagged(bio, BIO_TRACE_COMPLETION)) {
+		trace_block_bio_queue(bio);
+		/*
+		 * Now that enqueuing has been traced, we need to trace
+		 * completion as well.
+		 */
+		bio_set_flag(bio, BIO_TRACE_COMPLETION);
+	}
+
+	/*
+	 * We only want one ->submit_bio to be active at a time, else stack
+	 * usage with stacked devices could be a problem.  Use current->bio_list
+	 * to collect a list of requests submited by a ->submit_bio method while
+	 * it is active, and then process them after it returned.
+	 */
+	if (current->bio_list)
+		bio_list_add(&current->bio_list[0], bio);
+	else if (!bio->bi_bdev->bd_has_submit_bio)
+		__submit_bio_noacct_mq(bio);
+	else
+		__submit_bio_noacct(bio);
+}

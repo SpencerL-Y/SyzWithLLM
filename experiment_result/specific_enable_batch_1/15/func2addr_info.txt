@@ -1,0 +1,1040 @@
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+{
+----- addresses:
+ffffffff817d2d10
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+struct hlist_node *p;
+----- addresses:
+ffffffff817d2d10
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+struct mount *m;
+----- addresses:
+ffffffff817d2d10
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+WARN_ON(mnt_get_writers(mnt));
+----- addresses:
+ffffffff817d2d2a
+ffffffff817d302c
+ffffffff817d302f
+ffffffff817d2d1d
+ffffffff817d2d32
+ffffffff817d3035
+ffffffff817d2d10
+ffffffff817d2d22
+ffffffff817d302d
+ffffffff817d3027
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (unlikely(mnt->mnt_pins.first))
+----- addresses:
+ffffffff817d30a7
+ffffffff817d2d59
+ffffffff817d2d32
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+mnt_pin_kill(mnt);
+----- addresses:
+ffffffff817d3035
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+hlist_for_each_entry_safe(m, p, &mnt->mnt_stuck_children, mnt_umount) {
+----- addresses:
+ffffffff817d2da3
+ffffffff817d2e77
+ffffffff817d2db4
+ffffffff817d3086
+ffffffff817d304e
+ffffffff817d3090
+ffffffff817d2d67
+ffffffff817d2e5a
+ffffffff817d2e4a
+ffffffff817d30fe
+ffffffff817d2e85
+ffffffff817d2d9e
+ffffffff817d2e45
+ffffffff817d2f70
+ffffffff817d2d95
+ffffffff817d2e51
+ffffffff817d2e7e
+ffffffff817d3058
+ffffffff817d30f9
+ffffffff817d310b
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+hlist_del(&m->mnt_umount);
+----- addresses:
+ffffffff817d2e85
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+mntput(&m->mnt);
+----- addresses:
+ffffffff817d2edf
+ffffffff817d2eb1
+ffffffff817d2df9
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+fsnotify_vfsmount_delete(&mnt->mnt);
+----- addresses:
+ffffffff817d2f70
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+dput(mnt->mnt.mnt_root);
+----- addresses:
+ffffffff817d309a
+ffffffff817d2f81
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+deactivate_super(mnt->mnt.mnt_sb);
+----- addresses:
+ffffffff817d2fa5
+ffffffff817d3090
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+mnt_free_id(mnt);
+----- addresses:
+ffffffff817d2fcd
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+call_rcu(&mnt->mnt_rcu, delayed_free_vfsmnt);
+----- addresses:
+ffffffff817d3022
+ffffffff817d3012
+ffffffff817d300d
+----- funcname:
+cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+}
+----- addresses:
+ffffffff817d3011
+ffffffff817d301e
+ffffffff817d3019
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+for (m = mnt; m; m = next_mnt(m, mnt)) {
+----- addresses:
+ffffffff817d4450
+ffffffff817d44e4
+ffffffff817d44b8
+ffffffff817d44eb
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (!can_change_locked_flags(m, recalc_flags(kattr, m))) {
+----- addresses:
+ffffffff817d4523
+ffffffff817d44f1
+ffffffff817d4528
+ffffffff817d4519
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+err = -EPERM;
+----- addresses:
+ffffffff817d498c
+ffffffff817d4abd
+ffffffff817d4aaa
+ffffffff817d4994
+ffffffff817d4ab6
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+err = can_idmap_mount(kattr, m);
+----- addresses:
+ffffffff817d4530
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (!mnt_allow_writers(kattr, m)) {
+----- addresses:
+ffffffff817d487a
+ffffffff817d4670
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+err = mnt_hold_writers(m);
+----- addresses:
+ffffffff817d4481
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (!kattr->recurse)
+----- addresses:
+ffffffff817d44a7
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (err) {
+----- addresses:
+ffffffff817d499b
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+for (p = mnt; p; p = next_mnt(p, mnt)) {
+----- addresses:
+ffffffff817d4a1d
+ffffffff817d49bb
+ffffffff817d49b4
+ffffffff817d499b
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (p->mnt.mnt_flags & MNT_WRITE_HOLD)
+----- addresses:
+ffffffff817d4bc8
+ffffffff817d499b
+ffffffff817d49c1
+ffffffff817d4bbb
+ffffffff817d49e2
+ffffffff817d49da
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+mnt_unhold_writers(p);
+----- addresses:
+ffffffff817d49ea
+----- funcname:
+mount_setattr_prepare
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (p == m)
+----- addresses:
+ffffffff817d4a0f
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+{
+----- addresses:
+ffffffff817d53a4
+ffffffff817d5390
+ffffffff817d5394
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+struct mount *mnt;
+----- addresses:
+ffffffff817d5394
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+int err = 0;
+----- addresses:
+ffffffff817d5394
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (atomic_long_read(&sb->s_remove_count))
+----- addresses:
+ffffffff817d53dc
+ffffffff817d539d
+ffffffff817d53a8
+ffffffff817d5394
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+return -EBUSY;
+----- addresses:
+ffffffff817d5618
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+lock_mount_hash();
+----- addresses:
+ffffffff817d53e5
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+list_for_each_entry(mnt, &sb->s_mounts, mnt_instance) {
+----- addresses:
+ffffffff817d54e9
+ffffffff817d5637
+ffffffff817d54be
+ffffffff817d5641
+ffffffff817d5559
+ffffffff817d5536
+ffffffff817d5679
+ffffffff817d5462
+ffffffff817d53fd
+ffffffff817d5658
+ffffffff817d5623
+ffffffff817d543f
+ffffffff817d545e
+ffffffff817d542a
+ffffffff817d5555
+ffffffff817d562d
+ffffffff817d545a
+ffffffff817d54e5
+ffffffff817d564b
+ffffffff817d5426
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (!(mnt->mnt.mnt_flags & MNT_READONLY)) {
+----- addresses:
+ffffffff817d546b
+ffffffff817d5433
+ffffffff817d548f
+ffffffff817d5484
+ffffffff817d562d
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+err = mnt_hold_writers(mnt);
+----- addresses:
+ffffffff817d5495
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (!err && atomic_long_read(&sb->s_remove_count))
+----- addresses:
+ffffffff817d55ca
+ffffffff817d5590
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+err = -EBUSY;
+----- addresses:
+ffffffff817d55c4
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (!err)
+----- addresses:
+ffffffff817d55d3
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+sb_start_ro_state_change(sb);
+----- addresses:
+ffffffff817d55d3
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (mnt->mnt.mnt_flags & MNT_WRITE_HOLD)
+----- addresses:
+ffffffff817d5641
+ffffffff817d54ee
+ffffffff817d551d
+ffffffff817d5511
+ffffffff817d54f8
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+mnt->mnt.mnt_flags &= ~MNT_WRITE_HOLD;
+----- addresses:
+ffffffff817d5526
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+unlock_mount_hash();
+----- addresses:
+ffffffff817d555e
+----- funcname:
+sb_prepare_remount_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+}
+----- addresses:
+ffffffff817d557b
+ffffffff817d558d
+ffffffff817d5586
+----- funcname:
+mnt_make_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+static int mnt_make_readonly(struct mount *mnt)
+----- addresses:
+ffffffff817dff30
+----- funcname:
+mnt_make_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+int ret;
+----- addresses:
+ffffffff817dff30
+----- funcname:
+mnt_make_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+ret = mnt_hold_writers(mnt);
+----- addresses:
+ffffffff817dff30
+----- funcname:
+mnt_make_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (!ret)
+----- addresses:
+ffffffff817dff52
+----- funcname:
+mnt_make_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+mnt->mnt.mnt_flags |= MNT_READONLY;
+----- addresses:
+ffffffff817dff52
+ffffffff817e03fc
+----- funcname:
+mnt_make_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+mnt_unhold_writers(mnt);
+----- addresses:
+ffffffff817dff7d
+ffffffff817e0258
+----- funcname:
+mnt_make_readonly
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+return ret;
+----- addresses:
+ffffffff817dff86
+ffffffff817e0285
+----- funcname:
+mnt_hold_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+static inline int mnt_hold_writers(struct mount *mnt)
+----- addresses:
+ffffffff817dff30
+ffffffff817d4481
+ffffffff817d5495
+----- funcname:
+mnt_hold_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+mnt->mnt.mnt_flags |= MNT_WRITE_HOLD;
+----- addresses:
+ffffffff817d4bb1
+ffffffff817d46c4
+ffffffff817d4675
+ffffffff817d46b6
+ffffffff817d467d
+ffffffff817d4695
+ffffffff817d4689
+ffffffff817dff30
+ffffffff817d4481
+ffffffff817d4ba4
+ffffffff817d5495
+----- funcname:
+mnt_hold_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+smp_mb();
+----- addresses:
+ffffffff817dff41
+ffffffff817d4497
+ffffffff817dff3b
+ffffffff817d4491
+ffffffff817d54a3
+ffffffff817d54a9
+----- funcname:
+mnt_hold_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (mnt_get_writers(mnt) > 0)
+----- addresses:
+ffffffff817dff41
+ffffffff817d44a7
+ffffffff817dff4a
+ffffffff817dff45
+ffffffff817d54b1
+ffffffff817d4497
+ffffffff817d449f
+ffffffff817dff52
+ffffffff817d54a9
+----- funcname:
+mnt_hold_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+return -EBUSY;
+----- addresses:
+ffffffff817d4af1
+ffffffff817d4afd
+ffffffff817d4ae9
+ffffffff817e0285
+ffffffff817d54b8
+ffffffff817e028b
+ffffffff817d54be
+ffffffff817e0290
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+{
+----- addresses:
+ffffffff817d24e9
+ffffffff817d242e
+ffffffff817d2410
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+LIST_HEAD(list);
+----- addresses:
+ffffffff817d2476
+ffffffff817d247b
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+int count;
+----- addresses:
+ffffffff817d248a
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+rcu_read_lock();
+----- addresses:
+ffffffff817d248a
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (likely(READ_ONCE(mnt->mnt_ns))) {
+----- addresses:
+ffffffff817d29df
+ffffffff817d248f
+ffffffff817d29e9
+ffffffff817d24af
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+mnt_add_count(mnt, -1);
+----- addresses:
+ffffffff817d2546
+ffffffff817d24b4
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+rcu_read_unlock();
+----- addresses:
+ffffffff817d2808
+ffffffff817d25d5
+ffffffff817d24df
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+return;
+----- addresses:
+ffffffff817d24e4
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+lock_mount_hash();
+----- addresses:
+ffffffff817d2528
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+smp_mb();
+----- addresses:
+ffffffff817d2546
+ffffffff817d2540
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+count = mnt_get_count(mnt);
+----- addresses:
+ffffffff817d256c
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (count != 0) {
+----- addresses:
+ffffffff817d2577
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+WARN_ON(count < 0);
+----- addresses:
+ffffffff817d27fa
+ffffffff817d2805
+ffffffff817d2807
+ffffffff817d27f5
+ffffffff817d2808
+ffffffff817d27ff
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (unlikely(mnt->mnt.mnt_flags & MNT_DOOMED)) {
+----- addresses:
+ffffffff817d2584
+ffffffff817d257f
+ffffffff817d25b8
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+unlock_mount_hash();
+----- addresses:
+ffffffff817d26b2
+ffffffff817d2812
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+mnt->mnt.mnt_flags |= MNT_DOOMED;
+----- addresses:
+ffffffff817d25c5
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+list_del(&mnt->mnt_instance);
+----- addresses:
+ffffffff817d25da
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (unlikely(!list_empty(&mnt->mnt_mounts))) {
+----- addresses:
+ffffffff817d2688
+ffffffff817d26a8
+ffffffff817d2681
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+struct mount *p, *tmp;
+----- addresses:
+ffffffff817d283c
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+list_for_each_entry_safe(p, tmp, &mnt->mnt_mounts,  mnt_child) {
+----- addresses:
+ffffffff817d2975
+ffffffff817d2998
+ffffffff817d2864
+ffffffff817d286c
+ffffffff817d2983
+ffffffff817d2845
+ffffffff817d2856
+ffffffff817d2a19
+ffffffff817d2a02
+ffffffff817d2ab1
+ffffffff817d2969
+ffffffff817d283c
+ffffffff817d298e
+ffffffff817d2abe
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+__put_mountpoint(unhash_mnt(p), &list);
+----- addresses:
+ffffffff817d29ac
+ffffffff817d299b
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+hlist_add_head(&p->mnt_umount, &mnt->mnt_stuck_children);
+----- addresses:
+ffffffff817d28c0
+ffffffff817d28ca
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+shrink_dentry_list(&list);
+----- addresses:
+ffffffff817d26ca
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (likely(!(mnt->mnt.mnt_flags & MNT_INTERNAL))) {
+----- addresses:
+ffffffff817d26fb
+ffffffff817d26d2
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+struct task_struct *task = current;
+----- addresses:
+ffffffff817d2706
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (likely(!(task->flags & PF_KTHREAD))) {
+----- addresses:
+ffffffff817d271d
+ffffffff817d2746
+ffffffff817d270b
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+init_task_work(&mnt->mnt_rcu, __cleanup_mnt);
+----- addresses:
+ffffffff817d274c
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (!task_work_add(task, &mnt->mnt_rcu, TWA_RESUME))
+----- addresses:
+ffffffff817d2778
+ffffffff817d2788
+ffffffff817d2742
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+if (llist_add(&mnt->mnt_llist, &delayed_mntput_list))
+----- addresses:
+ffffffff817d27a7
+ffffffff817d2790
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+schedule_delayed_work(&delayed_mntput_work, 1);
+----- addresses:
+ffffffff817d27af
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+cleanup_mnt(mnt);
+----- addresses:
+ffffffff817d282a
+----- funcname:
+mntput_no_expire
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+}
+----- addresses:
+ffffffff817d2512
+ffffffff817d2521
+ffffffff817d29e9
+ffffffff817d24fb
+----- funcname:
+mnt_get_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+{
+----- addresses:
+ffffffff817ccbb0
+----- funcname:
+mnt_get_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+unsigned int count = 0;
+----- addresses:
+ffffffff817ccc49
+ffffffff817ccbf1
+ffffffff817ccbb0
+----- funcname:
+mnt_get_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+int cpu;
+----- addresses:
+ffffffff817ccbb0
+----- funcname:
+mnt_get_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+for_each_possible_cpu(cpu) {
+----- addresses:
+ffffffff817ccc19
+ffffffff817ccbb0
+ffffffff817ccc91
+ffffffff817cccc5
+ffffffff817ccc1c
+ffffffff817cccc8
+ffffffff817ccc89
+----- funcname:
+mnt_get_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+count += per_cpu_ptr(mnt->mnt_pcp, cpu)->mnt_writers;
+----- addresses:
+ffffffff817ccd08
+ffffffff817ccc52
+ffffffff817ccc8d
+ffffffff817cccd1
+ffffffff817ccc5c
+ffffffff817ccc5e
+ffffffff817cccd6
+ffffffff817cccf2
+ffffffff817ccd04
+ffffffff817ccc26
+ffffffff817cccf6
+ffffffff817ccd27
+ffffffff817ccc21
+ffffffff817ccc69
+----- funcname:
+mnt_get_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+return count;
+----- addresses:
+ffffffff817ccbf4
+----- funcname:
+mnt_get_writers
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+}
+----- addresses:
+ffffffff817ccbf9
+----- funcname:
+delayed_mntput
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+{
+----- addresses:
+ffffffff817d3124
+ffffffff817d3120
+----- funcname:
+delayed_mntput
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+struct llist_node *node = llist_del_all(&delayed_mntput_list);
+----- addresses:
+ffffffff817d3124
+----- funcname:
+delayed_mntput
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+struct mount *m, *t;
+----- addresses:
+ffffffff817d3147
+----- funcname:
+delayed_mntput
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+llist_for_each_entry_safe(m, t, node, mnt_llist)
+----- addresses:
+ffffffff817d315f
+ffffffff817d315c
+ffffffff817d3176
+ffffffff817d3181
+ffffffff817d3195
+ffffffff817d317d
+ffffffff817d3147
+ffffffff817d315a
+ffffffff817d3186
+----- funcname:
+delayed_mntput
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+cleanup_mnt(m);
+----- addresses:
+ffffffff817d3181
+ffffffff817d317a
+----- funcname:
+delayed_mntput
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+}
+----- addresses:
+ffffffff817d318c
+----- funcname:
+__cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+{
+----- addresses:
+ffffffff817d31b4
+ffffffff817d31b0
+ffffffff817d31b5
+----- funcname:
+__cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+cleanup_mnt(container_of(head, struct mount, mnt_rcu));
+----- addresses:
+ffffffff817d31b4
+ffffffff817d31c2
+ffffffff817d31c7
+ffffffff817d31bd
+ffffffff817d31b8
+----- funcname:
+__cleanup_mnt
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/namespace.c
+----- source:
+}
+----- addresses:
+ffffffff817d31c1

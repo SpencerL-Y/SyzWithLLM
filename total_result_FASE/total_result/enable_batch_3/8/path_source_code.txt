@@ -1,0 +1,627 @@
+static int shmem_object_init(struct intel_memory_region *mem,
+			     struct drm_i915_gem_object *obj,
+			     resource_size_t offset,
+			     resource_size_t size,
+			     resource_size_t page_size,
+			     unsigned int flags)
+{
+	static struct lock_class_key lock_class;
+	struct drm_i915_private *i915 = mem->i915;
+	struct address_space *mapping;
+	unsigned int cache_level;
+	gfp_t mask;
+	int ret;
+
+	ret = __create_shmem(i915, &obj->base, size);
+	if (ret)
+		return ret;
+
+	mask = GFP_HIGHUSER | __GFP_RECLAIMABLE;
+	if (IS_I965GM(i915) || IS_I965G(i915)) {
+		/* 965gm cannot relocate objects above 4GiB. */
+		mask &= ~__GFP_HIGHMEM;
+		mask |= __GFP_DMA32;
+	}
+
+	mapping = obj->base.filp->f_mapping;
+	mapping_set_gfp_mask(mapping, mask);
+	GEM_BUG_ON(!(mapping_gfp_mask(mapping) & __GFP_RECLAIM));
+
+	i915_gem_object_init(obj, &i915_gem_shmem_ops, &lock_class, flags);
+	obj->mem_flags |= I915_BO_FLAG_STRUCT_PAGE;
+	obj->write_domain = I915_GEM_DOMAIN_CPU;
+	obj->read_domains = I915_GEM_DOMAIN_CPU;
+
+	/*
+	 * MTL doesn't snoop CPU cache by default for GPU access (namely
+	 * 1-way coherency). However some UMD's are currently depending on
+	 * that. Make 1-way coherent the default setting for MTL. A follow
+	 * up patch will extend the GEM_CREATE uAPI to allow UMD's specify
+	 * caching mode at BO creation time
+	 */
+	if (HAS_LLC(i915) || (GRAPHICS_VER_FULL(i915) >= IP_VER(12, 70)))
+		/* On some devices, we can have the GPU use the LLC (the CPU
+		 * cache) for about a 10% performance improvement
+		 * compared to uncached.  Graphics requests other than
+		 * display scanout are coherent with the CPU in
+		 * accessing this cache.  This means in this mode we
+		 * don't need to clflush on the CPU side, and on the
+		 * GPU side we only need to flush internal caches to
+		 * get data visible to the CPU.
+		 *
+		 * However, we maintain the display planes as UC, and so
+		 * need to rebind when first used as such.
+		 */
+		cache_level = I915_CACHE_LLC;
+	else
+		cache_level = I915_CACHE_NONE;
+
+	i915_gem_object_set_cache_coherency(obj, cache_level);
+
+	i915_gem_object_init_memory_region(obj, mem);
+
+	return 0;
+}
+static int __create_shmem(struct drm_i915_private *i915,
+			  struct drm_gem_object *obj,
+			  resource_size_t size)
+{
+	unsigned long flags = VM_NORESERVE;
+	struct file *filp;
+
+	drm_gem_private_object_init(&i915->drm, obj, size);
+
+	/* XXX: The __shmem_file_setup() function returns -EINVAL if size is
+	 * greater than MAX_LFS_FILESIZE.
+	 * To handle the same error as other code that returns -E2BIG when
+	 * the size is too large, we add a code that returns -E2BIG when the
+	 * size is larger than the size that can be handled.
+	 * If BITS_PER_LONG is 32, size > MAX_LFS_FILESIZE is always false,
+	 * so we only needs to check when BITS_PER_LONG is 64.
+	 * If BITS_PER_LONG is 32, E2BIG checks are processed when
+	 * i915_gem_object_size_2big() is called before init_object() callback
+	 * is called.
+	 */
+	if (BITS_PER_LONG == 64 && size > MAX_LFS_FILESIZE)
+		return -E2BIG;
+
+	if (i915->mm.gemfs)
+		filp = shmem_file_setup_with_mnt(i915->mm.gemfs, "i915", size,
+						 flags);
+	else
+		filp = shmem_file_setup("i915", size, flags);
+	if (IS_ERR(filp))
+		return PTR_ERR(filp);
+
+	obj->filp = filp;
+	return 0;
+}
+struct file *shmem_file_setup(const char *name, loff_t size, unsigned long flags)
+{
+	return __shmem_file_setup(shm_mnt, name, size, flags, 0);
+}
+SYSCALL_DEFINE2(memfd_create,
+		const char __user *, uname,
+		unsigned int, flags)
+{
+	unsigned int *file_seals;
+	struct file *file;
+	int fd, error;
+	char *name;
+	long len;
+
+	if (!(flags & MFD_HUGETLB)) {
+		if (flags & ~(unsigned int)MFD_ALL_FLAGS)
+			return -EINVAL;
+	} else {
+		/* Allow huge page size encoding in flags. */
+		if (flags & ~(unsigned int)(MFD_ALL_FLAGS |
+				(MFD_HUGE_MASK << MFD_HUGE_SHIFT)))
+			return -EINVAL;
+	}
+
+	/* Invalid if both EXEC and NOEXEC_SEAL are set.*/
+	if ((flags & MFD_EXEC) && (flags & MFD_NOEXEC_SEAL))
+		return -EINVAL;
+
+	error = check_sysctl_memfd_noexec(&flags);
+	if (error < 0)
+		return error;
+
+	/* length includes terminating zero */
+	len = strnlen_user(uname, MFD_NAME_MAX_LEN + 1);
+	if (len <= 0)
+		return -EFAULT;
+	if (len > MFD_NAME_MAX_LEN + 1)
+		return -EINVAL;
+
+	name = kmalloc(len + MFD_NAME_PREFIX_LEN, GFP_KERNEL);
+	if (!name)
+		return -ENOMEM;
+
+	strcpy(name, MFD_NAME_PREFIX);
+	if (copy_from_user(&name[MFD_NAME_PREFIX_LEN], uname, len)) {
+		error = -EFAULT;
+		goto err_name;
+	}
+
+	/* terminating-zero may have changed after strnlen_user() returned */
+	if (name[len + MFD_NAME_PREFIX_LEN - 1]) {
+		error = -EFAULT;
+		goto err_name;
+	}
+
+	fd = get_unused_fd_flags((flags & MFD_CLOEXEC) ? O_CLOEXEC : 0);
+	if (fd < 0) {
+		error = fd;
+		goto err_name;
+	}
+
+	if (flags & MFD_HUGETLB) {
+		file = hugetlb_file_setup(name, 0, VM_NORESERVE,
+					HUGETLB_ANONHUGE_INODE,
+					(flags >> MFD_HUGE_SHIFT) &
+					MFD_HUGE_MASK);
+	} else
+		file = shmem_file_setup(name, 0, VM_NORESERVE);
+	if (IS_ERR(file)) {
+		error = PTR_ERR(file);
+		goto err_fd;
+	}
+	file->f_mode |= FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE;
+	file->f_flags |= O_LARGEFILE;
+
+	if (flags & MFD_NOEXEC_SEAL) {
+		struct inode *inode = file_inode(file);
+
+		inode->i_mode &= ~0111;
+		file_seals = memfd_file_seals_ptr(file);
+		if (file_seals) {
+			*file_seals &= ~F_SEAL_SEAL;
+			*file_seals |= F_SEAL_EXEC;
+		}
+	} else if (flags & MFD_ALLOW_SEALING) {
+		/* MFD_EXEC and MFD_ALLOW_SEALING are set */
+		file_seals = memfd_file_seals_ptr(file);
+		if (file_seals)
+			*file_seals &= ~F_SEAL_SEAL;
+	}
+
+	fd_install(fd, file);
+	kfree(name);
+	return fd;
+
+err_fd:
+	put_unused_fd(fd);
+err_name:
+	kfree(name);
+	return error;
+}
+struct file *shmem_file_setup(const char *name, loff_t size, unsigned long flags)
+{
+	return __shmem_file_setup(shm_mnt, name, size, flags, 0);
+}
+drm_gem_shmem_prime_import_sg_table(struct drm_device *dev,
+				    struct dma_buf_attachment *attach,
+				    struct sg_table *sgt)
+{
+	size_t size = PAGE_ALIGN(attach->dmabuf->size);
+	struct drm_gem_shmem_object *shmem;
+
+	shmem = __drm_gem_shmem_create(dev, size, true);
+	if (IS_ERR(shmem))
+		return ERR_CAST(shmem);
+
+	shmem->sgt = sgt;
+
+	drm_dbg_prime(dev, "size = %zu\n", size);
+
+	return &shmem->base;
+}
+__drm_gem_shmem_create(struct drm_device *dev, size_t size, bool private)
+{
+	struct drm_gem_shmem_object *shmem;
+	struct drm_gem_object *obj;
+	int ret = 0;
+
+	size = PAGE_ALIGN(size);
+
+	if (dev->driver->gem_create_object) {
+		obj = dev->driver->gem_create_object(dev, size);
+		if (IS_ERR(obj))
+			return ERR_CAST(obj);
+		shmem = to_drm_gem_shmem_obj(obj);
+	} else {
+		shmem = kzalloc(sizeof(*shmem), GFP_KERNEL);
+		if (!shmem)
+			return ERR_PTR(-ENOMEM);
+		obj = &shmem->base;
+	}
+
+	if (!obj->funcs)
+		obj->funcs = &drm_gem_shmem_funcs;
+
+	if (private) {
+		drm_gem_private_object_init(dev, obj, size);
+		shmem->map_wc = false; /* dma-buf mappings use always writecombine */
+	} else {
+		ret = drm_gem_object_init(dev, obj, size);
+	}
+	if (ret) {
+		drm_gem_private_object_fini(obj);
+		goto err_free;
+	}
+
+	ret = drm_gem_create_mmap_offset(obj);
+	if (ret)
+		goto err_release;
+
+	INIT_LIST_HEAD(&shmem->madv_list);
+
+	if (!private) {
+		/*
+		 * Our buffers are kept pinned, so allocating them
+		 * from the MOVABLE zone is a really bad idea, and
+		 * conflicts with CMA. See comments above new_inode()
+		 * why this is required _and_ expected if you're
+		 * going to pin these pages.
+		 */
+		mapping_set_gfp_mask(obj->filp->f_mapping, GFP_HIGHUSER |
+				     __GFP_RETRY_MAYFAIL | __GFP_NOWARN);
+	}
+
+	return shmem;
+
+err_release:
+	drm_gem_object_release(obj);
+err_free:
+	kfree(obj);
+
+	return ERR_PTR(ret);
+}
+int drm_gem_object_init(struct drm_device *dev,
+			struct drm_gem_object *obj, size_t size)
+{
+	struct file *filp;
+
+	drm_gem_private_object_init(dev, obj, size);
+
+	filp = shmem_file_setup("drm mm object", size, VM_NORESERVE);
+	if (IS_ERR(filp))
+		return PTR_ERR(filp);
+
+	obj->filp = filp;
+
+	return 0;
+}
+struct file *shmem_file_setup(const char *name, loff_t size, unsigned long flags)
+{
+	return __shmem_file_setup(shm_mnt, name, size, flags, 0);
+}
+static int i915_ttm_tt_populate(struct ttm_device *bdev,
+				struct ttm_tt *ttm,
+				struct ttm_operation_ctx *ctx)
+{
+	struct i915_ttm_tt *i915_tt = container_of(ttm, typeof(*i915_tt), ttm);
+
+	if (i915_tt->is_shmem)
+		return i915_ttm_tt_shmem_populate(bdev, ttm, ctx);
+
+	return ttm_pool_alloc(&bdev->pool, ttm, ctx);
+}
+static int i915_ttm_tt_shmem_populate(struct ttm_device *bdev,
+				      struct ttm_tt *ttm,
+				      struct ttm_operation_ctx *ctx)
+{
+	struct drm_i915_private *i915 = container_of(bdev, typeof(*i915), bdev);
+	struct intel_memory_region *mr = i915->mm.regions[INTEL_MEMORY_SYSTEM];
+	struct i915_ttm_tt *i915_tt = container_of(ttm, typeof(*i915_tt), ttm);
+	const unsigned int max_segment = i915_sg_segment_size(i915->drm.dev);
+	const size_t size = (size_t)ttm->num_pages << PAGE_SHIFT;
+	struct file *filp = i915_tt->filp;
+	struct sgt_iter sgt_iter;
+	struct sg_table *st;
+	struct page *page;
+	unsigned long i;
+	int err;
+
+	if (!filp) {
+		struct address_space *mapping;
+		gfp_t mask;
+
+		filp = shmem_file_setup("i915-shmem-tt", size, VM_NORESERVE);
+		if (IS_ERR(filp))
+			return PTR_ERR(filp);
+
+		mask = GFP_HIGHUSER | __GFP_RECLAIMABLE;
+
+		mapping = filp->f_mapping;
+		mapping_set_gfp_mask(mapping, mask);
+		GEM_BUG_ON(!(mapping_gfp_mask(mapping) & __GFP_RECLAIM));
+
+		i915_tt->filp = filp;
+	}
+
+	st = &i915_tt->cached_rsgt.table;
+	err = shmem_sg_alloc_table(i915, st, size, mr, filp->f_mapping,
+				   max_segment);
+	if (err)
+		return err;
+
+	err = dma_map_sgtable(i915_tt->dev, st, DMA_BIDIRECTIONAL,
+			      DMA_ATTR_SKIP_CPU_SYNC);
+	if (err)
+		goto err_free_st;
+
+	i = 0;
+	for_each_sgt_page(page, sgt_iter, st)
+		ttm->pages[i++] = page;
+
+	if (ttm->page_flags & TTM_TT_FLAG_SWAPPED)
+		ttm->page_flags &= ~TTM_TT_FLAG_SWAPPED;
+
+	return 0;
+
+err_free_st:
+	shmem_sg_free_table(st, filp->f_mapping, false, false);
+
+	return err;
+}
+struct file *shmem_file_setup(const char *name, loff_t size, unsigned long flags)
+{
+	return __shmem_file_setup(shm_mnt, name, size, flags, 0);
+}
+static int shmem_object_init(struct intel_memory_region *mem,
+			     struct drm_i915_gem_object *obj,
+			     resource_size_t offset,
+			     resource_size_t size,
+			     resource_size_t page_size,
+			     unsigned int flags)
+{
+	static struct lock_class_key lock_class;
+	struct drm_i915_private *i915 = mem->i915;
+	struct address_space *mapping;
+	unsigned int cache_level;
+	gfp_t mask;
+	int ret;
+
+	ret = __create_shmem(i915, &obj->base, size);
+	if (ret)
+		return ret;
+
+	mask = GFP_HIGHUSER | __GFP_RECLAIMABLE;
+	if (IS_I965GM(i915) || IS_I965G(i915)) {
+		/* 965gm cannot relocate objects above 4GiB. */
+		mask &= ~__GFP_HIGHMEM;
+		mask |= __GFP_DMA32;
+	}
+
+	mapping = obj->base.filp->f_mapping;
+	mapping_set_gfp_mask(mapping, mask);
+	GEM_BUG_ON(!(mapping_gfp_mask(mapping) & __GFP_RECLAIM));
+
+	i915_gem_object_init(obj, &i915_gem_shmem_ops, &lock_class, flags);
+	obj->mem_flags |= I915_BO_FLAG_STRUCT_PAGE;
+	obj->write_domain = I915_GEM_DOMAIN_CPU;
+	obj->read_domains = I915_GEM_DOMAIN_CPU;
+
+	/*
+	 * MTL doesn't snoop CPU cache by default for GPU access (namely
+	 * 1-way coherency). However some UMD's are currently depending on
+	 * that. Make 1-way coherent the default setting for MTL. A follow
+	 * up patch will extend the GEM_CREATE uAPI to allow UMD's specify
+	 * caching mode at BO creation time
+	 */
+	if (HAS_LLC(i915) || (GRAPHICS_VER_FULL(i915) >= IP_VER(12, 70)))
+		/* On some devices, we can have the GPU use the LLC (the CPU
+		 * cache) for about a 10% performance improvement
+		 * compared to uncached.  Graphics requests other than
+		 * display scanout are coherent with the CPU in
+		 * accessing this cache.  This means in this mode we
+		 * don't need to clflush on the CPU side, and on the
+		 * GPU side we only need to flush internal caches to
+		 * get data visible to the CPU.
+		 *
+		 * However, we maintain the display planes as UC, and so
+		 * need to rebind when first used as such.
+		 */
+		cache_level = I915_CACHE_LLC;
+	else
+		cache_level = I915_CACHE_NONE;
+
+	i915_gem_object_set_cache_coherency(obj, cache_level);
+
+	i915_gem_object_init_memory_region(obj, mem);
+
+	return 0;
+}
+static int __create_shmem(struct drm_i915_private *i915,
+			  struct drm_gem_object *obj,
+			  resource_size_t size)
+{
+	unsigned long flags = VM_NORESERVE;
+	struct file *filp;
+
+	drm_gem_private_object_init(&i915->drm, obj, size);
+
+	/* XXX: The __shmem_file_setup() function returns -EINVAL if size is
+	 * greater than MAX_LFS_FILESIZE.
+	 * To handle the same error as other code that returns -E2BIG when
+	 * the size is too large, we add a code that returns -E2BIG when the
+	 * size is larger than the size that can be handled.
+	 * If BITS_PER_LONG is 32, size > MAX_LFS_FILESIZE is always false,
+	 * so we only needs to check when BITS_PER_LONG is 64.
+	 * If BITS_PER_LONG is 32, E2BIG checks are processed when
+	 * i915_gem_object_size_2big() is called before init_object() callback
+	 * is called.
+	 */
+	if (BITS_PER_LONG == 64 && size > MAX_LFS_FILESIZE)
+		return -E2BIG;
+
+	if (i915->mm.gemfs)
+		filp = shmem_file_setup_with_mnt(i915->mm.gemfs, "i915", size,
+						 flags);
+	else
+		filp = shmem_file_setup("i915", size, flags);
+	if (IS_ERR(filp))
+		return PTR_ERR(filp);
+
+	obj->filp = filp;
+	return 0;
+}
+struct file *shmem_file_setup_with_mnt(struct vfsmount *mnt, const char *name,
+				       loff_t size, unsigned long flags)
+{
+	return __shmem_file_setup(mnt, name, size, flags, 0);
+}
+static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
+{
+	key_t key = params->key;
+	int shmflg = params->flg;
+	size_t size = params->u.size;
+	int error;
+	struct shmid_kernel *shp;
+	size_t numpages = (size + PAGE_SIZE - 1) >> PAGE_SHIFT;
+	struct file *file;
+	char name[13];
+	vm_flags_t acctflag = 0;
+
+	if (size < SHMMIN || size > ns->shm_ctlmax)
+		return -EINVAL;
+
+	if (numpages << PAGE_SHIFT < size)
+		return -ENOSPC;
+
+	if (ns->shm_tot + numpages < ns->shm_tot ||
+			ns->shm_tot + numpages > ns->shm_ctlall)
+		return -ENOSPC;
+
+	shp = kmalloc(sizeof(*shp), GFP_KERNEL_ACCOUNT);
+	if (unlikely(!shp))
+		return -ENOMEM;
+
+	shp->shm_perm.key = key;
+	shp->shm_perm.mode = (shmflg & S_IRWXUGO);
+	shp->mlock_ucounts = NULL;
+
+	shp->shm_perm.security = NULL;
+	error = security_shm_alloc(&shp->shm_perm);
+	if (error) {
+		kfree(shp);
+		return error;
+	}
+
+	sprintf(name, "SYSV%08x", key);
+	if (shmflg & SHM_HUGETLB) {
+		struct hstate *hs;
+		size_t hugesize;
+
+		hs = hstate_sizelog((shmflg >> SHM_HUGE_SHIFT) & SHM_HUGE_MASK);
+		if (!hs) {
+			error = -EINVAL;
+			goto no_file;
+		}
+		hugesize = ALIGN(size, huge_page_size(hs));
+
+		/* hugetlb_file_setup applies strict accounting */
+		if (shmflg & SHM_NORESERVE)
+			acctflag = VM_NORESERVE;
+		file = hugetlb_file_setup(name, hugesize, acctflag,
+				HUGETLB_SHMFS_INODE, (shmflg >> SHM_HUGE_SHIFT) & SHM_HUGE_MASK);
+	} else {
+		/*
+		 * Do not allow no accounting for OVERCOMMIT_NEVER, even
+		 * if it's asked for.
+		 */
+		if  ((shmflg & SHM_NORESERVE) &&
+				sysctl_overcommit_memory != OVERCOMMIT_NEVER)
+			acctflag = VM_NORESERVE;
+		file = shmem_kernel_file_setup(name, size, acctflag);
+	}
+	error = PTR_ERR(file);
+	if (IS_ERR(file))
+		goto no_file;
+
+	shp->shm_cprid = get_pid(task_tgid(current));
+	shp->shm_lprid = NULL;
+	shp->shm_atim = shp->shm_dtim = 0;
+	shp->shm_ctim = ktime_get_real_seconds();
+	shp->shm_segsz = size;
+	shp->shm_nattch = 0;
+	shp->shm_file = file;
+	shp->shm_creator = current;
+
+	/* ipc_addid() locks shp upon success. */
+	error = ipc_addid(&shm_ids(ns), &shp->shm_perm, ns->shm_ctlmni);
+	if (error < 0)
+		goto no_id;
+
+	shp->ns = ns;
+
+	task_lock(current);
+	list_add(&shp->shm_clist, &current->sysvshm.shm_clist);
+	task_unlock(current);
+
+	/*
+	 * shmid gets reported as "inode#" in /proc/pid/maps.
+	 * proc-ps tools use this. Changing this will break them.
+	 */
+	file_inode(file)->i_ino = shp->shm_perm.id;
+
+	ns->shm_tot += numpages;
+	error = shp->shm_perm.id;
+
+	ipc_unlock_object(&shp->shm_perm);
+	rcu_read_unlock();
+	return error;
+
+no_id:
+	ipc_update_pid(&shp->shm_cprid, NULL);
+	ipc_update_pid(&shp->shm_lprid, NULL);
+	fput(file);
+	ipc_rcu_putref(&shp->shm_perm, shm_rcu_free);
+	return error;
+no_file:
+	call_rcu(&shp->shm_perm.rcu, shm_rcu_free);
+	return error;
+}
+struct file *shmem_kernel_file_setup(const char *name, loff_t size, unsigned long flags)
+{
+	return __shmem_file_setup(shm_mnt, name, size, flags, S_PRIVATE);
+}
+static int mmap_zero(struct file *file, struct vm_area_struct *vma)
+{
+#ifndef CONFIG_MMU
+	return -ENOSYS;
+#endif
+	if (vma->vm_flags & VM_SHARED)
+		return shmem_zero_setup(vma);
+	vma_set_anonymous(vma);
+	return 0;
+}
+int shmem_zero_setup(struct vm_area_struct *vma)
+{
+	struct file *file;
+	loff_t size = vma->vm_end - vma->vm_start;
+
+	/*
+	 * Cloning a new file under mmap_lock leads to a lock ordering conflict
+	 * between XFS directory reading and selinux: since this file is only
+	 * accessible to the user through its mapping, use S_PRIVATE flag to
+	 * bypass file security, in the same way as shmem_kernel_file_setup().
+	 */
+	file = shmem_kernel_file_setup("dev/zero", size, vma->vm_flags);
+	if (IS_ERR(file))
+		return PTR_ERR(file);
+
+	if (vma->vm_file)
+		fput(vma->vm_file);
+	vma->vm_file = file;
+	vma->vm_ops = &shmem_anon_vm_ops;
+
+	return 0;
+}
+struct file *shmem_kernel_file_setup(const char *name, loff_t size, unsigned long flags)
+{
+	return __shmem_file_setup(shm_mnt, name, size, flags, S_PRIVATE);
+}

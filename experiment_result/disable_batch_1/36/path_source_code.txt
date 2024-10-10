@@ -1,0 +1,285 @@
+static void queue_process(struct work_struct *work)
+{
+	struct netpoll_info *npinfo =
+		container_of(work, struct netpoll_info, tx_work.work);
+	struct sk_buff *skb;
+	unsigned long flags;
+
+	while ((skb = skb_dequeue(&npinfo->txq))) {
+		struct net_device *dev = skb->dev;
+		struct netdev_queue *txq;
+		unsigned int q_index;
+
+		if (!netif_device_present(dev) || !netif_running(dev)) {
+			kfree_skb(skb);
+			continue;
+		}
+
+		local_irq_save(flags);
+		/* check if skb->queue_mapping is still valid */
+		q_index = skb_get_queue_mapping(skb);
+		if (unlikely(q_index >= dev->real_num_tx_queues)) {
+			q_index = q_index % dev->real_num_tx_queues;
+			skb_set_queue_mapping(skb, q_index);
+		}
+		txq = netdev_get_tx_queue(dev, q_index);
+		HARD_TX_LOCK(dev, txq, smp_processor_id());
+		if (netif_xmit_frozen_or_stopped(txq) ||
+		    !dev_xmit_complete(netpoll_start_xmit(skb, dev, txq))) {
+			skb_queue_head(&npinfo->txq, skb);
+			HARD_TX_UNLOCK(dev, txq);
+			local_irq_restore(flags);
+
+			schedule_delayed_work(&npinfo->tx_work, HZ/10);
+			return;
+		}
+		HARD_TX_UNLOCK(dev, txq);
+		local_irq_restore(flags);
+	}
+}
+void skb_queue_head(struct sk_buff_head *list, struct sk_buff *newsk)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&list->lock, flags);
+	__skb_queue_head(list, newsk);
+	spin_unlock_irqrestore(&list->lock, flags);
+}
+NOT FOUNDvoid skb_append(struct sk_buff *old, struct sk_buff *newsk, struct sk_buff_head *list)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&list->lock, flags);
+	__skb_queue_after(list, old, newsk);
+	spin_unlock_irqrestore(&list->lock, flags);
+}
+static void tcp_keepalive_timer (struct timer_list *t)
+{
+	struct sock *sk = from_timer(sk, t, sk_timer);
+	struct inet_connection_sock *icsk = inet_csk(sk);
+	struct tcp_sock *tp = tcp_sk(sk);
+	u32 elapsed;
+
+	/* Only process if socket is not in use. */
+	bh_lock_sock(sk);
+	if (sock_owned_by_user(sk)) {
+		/* Try again later. */
+		inet_csk_reset_keepalive_timer (sk, HZ/20);
+		goto out;
+	}
+
+	if (sk->sk_state == TCP_LISTEN) {
+		pr_err("Hmm... keepalive on a LISTEN ???\n");
+		goto out;
+	}
+
+	tcp_mstamp_refresh(tp);
+	if (sk->sk_state == TCP_FIN_WAIT2 && sock_flag(sk, SOCK_DEAD)) {
+		if (READ_ONCE(tp->linger2) >= 0) {
+			const int tmo = tcp_fin_time(sk) - TCP_TIMEWAIT_LEN;
+
+			if (tmo > 0) {
+				tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
+				goto out;
+			}
+		}
+		tcp_send_active_reset(sk, GFP_ATOMIC, SK_RST_REASON_NOT_SPECIFIED);
+		goto death;
+	}
+
+	if (!sock_flag(sk, SOCK_KEEPOPEN) ||
+	    ((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_SYN_SENT)))
+		goto out;
+
+	elapsed = keepalive_time_when(tp);
+
+	/* It is alive without keepalive 8) */
+	if (tp->packets_out || !tcp_write_queue_empty(sk))
+		goto resched;
+
+	elapsed = keepalive_time_elapsed(tp);
+
+	if (elapsed >= keepalive_time_when(tp)) {
+		u32 user_timeout = READ_ONCE(icsk->icsk_user_timeout);
+
+		/* If the TCP_USER_TIMEOUT option is enabled, use that
+		 * to determine when to timeout instead.
+		 */
+		if ((user_timeout != 0 &&
+		    elapsed >= msecs_to_jiffies(user_timeout) &&
+		    icsk->icsk_probes_out > 0) ||
+		    (user_timeout == 0 &&
+		    icsk->icsk_probes_out >= keepalive_probes(tp))) {
+			tcp_send_active_reset(sk, GFP_ATOMIC,
+					      SK_RST_REASON_NOT_SPECIFIED);
+			tcp_write_err(sk);
+			goto out;
+		}
+		if (tcp_write_wakeup(sk, LINUX_MIB_TCPKEEPALIVE) <= 0) {
+			icsk->icsk_probes_out++;
+			elapsed = keepalive_intvl_when(tp);
+		} else {
+			/* If keepalive was lost due to local congestion,
+			 * try harder.
+			 */
+			elapsed = TCP_RESOURCE_PROBE_INTERVAL;
+		}
+	} else {
+		/* It is tp->rcv_tstamp + keepalive_time_when(tp) */
+		elapsed = keepalive_time_when(tp) - elapsed;
+	}
+
+resched:
+	inet_csk_reset_keepalive_timer (sk, elapsed);
+	goto out;
+
+death:
+	tcp_done(sk);
+
+out:
+	bh_unlock_sock(sk);
+	sock_put(sk);
+}
+int tcp_write_wakeup(struct sock *sk, int mib)
+{
+	struct tcp_sock *tp = tcp_sk(sk);
+	struct sk_buff *skb;
+
+	if (sk->sk_state == TCP_CLOSE)
+		return -1;
+
+	skb = tcp_send_head(sk);
+	if (skb && before(TCP_SKB_CB(skb)->seq, tcp_wnd_end(tp))) {
+		int err;
+		unsigned int mss = tcp_current_mss(sk);
+		unsigned int seg_size = tcp_wnd_end(tp) - TCP_SKB_CB(skb)->seq;
+
+		if (before(tp->pushed_seq, TCP_SKB_CB(skb)->end_seq))
+			tp->pushed_seq = TCP_SKB_CB(skb)->end_seq;
+
+		/* We are probing the opening of a window
+		 * but the window size is != 0
+		 * must have been a result SWS avoidance ( sender )
+		 */
+		if (seg_size < TCP_SKB_CB(skb)->end_seq - TCP_SKB_CB(skb)->seq ||
+		    skb->len > mss) {
+			seg_size = min(seg_size, mss);
+			TCP_SKB_CB(skb)->tcp_flags |= TCPHDR_PSH;
+			if (tcp_fragment(sk, TCP_FRAG_IN_WRITE_QUEUE,
+					 skb, seg_size, mss, GFP_ATOMIC))
+				return -1;
+		} else if (!tcp_skb_pcount(skb))
+			tcp_set_skb_tso_segs(skb, mss);
+
+		TCP_SKB_CB(skb)->tcp_flags |= TCPHDR_PSH;
+		err = tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
+		if (!err)
+			tcp_event_new_data_sent(sk, skb);
+		return err;
+	} else {
+		if (between(tp->snd_up, tp->snd_una + 1, tp->snd_una + 0xFFFF))
+			tcp_xmit_probe_skb(sk, 1, mib);
+		return tcp_xmit_probe_skb(sk, 0, mib);
+	}
+}
+int tcp_fragment(struct sock *sk, enum tcp_queue tcp_queue,
+		 struct sk_buff *skb, u32 len,
+		 unsigned int mss_now, gfp_t gfp)
+{
+	struct tcp_sock *tp = tcp_sk(sk);
+	struct sk_buff *buff;
+	int old_factor;
+	long limit;
+	int nlen;
+	u8 flags;
+
+	if (WARN_ON(len > skb->len))
+		return -EINVAL;
+
+	DEBUG_NET_WARN_ON_ONCE(skb_headlen(skb));
+
+	/* tcp_sendmsg() can overshoot sk_wmem_queued by one full size skb.
+	 * We need some allowance to not penalize applications setting small
+	 * SO_SNDBUF values.
+	 * Also allow first and last skb in retransmit queue to be split.
+	 */
+	limit = sk->sk_sndbuf + 2 * SKB_TRUESIZE(GSO_LEGACY_MAX_SIZE);
+	if (unlikely((sk->sk_wmem_queued >> 1) > limit &&
+		     tcp_queue != TCP_FRAG_IN_WRITE_QUEUE &&
+		     skb != tcp_rtx_queue_head(sk) &&
+		     skb != tcp_rtx_queue_tail(sk))) {
+		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPWQUEUETOOBIG);
+		return -ENOMEM;
+	}
+
+	if (skb_unclone_keeptruesize(skb, gfp))
+		return -ENOMEM;
+
+	/* Get a new skb... force flag on. */
+	buff = tcp_stream_alloc_skb(sk, gfp, true);
+	if (!buff)
+		return -ENOMEM; /* We'll just try again later. */
+	skb_copy_decrypted(buff, skb);
+	mptcp_skb_ext_copy(buff, skb);
+
+	sk_wmem_queued_add(sk, buff->truesize);
+	sk_mem_charge(sk, buff->truesize);
+	nlen = skb->len - len;
+	buff->truesize += nlen;
+	skb->truesize -= nlen;
+
+	/* Correct the sequence numbers. */
+	TCP_SKB_CB(buff)->seq = TCP_SKB_CB(skb)->seq + len;
+	TCP_SKB_CB(buff)->end_seq = TCP_SKB_CB(skb)->end_seq;
+	TCP_SKB_CB(skb)->end_seq = TCP_SKB_CB(buff)->seq;
+
+	/* PSH and FIN should only be set in the second packet. */
+	flags = TCP_SKB_CB(skb)->tcp_flags;
+	TCP_SKB_CB(skb)->tcp_flags = flags & ~(TCPHDR_FIN | TCPHDR_PSH);
+	TCP_SKB_CB(buff)->tcp_flags = flags;
+	TCP_SKB_CB(buff)->sacked = TCP_SKB_CB(skb)->sacked;
+	tcp_skb_fragment_eor(skb, buff);
+
+	skb_split(skb, buff, len);
+
+	skb_set_delivery_time(buff, skb->tstamp, true);
+	tcp_fragment_tstamp(skb, buff);
+
+	old_factor = tcp_skb_pcount(skb);
+
+	/* Fix up tso_factor for both original and new SKB.  */
+	tcp_set_skb_tso_segs(skb, mss_now);
+	tcp_set_skb_tso_segs(buff, mss_now);
+
+	/* Update delivered info for the new segment */
+	TCP_SKB_CB(buff)->tx = TCP_SKB_CB(skb)->tx;
+
+	/* If this packet has been sent out already, we must
+	 * adjust the various packet counters.
+	 */
+	if (!before(tp->snd_nxt, TCP_SKB_CB(buff)->end_seq)) {
+		int diff = old_factor - tcp_skb_pcount(skb) -
+			tcp_skb_pcount(buff);
+
+		if (diff)
+			tcp_adjust_pcount(sk, skb, diff);
+	}
+
+	/* Link BUFF into the send queue. */
+	__skb_header_release(buff);
+	tcp_insert_write_queue_after(skb, buff, sk, tcp_queue);
+	if (tcp_queue == TCP_FRAG_IN_RTX_QUEUE)
+		list_add(&buff->tcp_tsorted_anchor, &skb->tcp_tsorted_anchor);
+
+	return 0;
+}
+static void tcp_insert_write_queue_after(struct sk_buff *skb,
+					 struct sk_buff *buff,
+					 struct sock *sk,
+					 enum tcp_queue tcp_queue)
+{
+	if (tcp_queue == TCP_FRAG_IN_WRITE_QUEUE)
+		__skb_queue_after(&sk->sk_write_queue, skb, buff);
+	else
+		tcp_rbtree_insert(&sk->tcp_rtx_queue, buff);
+}

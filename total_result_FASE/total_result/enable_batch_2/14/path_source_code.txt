@@ -1,0 +1,1139 @@
+key_ref_t key_create(key_ref_t keyring_ref,
+		     const char *type,
+		     const char *description,
+		     const void *payload,
+		     size_t plen,
+		     key_perm_t perm,
+		     unsigned long flags)
+{
+	return __key_create_or_update(keyring_ref, type, description, payload,
+				      plen, perm, flags, false);
+}
+static key_ref_t __key_create_or_update(key_ref_t keyring_ref,
+					const char *type,
+					const char *description,
+					const void *payload,
+					size_t plen,
+					key_perm_t perm,
+					unsigned long flags,
+					bool allow_update)
+{
+	struct keyring_index_key index_key = {
+		.description	= description,
+	};
+	struct key_preparsed_payload prep;
+	struct assoc_array_edit *edit = NULL;
+	const struct cred *cred = current_cred();
+	struct key *keyring, *key = NULL;
+	key_ref_t key_ref;
+	int ret;
+	struct key_restriction *restrict_link = NULL;
+
+	/* look up the key type to see if it's one of the registered kernel
+	 * types */
+	index_key.type = key_type_lookup(type);
+	if (IS_ERR(index_key.type)) {
+		key_ref = ERR_PTR(-ENODEV);
+		goto error;
+	}
+
+	key_ref = ERR_PTR(-EINVAL);
+	if (!index_key.type->instantiate ||
+	    (!index_key.description && !index_key.type->preparse))
+		goto error_put_type;
+
+	keyring = key_ref_to_ptr(keyring_ref);
+
+	key_check(keyring);
+
+	if (!(flags & KEY_ALLOC_BYPASS_RESTRICTION))
+		restrict_link = keyring->restrict_link;
+
+	key_ref = ERR_PTR(-ENOTDIR);
+	if (keyring->type != &key_type_keyring)
+		goto error_put_type;
+
+	memset(&prep, 0, sizeof(prep));
+	prep.orig_description = description;
+	prep.data = payload;
+	prep.datalen = plen;
+	prep.quotalen = index_key.type->def_datalen;
+	prep.expiry = TIME64_MAX;
+	if (index_key.type->preparse) {
+		ret = index_key.type->preparse(&prep);
+		if (ret < 0) {
+			key_ref = ERR_PTR(ret);
+			goto error_free_prep;
+		}
+		if (!index_key.description)
+			index_key.description = prep.description;
+		key_ref = ERR_PTR(-EINVAL);
+		if (!index_key.description)
+			goto error_free_prep;
+	}
+	index_key.desc_len = strlen(index_key.description);
+	key_set_index_key(&index_key);
+
+	ret = __key_link_lock(keyring, &index_key);
+	if (ret < 0) {
+		key_ref = ERR_PTR(ret);
+		goto error_free_prep;
+	}
+
+	ret = __key_link_begin(keyring, &index_key, &edit);
+	if (ret < 0) {
+		key_ref = ERR_PTR(ret);
+		goto error_link_end;
+	}
+
+	if (restrict_link && restrict_link->check) {
+		ret = restrict_link->check(keyring, index_key.type,
+					   &prep.payload, restrict_link->key);
+		if (ret < 0) {
+			key_ref = ERR_PTR(ret);
+			goto error_link_end;
+		}
+	}
+
+	/* if we're going to allocate a new key, we're going to have
+	 * to modify the keyring */
+	ret = key_permission(keyring_ref, KEY_NEED_WRITE);
+	if (ret < 0) {
+		key_ref = ERR_PTR(ret);
+		goto error_link_end;
+	}
+
+	/* if it's requested and possible to update this type of key, search
+	 * for an existing key of the same type and description in the
+	 * destination keyring and update that instead if possible
+	 */
+	if (allow_update) {
+		if (index_key.type->update) {
+			key_ref = find_key_to_update(keyring_ref, &index_key);
+			if (key_ref)
+				goto found_matching_key;
+		}
+	} else {
+		key_ref = find_key_to_update(keyring_ref, &index_key);
+		if (key_ref) {
+			key_ref_put(key_ref);
+			key_ref = ERR_PTR(-EEXIST);
+			goto error_link_end;
+		}
+	}
+
+	/* if the client doesn't provide, decide on the permissions we want */
+	if (perm == KEY_PERM_UNDEF) {
+		perm = KEY_POS_VIEW | KEY_POS_SEARCH | KEY_POS_LINK | KEY_POS_SETATTR;
+		perm |= KEY_USR_VIEW;
+
+		if (index_key.type->read)
+			perm |= KEY_POS_READ;
+
+		if (index_key.type == &key_type_keyring ||
+		    index_key.type->update)
+			perm |= KEY_POS_WRITE;
+	}
+
+	/* allocate a new key */
+	key = key_alloc(index_key.type, index_key.description,
+			cred->fsuid, cred->fsgid, cred, perm, flags, NULL);
+	if (IS_ERR(key)) {
+		key_ref = ERR_CAST(key);
+		goto error_link_end;
+	}
+
+	/* instantiate it and link it into the target keyring */
+	ret = __key_instantiate_and_link(key, &prep, keyring, NULL, &edit);
+	if (ret < 0) {
+		key_put(key);
+		key_ref = ERR_PTR(ret);
+		goto error_link_end;
+	}
+
+	security_key_post_create_or_update(keyring, key, payload, plen, flags,
+					   true);
+
+	key_ref = make_key_ref(key, is_key_possessed(keyring_ref));
+
+error_link_end:
+	__key_link_end(keyring, &index_key, edit);
+error_free_prep:
+	if (index_key.type->preparse)
+		index_key.type->free_preparse(&prep);
+error_put_type:
+	key_type_put(index_key.type);
+error:
+	return key_ref;
+
+ found_matching_key:
+	/* we found a matching key, so we're going to try to update it
+	 * - we can drop the locks first as we have the key pinned
+	 */
+	__key_link_end(keyring, &index_key, edit);
+
+	key = key_ref_to_ptr(key_ref);
+	if (test_bit(KEY_FLAG_USER_CONSTRUCT, &key->flags)) {
+		ret = wait_for_key_construction(key, true);
+		if (ret < 0) {
+			key_ref_put(key_ref);
+			key_ref = ERR_PTR(ret);
+			goto error_free_prep;
+		}
+	}
+
+	key_ref = __key_update(key_ref, &prep);
+
+	if (!IS_ERR(key_ref))
+		security_key_post_create_or_update(keyring, key, payload, plen,
+						   flags, false);
+
+	goto error_free_prep;
+}
+key_ref_t find_key_to_update(key_ref_t keyring_ref,
+			     const struct keyring_index_key *index_key)
+{
+	struct key *keyring, *key;
+	const void *object;
+
+	keyring = key_ref_to_ptr(keyring_ref);
+
+	kenter("{%d},{%s,%s}",
+	       keyring->serial, index_key->type->name, index_key->description);
+
+	object = assoc_array_find(&keyring->keys, &keyring_assoc_array_ops,
+				  index_key);
+
+	if (object)
+		goto found;
+
+	kleave(" = NULL");
+	return NULL;
+
+found:
+	key = keyring_ptr_to_key(object);
+	if (key->flags & ((1 << KEY_FLAG_INVALIDATED) |
+			  (1 << KEY_FLAG_REVOKED))) {
+		kleave(" = NULL [x]");
+		return NULL;
+	}
+	__key_get(key);
+	kleave(" = {%d}", key->serial);
+	return make_key_ref(key, is_key_possessed(keyring_ref));
+}
+SYSCALL_DEFINE5(add_key, const char __user *, _type,
+		const char __user *, _description,
+		const void __user *, _payload,
+		size_t, plen,
+		key_serial_t, ringid)
+{
+	key_ref_t keyring_ref, key_ref;
+	char type[32], *description;
+	void *payload;
+	long ret;
+
+	ret = -EINVAL;
+	if (plen > 1024 * 1024 - 1)
+		goto error;
+
+	/* draw all the data into kernel space */
+	ret = key_get_type_from_user(type, _type, sizeof(type));
+	if (ret < 0)
+		goto error;
+
+	description = NULL;
+	if (_description) {
+		description = strndup_user(_description, KEY_MAX_DESC_SIZE);
+		if (IS_ERR(description)) {
+			ret = PTR_ERR(description);
+			goto error;
+		}
+		if (!*description) {
+			kfree(description);
+			description = NULL;
+		} else if ((description[0] == '.') &&
+			   (strncmp(type, "keyring", 7) == 0)) {
+			ret = -EPERM;
+			goto error2;
+		}
+	}
+
+	/* pull the payload in if one was supplied */
+	payload = NULL;
+
+	if (plen) {
+		ret = -ENOMEM;
+		payload = kvmalloc(plen, GFP_KERNEL);
+		if (!payload)
+			goto error2;
+
+		ret = -EFAULT;
+		if (copy_from_user(payload, _payload, plen) != 0)
+			goto error3;
+	}
+
+	/* find the target keyring (which must be writable) */
+	keyring_ref = lookup_user_key(ringid, KEY_LOOKUP_CREATE, KEY_NEED_WRITE);
+	if (IS_ERR(keyring_ref)) {
+		ret = PTR_ERR(keyring_ref);
+		goto error3;
+	}
+
+	/* create or update the requested key and add it to the target
+	 * keyring */
+	key_ref = key_create_or_update(keyring_ref, type, description,
+				       payload, plen, KEY_PERM_UNDEF,
+				       KEY_ALLOC_IN_QUOTA);
+	if (!IS_ERR(key_ref)) {
+		ret = key_ref_to_ptr(key_ref)->serial;
+		key_ref_put(key_ref);
+	}
+	else {
+		ret = PTR_ERR(key_ref);
+	}
+
+	key_ref_put(keyring_ref);
+ error3:
+	kvfree_sensitive(payload, plen);
+ error2:
+	kfree(description);
+ error:
+	return ret;
+}
+key_ref_t key_create_or_update(key_ref_t keyring_ref,
+			       const char *type,
+			       const char *description,
+			       const void *payload,
+			       size_t plen,
+			       key_perm_t perm,
+			       unsigned long flags)
+{
+	return __key_create_or_update(keyring_ref, type, description, payload,
+				      plen, perm, flags, true);
+}
+static key_ref_t __key_create_or_update(key_ref_t keyring_ref,
+					const char *type,
+					const char *description,
+					const void *payload,
+					size_t plen,
+					key_perm_t perm,
+					unsigned long flags,
+					bool allow_update)
+{
+	struct keyring_index_key index_key = {
+		.description	= description,
+	};
+	struct key_preparsed_payload prep;
+	struct assoc_array_edit *edit = NULL;
+	const struct cred *cred = current_cred();
+	struct key *keyring, *key = NULL;
+	key_ref_t key_ref;
+	int ret;
+	struct key_restriction *restrict_link = NULL;
+
+	/* look up the key type to see if it's one of the registered kernel
+	 * types */
+	index_key.type = key_type_lookup(type);
+	if (IS_ERR(index_key.type)) {
+		key_ref = ERR_PTR(-ENODEV);
+		goto error;
+	}
+
+	key_ref = ERR_PTR(-EINVAL);
+	if (!index_key.type->instantiate ||
+	    (!index_key.description && !index_key.type->preparse))
+		goto error_put_type;
+
+	keyring = key_ref_to_ptr(keyring_ref);
+
+	key_check(keyring);
+
+	if (!(flags & KEY_ALLOC_BYPASS_RESTRICTION))
+		restrict_link = keyring->restrict_link;
+
+	key_ref = ERR_PTR(-ENOTDIR);
+	if (keyring->type != &key_type_keyring)
+		goto error_put_type;
+
+	memset(&prep, 0, sizeof(prep));
+	prep.orig_description = description;
+	prep.data = payload;
+	prep.datalen = plen;
+	prep.quotalen = index_key.type->def_datalen;
+	prep.expiry = TIME64_MAX;
+	if (index_key.type->preparse) {
+		ret = index_key.type->preparse(&prep);
+		if (ret < 0) {
+			key_ref = ERR_PTR(ret);
+			goto error_free_prep;
+		}
+		if (!index_key.description)
+			index_key.description = prep.description;
+		key_ref = ERR_PTR(-EINVAL);
+		if (!index_key.description)
+			goto error_free_prep;
+	}
+	index_key.desc_len = strlen(index_key.description);
+	key_set_index_key(&index_key);
+
+	ret = __key_link_lock(keyring, &index_key);
+	if (ret < 0) {
+		key_ref = ERR_PTR(ret);
+		goto error_free_prep;
+	}
+
+	ret = __key_link_begin(keyring, &index_key, &edit);
+	if (ret < 0) {
+		key_ref = ERR_PTR(ret);
+		goto error_link_end;
+	}
+
+	if (restrict_link && restrict_link->check) {
+		ret = restrict_link->check(keyring, index_key.type,
+					   &prep.payload, restrict_link->key);
+		if (ret < 0) {
+			key_ref = ERR_PTR(ret);
+			goto error_link_end;
+		}
+	}
+
+	/* if we're going to allocate a new key, we're going to have
+	 * to modify the keyring */
+	ret = key_permission(keyring_ref, KEY_NEED_WRITE);
+	if (ret < 0) {
+		key_ref = ERR_PTR(ret);
+		goto error_link_end;
+	}
+
+	/* if it's requested and possible to update this type of key, search
+	 * for an existing key of the same type and description in the
+	 * destination keyring and update that instead if possible
+	 */
+	if (allow_update) {
+		if (index_key.type->update) {
+			key_ref = find_key_to_update(keyring_ref, &index_key);
+			if (key_ref)
+				goto found_matching_key;
+		}
+	} else {
+		key_ref = find_key_to_update(keyring_ref, &index_key);
+		if (key_ref) {
+			key_ref_put(key_ref);
+			key_ref = ERR_PTR(-EEXIST);
+			goto error_link_end;
+		}
+	}
+
+	/* if the client doesn't provide, decide on the permissions we want */
+	if (perm == KEY_PERM_UNDEF) {
+		perm = KEY_POS_VIEW | KEY_POS_SEARCH | KEY_POS_LINK | KEY_POS_SETATTR;
+		perm |= KEY_USR_VIEW;
+
+		if (index_key.type->read)
+			perm |= KEY_POS_READ;
+
+		if (index_key.type == &key_type_keyring ||
+		    index_key.type->update)
+			perm |= KEY_POS_WRITE;
+	}
+
+	/* allocate a new key */
+	key = key_alloc(index_key.type, index_key.description,
+			cred->fsuid, cred->fsgid, cred, perm, flags, NULL);
+	if (IS_ERR(key)) {
+		key_ref = ERR_CAST(key);
+		goto error_link_end;
+	}
+
+	/* instantiate it and link it into the target keyring */
+	ret = __key_instantiate_and_link(key, &prep, keyring, NULL, &edit);
+	if (ret < 0) {
+		key_put(key);
+		key_ref = ERR_PTR(ret);
+		goto error_link_end;
+	}
+
+	security_key_post_create_or_update(keyring, key, payload, plen, flags,
+					   true);
+
+	key_ref = make_key_ref(key, is_key_possessed(keyring_ref));
+
+error_link_end:
+	__key_link_end(keyring, &index_key, edit);
+error_free_prep:
+	if (index_key.type->preparse)
+		index_key.type->free_preparse(&prep);
+error_put_type:
+	key_type_put(index_key.type);
+error:
+	return key_ref;
+
+ found_matching_key:
+	/* we found a matching key, so we're going to try to update it
+	 * - we can drop the locks first as we have the key pinned
+	 */
+	__key_link_end(keyring, &index_key, edit);
+
+	key = key_ref_to_ptr(key_ref);
+	if (test_bit(KEY_FLAG_USER_CONSTRUCT, &key->flags)) {
+		ret = wait_for_key_construction(key, true);
+		if (ret < 0) {
+			key_ref_put(key_ref);
+			key_ref = ERR_PTR(ret);
+			goto error_free_prep;
+		}
+	}
+
+	key_ref = __key_update(key_ref, &prep);
+
+	if (!IS_ERR(key_ref))
+		security_key_post_create_or_update(keyring, key, payload, plen,
+						   flags, false);
+
+	goto error_free_prep;
+}
+key_ref_t find_key_to_update(key_ref_t keyring_ref,
+			     const struct keyring_index_key *index_key)
+{
+	struct key *keyring, *key;
+	const void *object;
+
+	keyring = key_ref_to_ptr(keyring_ref);
+
+	kenter("{%d},{%s,%s}",
+	       keyring->serial, index_key->type->name, index_key->description);
+
+	object = assoc_array_find(&keyring->keys, &keyring_assoc_array_ops,
+				  index_key);
+
+	if (object)
+		goto found;
+
+	kleave(" = NULL");
+	return NULL;
+
+found:
+	key = keyring_ptr_to_key(object);
+	if (key->flags & ((1 << KEY_FLAG_INVALIDATED) |
+			  (1 << KEY_FLAG_REVOKED))) {
+		kleave(" = NULL [x]");
+		return NULL;
+	}
+	__key_get(key);
+	kleave(" = {%d}", key->serial);
+	return make_key_ref(key, is_key_possessed(keyring_ref));
+}
+static int keyring_detect_cycle_iterator(const void *object,
+					 void *iterator_data)
+{
+	struct keyring_search_context *ctx = iterator_data;
+	const struct key *key = keyring_ptr_to_key(object);
+
+	kenter("{%d}", key->serial);
+
+	/* We might get a keyring with matching index-key that is nonetheless a
+	 * different keyring. */
+	if (key != ctx->match_data.raw_data)
+		return 0;
+
+	ctx->result = ERR_PTR(-EDEADLK);
+	return 1;
+}
+static int keyring_diff_objects(const void *object, const void *data)
+{
+	const struct key *key_a = keyring_ptr_to_key(object);
+	const struct keyring_index_key *a = &key_a->index_key;
+	const struct keyring_index_key *b = data;
+	unsigned long seg_a, seg_b;
+	int level, i;
+
+	level = 0;
+	seg_a = a->hash;
+	seg_b = b->hash;
+	if ((seg_a ^ seg_b) != 0)
+		goto differ;
+	level += ASSOC_ARRAY_KEY_CHUNK_SIZE / 8;
+
+	/* The number of bits contributed by the hash is controlled by a
+	 * constant in the assoc_array headers.  Everything else thereafter we
+	 * can deal with as being machine word-size dependent.
+	 */
+	seg_a = a->x;
+	seg_b = b->x;
+	if ((seg_a ^ seg_b) != 0)
+		goto differ;
+	level += sizeof(unsigned long);
+
+	/* The next bit may not work on big endian */
+	seg_a = (unsigned long)a->type;
+	seg_b = (unsigned long)b->type;
+	if ((seg_a ^ seg_b) != 0)
+		goto differ;
+	level += sizeof(unsigned long);
+
+	seg_a = (unsigned long)a->domain_tag;
+	seg_b = (unsigned long)b->domain_tag;
+	if ((seg_a ^ seg_b) != 0)
+		goto differ;
+	level += sizeof(unsigned long);
+
+	i = sizeof(a->desc);
+	if (a->desc_len <= i)
+		goto same;
+
+	for (; i < a->desc_len; i++) {
+		seg_a = *(unsigned char *)(a->description + i);
+		seg_b = *(unsigned char *)(b->description + i);
+		if ((seg_a ^ seg_b) != 0)
+			goto differ_plus_i;
+	}
+
+same:
+	return -1;
+
+differ_plus_i:
+	level += i;
+differ:
+	i = level * 8 + __ffs(seg_a ^ seg_b);
+	return i;
+}
+static void keyring_free_object(void *object)
+{
+	key_put(keyring_ptr_to_key(object));
+}
+static int keyring_gc_check_iterator(const void *object, void *iterator_data)
+{
+	const struct key *key = keyring_ptr_to_key(object);
+	time64_t *limit = iterator_data;
+
+	key_check(key);
+	return key_is_dead(key, *limit);
+}
+static bool keyring_gc_select_iterator(void *object, void *iterator_data)
+{
+	struct key *key = keyring_ptr_to_key(object);
+	time64_t *limit = iterator_data;
+
+	if (key_is_dead(key, *limit))
+		return false;
+	key_get(key);
+	return true;
+}
+static unsigned long keyring_get_object_key_chunk(const void *object, int level)
+{
+	const struct key *key = keyring_ptr_to_key(object);
+	return keyring_get_key_chunk(&key->index_key, level);
+}
+static int keyring_read_iterator(const void *object, void *data)
+{
+	struct keyring_read_iterator_context *ctx = data;
+	const struct key *key = keyring_ptr_to_key(object);
+
+	kenter("{%s,%d},,{%zu/%zu}",
+	       key->type->name, key->serial, ctx->count, ctx->buflen);
+
+	if (ctx->count >= ctx->buflen)
+		return 1;
+
+	*ctx->buffer++ = key->serial;
+	ctx->count += sizeof(key->serial);
+	return 0;
+}
+static int keyring_search_iterator(const void *object, void *iterator_data)
+{
+	struct keyring_search_context *ctx = iterator_data;
+	const struct key *key = keyring_ptr_to_key(object);
+	unsigned long kflags = READ_ONCE(key->flags);
+	short state = READ_ONCE(key->state);
+
+	kenter("{%d}", key->serial);
+
+	/* ignore keys not of this type */
+	if (key->type != ctx->index_key.type) {
+		kleave(" = 0 [!type]");
+		return 0;
+	}
+
+	/* skip invalidated, revoked and expired keys */
+	if (ctx->flags & KEYRING_SEARCH_DO_STATE_CHECK) {
+		time64_t expiry = READ_ONCE(key->expiry);
+
+		if (kflags & ((1 << KEY_FLAG_INVALIDATED) |
+			      (1 << KEY_FLAG_REVOKED))) {
+			ctx->result = ERR_PTR(-EKEYREVOKED);
+			kleave(" = %d [invrev]", ctx->skipped_ret);
+			goto skipped;
+		}
+
+		if (expiry && ctx->now >= expiry) {
+			if (!(ctx->flags & KEYRING_SEARCH_SKIP_EXPIRED))
+				ctx->result = ERR_PTR(-EKEYEXPIRED);
+			kleave(" = %d [expire]", ctx->skipped_ret);
+			goto skipped;
+		}
+	}
+
+	/* keys that don't match */
+	if (!ctx->match_data.cmp(key, &ctx->match_data)) {
+		kleave(" = 0 [!match]");
+		return 0;
+	}
+
+	/* key must have search permissions */
+	if (!(ctx->flags & KEYRING_SEARCH_NO_CHECK_PERM) &&
+	    key_task_permission(make_key_ref(key, ctx->possessed),
+				ctx->cred, KEY_NEED_SEARCH) < 0) {
+		ctx->result = ERR_PTR(-EACCES);
+		kleave(" = %d [!perm]", ctx->skipped_ret);
+		goto skipped;
+	}
+
+	if (ctx->flags & KEYRING_SEARCH_DO_STATE_CHECK) {
+		/* we set a different error code if we pass a negative key */
+		if (state < 0) {
+			ctx->result = ERR_PTR(state);
+			kleave(" = %d [neg]", ctx->skipped_ret);
+			goto skipped;
+		}
+	}
+
+	/* Found */
+	ctx->result = make_key_ref(key, ctx->possessed);
+	kleave(" = 1 [found]");
+	return 1;
+
+skipped:
+	return ctx->skipped_ret;
+}
+static int proc_keys_show(struct seq_file *m, void *v)
+{
+	struct rb_node *_p = v;
+	struct key *key = rb_entry(_p, struct key, serial_node);
+	unsigned long flags;
+	key_ref_t key_ref, skey_ref;
+	time64_t now, expiry;
+	char xbuf[16];
+	short state;
+	u64 timo;
+	int rc;
+
+	struct keyring_search_context ctx = {
+		.index_key		= key->index_key,
+		.cred			= m->file->f_cred,
+		.match_data.cmp		= lookup_user_key_possessed,
+		.match_data.raw_data	= key,
+		.match_data.lookup_type	= KEYRING_SEARCH_LOOKUP_DIRECT,
+		.flags			= (KEYRING_SEARCH_NO_STATE_CHECK |
+					   KEYRING_SEARCH_RECURSE),
+	};
+
+	key_ref = make_key_ref(key, 0);
+
+	/* determine if the key is possessed by this process (a test we can
+	 * skip if the key does not indicate the possessor can view it
+	 */
+	if (key->perm & KEY_POS_VIEW) {
+		rcu_read_lock();
+		skey_ref = search_cred_keyrings_rcu(&ctx);
+		rcu_read_unlock();
+		if (!IS_ERR(skey_ref)) {
+			key_ref_put(skey_ref);
+			key_ref = make_key_ref(key, 1);
+		}
+	}
+
+	/* check whether the current task is allowed to view the key */
+	rc = key_task_permission(key_ref, ctx.cred, KEY_NEED_VIEW);
+	if (rc < 0)
+		return 0;
+
+	now = ktime_get_real_seconds();
+
+	rcu_read_lock();
+
+	/* come up with a suitable timeout value */
+	expiry = READ_ONCE(key->expiry);
+	if (expiry == TIME64_MAX) {
+		memcpy(xbuf, "perm", 5);
+	} else if (now >= expiry) {
+		memcpy(xbuf, "expd", 5);
+	} else {
+		timo = expiry - now;
+
+		if (timo < 60)
+			sprintf(xbuf, "%llus", timo);
+		else if (timo < 60*60)
+			sprintf(xbuf, "%llum", div_u64(timo, 60));
+		else if (timo < 60*60*24)
+			sprintf(xbuf, "%lluh", div_u64(timo, 60 * 60));
+		else if (timo < 60*60*24*7)
+			sprintf(xbuf, "%llud", div_u64(timo, 60 * 60 * 24));
+		else
+			sprintf(xbuf, "%lluw", div_u64(timo, 60 * 60 * 24 * 7));
+	}
+
+	state = key_read_state(key);
+
+#define showflag(FLAGS, LETTER, FLAG) \
+	((FLAGS & (1 << FLAG)) ? LETTER : '-')
+
+	flags = READ_ONCE(key->flags);
+	seq_printf(m, "%08x %c%c%c%c%c%c%c %5d %4s %08x %5d %5d %-9.9s ",
+		   key->serial,
+		   state != KEY_IS_UNINSTANTIATED ? 'I' : '-',
+		   showflag(flags, 'R', KEY_FLAG_REVOKED),
+		   showflag(flags, 'D', KEY_FLAG_DEAD),
+		   showflag(flags, 'Q', KEY_FLAG_IN_QUOTA),
+		   showflag(flags, 'U', KEY_FLAG_USER_CONSTRUCT),
+		   state < 0 ? 'N' : '-',
+		   showflag(flags, 'i', KEY_FLAG_INVALIDATED),
+		   refcount_read(&key->usage),
+		   xbuf,
+		   key->perm,
+		   from_kuid_munged(seq_user_ns(m), key->uid),
+		   from_kgid_munged(seq_user_ns(m), key->gid),
+		   key->type->name);
+
+#undef showflag
+
+	if (key->type->describe)
+		key->type->describe(key, m);
+	seq_putc(m, '\n');
+
+	rcu_read_unlock();
+	return 0;
+}
+key_ref_t search_cred_keyrings_rcu(struct keyring_search_context *ctx)
+{
+	struct key *user_session;
+	key_ref_t key_ref, ret, err;
+	const struct cred *cred = ctx->cred;
+
+	/* we want to return -EAGAIN or -ENOKEY if any of the keyrings were
+	 * searchable, but we failed to find a key or we found a negative key;
+	 * otherwise we want to return a sample error (probably -EACCES) if
+	 * none of the keyrings were searchable
+	 *
+	 * in terms of priority: success > -ENOKEY > -EAGAIN > other error
+	 */
+	key_ref = NULL;
+	ret = NULL;
+	err = ERR_PTR(-EAGAIN);
+
+	/* search the thread keyring first */
+	if (cred->thread_keyring) {
+		key_ref = keyring_search_rcu(
+			make_key_ref(cred->thread_keyring, 1), ctx);
+		if (!IS_ERR(key_ref))
+			goto found;
+
+		switch (PTR_ERR(key_ref)) {
+		case -EAGAIN: /* no key */
+		case -ENOKEY: /* negative key */
+			ret = key_ref;
+			break;
+		default:
+			err = key_ref;
+			break;
+		}
+	}
+
+	/* search the process keyring second */
+	if (cred->process_keyring) {
+		key_ref = keyring_search_rcu(
+			make_key_ref(cred->process_keyring, 1), ctx);
+		if (!IS_ERR(key_ref))
+			goto found;
+
+		switch (PTR_ERR(key_ref)) {
+		case -EAGAIN: /* no key */
+			if (ret)
+				break;
+			fallthrough;
+		case -ENOKEY: /* negative key */
+			ret = key_ref;
+			break;
+		default:
+			err = key_ref;
+			break;
+		}
+	}
+
+	/* search the session keyring */
+	if (cred->session_keyring) {
+		key_ref = keyring_search_rcu(
+			make_key_ref(cred->session_keyring, 1), ctx);
+
+		if (!IS_ERR(key_ref))
+			goto found;
+
+		switch (PTR_ERR(key_ref)) {
+		case -EAGAIN: /* no key */
+			if (ret)
+				break;
+			fallthrough;
+		case -ENOKEY: /* negative key */
+			ret = key_ref;
+			break;
+		default:
+			err = key_ref;
+			break;
+		}
+	}
+	/* or search the user-session keyring */
+	else if ((user_session = get_user_session_keyring_rcu(cred))) {
+		key_ref = keyring_search_rcu(make_key_ref(user_session, 1),
+					     ctx);
+		key_put(user_session);
+
+		if (!IS_ERR(key_ref))
+			goto found;
+
+		switch (PTR_ERR(key_ref)) {
+		case -EAGAIN: /* no key */
+			if (ret)
+				break;
+			fallthrough;
+		case -ENOKEY: /* negative key */
+			ret = key_ref;
+			break;
+		default:
+			err = key_ref;
+			break;
+		}
+	}
+
+	/* no key - decide on the error we're going to go for */
+	key_ref = ret ? ret : err;
+
+found:
+	return key_ref;
+}
+key_ref_t keyring_search_rcu(key_ref_t keyring_ref,
+			     struct keyring_search_context *ctx)
+{
+	struct key *keyring;
+	long err;
+
+	ctx->iterator = keyring_search_iterator;
+	ctx->possessed = is_key_possessed(keyring_ref);
+	ctx->result = ERR_PTR(-EAGAIN);
+
+	keyring = key_ref_to_ptr(keyring_ref);
+	key_check(keyring);
+
+	if (keyring->type != &key_type_keyring)
+		return ERR_PTR(-ENOTDIR);
+
+	if (!(ctx->flags & KEYRING_SEARCH_NO_CHECK_PERM)) {
+		err = key_task_permission(keyring_ref, ctx->cred, KEY_NEED_SEARCH);
+		if (err < 0)
+			return ERR_PTR(err);
+	}
+
+	ctx->now = ktime_get_real_seconds();
+	if (search_nested_keyrings(keyring, ctx))
+		__key_get(key_ref_to_ptr(ctx->result));
+	return ctx->result;
+}
+static bool search_nested_keyrings(struct key *keyring,
+				   struct keyring_search_context *ctx)
+{
+	struct {
+		struct key *keyring;
+		struct assoc_array_node *node;
+		int slot;
+	} stack[KEYRING_SEARCH_MAX_DEPTH];
+
+	struct assoc_array_shortcut *shortcut;
+	struct assoc_array_node *node;
+	struct assoc_array_ptr *ptr;
+	struct key *key;
+	int sp = 0, slot;
+
+	kenter("{%d},{%s,%s}",
+	       keyring->serial,
+	       ctx->index_key.type->name,
+	       ctx->index_key.description);
+
+#define STATE_CHECKS (KEYRING_SEARCH_NO_STATE_CHECK | KEYRING_SEARCH_DO_STATE_CHECK)
+	BUG_ON((ctx->flags & STATE_CHECKS) == 0 ||
+	       (ctx->flags & STATE_CHECKS) == STATE_CHECKS);
+
+	if (ctx->index_key.description)
+		key_set_index_key(&ctx->index_key);
+
+	/* Check to see if this top-level keyring is what we are looking for
+	 * and whether it is valid or not.
+	 */
+	if (ctx->match_data.lookup_type == KEYRING_SEARCH_LOOKUP_ITERATE ||
+	    keyring_compare_object(keyring, &ctx->index_key)) {
+		ctx->skipped_ret = 2;
+		switch (ctx->iterator(keyring_key_to_ptr(keyring), ctx)) {
+		case 1:
+			goto found;
+		case 2:
+			return false;
+		default:
+			break;
+		}
+	}
+
+	ctx->skipped_ret = 0;
+
+	/* Start processing a new keyring */
+descend_to_keyring:
+	kdebug("descend to %d", keyring->serial);
+	if (keyring->flags & ((1 << KEY_FLAG_INVALIDATED) |
+			      (1 << KEY_FLAG_REVOKED)))
+		goto not_this_keyring;
+
+	/* Search through the keys in this keyring before its searching its
+	 * subtrees.
+	 */
+	if (search_keyring(keyring, ctx))
+		goto found;
+
+	/* Then manually iterate through the keyrings nested in this one.
+	 *
+	 * Start from the root node of the index tree.  Because of the way the
+	 * hash function has been set up, keyrings cluster on the leftmost
+	 * branch of the root node (root slot 0) or in the root node itself.
+	 * Non-keyrings avoid the leftmost branch of the root entirely (root
+	 * slots 1-15).
+	 */
+	if (!(ctx->flags & KEYRING_SEARCH_RECURSE))
+		goto not_this_keyring;
+
+	ptr = READ_ONCE(keyring->keys.root);
+	if (!ptr)
+		goto not_this_keyring;
+
+	if (assoc_array_ptr_is_shortcut(ptr)) {
+		/* If the root is a shortcut, either the keyring only contains
+		 * keyring pointers (everything clusters behind root slot 0) or
+		 * doesn't contain any keyring pointers.
+		 */
+		shortcut = assoc_array_ptr_to_shortcut(ptr);
+		if ((shortcut->index_key[0] & ASSOC_ARRAY_FAN_MASK) != 0)
+			goto not_this_keyring;
+
+		ptr = READ_ONCE(shortcut->next_node);
+		node = assoc_array_ptr_to_node(ptr);
+		goto begin_node;
+	}
+
+	node = assoc_array_ptr_to_node(ptr);
+	ptr = node->slots[0];
+	if (!assoc_array_ptr_is_meta(ptr))
+		goto begin_node;
+
+descend_to_node:
+	/* Descend to a more distal node in this keyring's content tree and go
+	 * through that.
+	 */
+	kdebug("descend");
+	if (assoc_array_ptr_is_shortcut(ptr)) {
+		shortcut = assoc_array_ptr_to_shortcut(ptr);
+		ptr = READ_ONCE(shortcut->next_node);
+		BUG_ON(!assoc_array_ptr_is_node(ptr));
+	}
+	node = assoc_array_ptr_to_node(ptr);
+
+begin_node:
+	kdebug("begin_node");
+	slot = 0;
+ascend_to_node:
+	/* Go through the slots in a node */
+	for (; slot < ASSOC_ARRAY_FAN_OUT; slot++) {
+		ptr = READ_ONCE(node->slots[slot]);
+
+		if (assoc_array_ptr_is_meta(ptr) && node->back_pointer)
+			goto descend_to_node;
+
+		if (!keyring_ptr_is_keyring(ptr))
+			continue;
+
+		key = keyring_ptr_to_key(ptr);
+
+		if (sp >= KEYRING_SEARCH_MAX_DEPTH) {
+			if (ctx->flags & KEYRING_SEARCH_DETECT_TOO_DEEP) {
+				ctx->result = ERR_PTR(-ELOOP);
+				return false;
+			}
+			goto not_this_keyring;
+		}
+
+		/* Search a nested keyring */
+		if (!(ctx->flags & KEYRING_SEARCH_NO_CHECK_PERM) &&
+		    key_task_permission(make_key_ref(key, ctx->possessed),
+					ctx->cred, KEY_NEED_SEARCH) < 0)
+			continue;
+
+		/* stack the current position */
+		stack[sp].keyring = keyring;
+		stack[sp].node = node;
+		stack[sp].slot = slot;
+		sp++;
+
+		/* begin again with the new keyring */
+		keyring = key;
+		goto descend_to_keyring;
+	}
+
+	/* We've dealt with all the slots in the current node, so now we need
+	 * to ascend to the parent and continue processing there.
+	 */
+	ptr = READ_ONCE(node->back_pointer);
+	slot = node->parent_slot;
+
+	if (ptr && assoc_array_ptr_is_shortcut(ptr)) {
+		shortcut = assoc_array_ptr_to_shortcut(ptr);
+		ptr = READ_ONCE(shortcut->back_pointer);
+		slot = shortcut->parent_slot;
+	}
+	if (!ptr)
+		goto not_this_keyring;
+	node = assoc_array_ptr_to_node(ptr);
+	slot++;
+
+	/* If we've ascended to the root (zero backpointer), we must have just
+	 * finished processing the leftmost branch rather than the root slots -
+	 * so there can't be any more keyrings for us to find.
+	 */
+	if (node->back_pointer) {
+		kdebug("ascend %d", slot);
+		goto ascend_to_node;
+	}
+
+	/* The keyring we're looking at was disqualified or didn't contain a
+	 * matching key.
+	 */
+not_this_keyring:
+	kdebug("not_this_keyring %d", sp);
+	if (sp <= 0) {
+		kleave(" = false");
+		return false;
+	}
+
+	/* Resume the processing of a keyring higher up in the tree */
+	sp--;
+	keyring = stack[sp].keyring;
+	node = stack[sp].node;
+	slot = stack[sp].slot + 1;
+	kdebug("ascend to %d [%d]", keyring->serial, slot);
+	goto ascend_to_node;
+
+	/* We found a viable match */
+found:
+	key = key_ref_to_ptr(ctx->result);
+	key_check(key);
+	if (!(ctx->flags & KEYRING_SEARCH_NO_UPDATE_TIME)) {
+		key->last_used_at = ctx->now;
+		keyring->last_used_at = ctx->now;
+		while (sp > 0)
+			stack[--sp].keyring->last_used_at = ctx->now;
+	}
+	kleave(" = true");
+	return true;
+}

@@ -1,0 +1,40 @@
+static ssize_t kpageflags_read(struct file *file, char __user *buf,
+			     size_t count, loff_t *ppos)
+{
+	const unsigned long max_dump_pfn = get_max_dump_pfn();
+	u64 __user *out = (u64 __user *)buf;
+	unsigned long src = *ppos;
+	unsigned long pfn;
+	ssize_t ret = 0;
+
+	pfn = src / KPMSIZE;
+	if (src & KPMMASK || count & KPMMASK)
+		return -EINVAL;
+	if (src >= max_dump_pfn * KPMSIZE)
+		return 0;
+	count = min_t(unsigned long, count, (max_dump_pfn * KPMSIZE) - src);
+
+	while (count > 0) {
+		/*
+		 * TODO: ZONE_DEVICE support requires to identify
+		 * memmaps that were actually initialized.
+		 */
+		struct page *page = pfn_to_online_page(pfn);
+
+		if (put_user(stable_page_flags(page), out)) {
+			ret = -EFAULT;
+			break;
+		}
+
+		pfn++;
+		out++;
+		count -= KPMSIZE;
+
+		cond_resched();
+	}
+
+	*ppos += (char __user *)out - buf;
+	if (!ret)
+		ret = (char __user *)out - buf;
+	return ret;
+}

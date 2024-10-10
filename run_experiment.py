@@ -52,6 +52,7 @@ if __name__ == "__main__":
         func2addr_info_file = "./linuxRepo/line2addr/func2addr_info.txt"
         result_addr_info_file = "./linuxRepo/line2addr/result_addr_info.txt"
         # cov_raw_folder = "./syzkaller/cov_fodler_vm*"
+
         copy_dest_folder = "./experiment_result/temp/" + sys.argv[2]
         print("mkdir in " + os.getcwd())
         print("mkdir " + copy_dest_folder)
@@ -90,6 +91,11 @@ if __name__ == "__main__":
                 # os.system("python3 chat_interface.py init " + function_name)
                 init_result = subprocess.run(init_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 init_output = init_result.stdout
+                init_error = init_result.stderr
+                print("init output: " + init_output)
+                print("init error: " + init_error)
+
+                
                 if "HALT!!" in init_output:
                 # if True:
                     print("LLM content too long, HALT")
@@ -101,7 +107,8 @@ if __name__ == "__main__":
         for line in target_functions_file.readlines():
             function_name = line.strip().replace("\n", "")
             print("python3 chat_interface.py close " + function_name + " " + str(close_function_range))
-            os.system("python3 chat_interface.py close " + function_name + " " + str(close_function_range))
+            # os.system("python3 chat_interface.py close " + function_name + " " + str(close_function_range))
+            subprocess.run(["python3", "chat_interface.py", "close", function_name, str(close_function_range)])
         target_functions_file.close()
         os.chdir("../linuxRepo/line2addr")
         print(os.getcwd())
@@ -112,8 +119,7 @@ if __name__ == "__main__":
         
         os.chdir(project_root + "syzkaller")
         os.system("python3 clean.py")
-        syzkaller_time_out = 30
-        #2 * 3600
+        syzkaller_time_out = 2 * 3600
 
         command = ["sudo", "-s", "./bin/syz-manager", "-config", "./my.cfg"]
         with open("experiment_output_llmenabled.txt", "a") as output_file:

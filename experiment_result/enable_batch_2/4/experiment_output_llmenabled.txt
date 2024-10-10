@@ -1,0 +1,2494 @@
+2024/09/25 20:29:32 serving http on http://127.0.0.1:56741
+2024/09/25 20:29:32 serving rpc on tcp://[::]:46009
+2024/09/25 20:29:32 booting test machines...
+2024/09/25 20:29:32 wait for the connection from test machine...
+2024/09/25 20:29:42 XXX Fuzzer command: 
+/syz-fuzzer -executor=/syz-executor -name=vm-1 -arch=amd64 -manager=localhost:46009 -sandbox=none -cover=true -debug=false  -optional=slowdown=1:sandbox_arg=0:pprof_port=6060
+2024/09/25 20:29:51 machine check:
+failed to read the following files in the VM:
+/dev/raw-gadget                             : open /dev/raw-gadget: no such file or directory
+
+BinFmtMisc              : enabled
+Comparisons             : call 0 failed with errno 38
+Coverage                : enabled
+DelayKcovMmap           : enabled
+DevlinkPCI              : PCI device 0000:00:10.0 is not available.  (errno 2: No such file or directory).
+ExtraCoverage           : enabled
+Fault                   : CONFIG_FAULT_INJECTION is not enabled.  (errno 2: No such file or directory).
+KCSAN                   : write(/sys/kernel/debug/kcsan, on) failed.  (errno 2: No such file or directory).
+LRWPANEmulation         : netlink: failed to get family id for nl802154: No such file or directory.  netlink_query_family_id failed.  (errno 2: No such file or directory).
+Leak                    : failed to write(kmemleak, "scan=off").  (errno 2: No such file or directory).
+NetDevices              : enabled
+NetInjection            : tun: can't open /dev/net/tun.  (errno 2: No such file or directory).
+NicVF                   : PCI device 0000:00:11.0 is not available.  (errno 2: No such file or directory).
+SandboxAndroid          : enabled
+SandboxNamespace        : enabled
+SandboxSetuid           : enabled
+Swap                    : enabled
+USBEmulation            : failed to chmod /dev/raw-gadget.  (errno 2: No such file or directory).
+VhciInjection           : socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI) failed.  (errno 97: Address family not supported by protocol).
+WifiEmulation           : netlink_query_family_id failed.  (errno 2: No such file or directory).
+syscalls                : 2192/4499
+
+2024/09/25 20:29:59 corpus                  : 29 (0 broken, 29 seeds)
+2024/09/25 20:30:02 candidates=9 corpus=14 coverage=10679 exec total=712 (23/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:30:06 update choice table with LLM
+2024/09/25 20:30:06 UpdateChoiceTable using LLM comm content
+2024/09/25 20:30:06 Build Choice Table with LLM
+2024/09/25 20:30:12 candidates=0 corpus=42 coverage=14628 exec total=1664 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:30:18 update choice table with LLM
+2024/09/25 20:30:18 UpdateChoiceTable using LLM comm content
+2024/09/25 20:30:18 Build Choice Table with LLM
+2024/09/25 20:30:22 candidates=0 corpus=91 coverage=14832 exec total=3118 (62/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:30:32 candidates=0 corpus=96 coverage=14840 exec total=3196 (53/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:30:42 candidates=0 corpus=100 coverage=14851 exec total=3297 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:30:52 candidates=0 corpus=102 coverage=14851 exec total=3359 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:31:02 candidates=0 corpus=105 coverage=14871 exec total=3429 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:31:12 candidates=0 corpus=105 coverage=14871 exec total=3458 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:31:22 candidates=0 corpus=105 coverage=14871 exec total=3486 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:31:32 candidates=0 corpus=106 coverage=14877 exec total=3507 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:31:42 candidates=0 corpus=106 coverage=14877 exec total=3522 (27/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:31:52 candidates=0 corpus=107 coverage=14883 exec total=3553 (25/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:32:02 candidates=0 corpus=109 coverage=14889 exec total=3607 (24/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:32:12 candidates=0 corpus=109 coverage=14889 exec total=3650 (22/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:32:22 candidates=0 corpus=117 coverage=14923 exec total=3824 (22/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:32:32 candidates=0 corpus=118 coverage=14961 exec total=3872 (21/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:32:42 candidates=0 corpus=118 coverage=14961 exec total=3916 (20/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:32:52 candidates=0 corpus=132 coverage=15025 exec total=4176 (20/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:33:02 candidates=0 corpus=131 coverage=15025 exec total=4219 (20/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:33:12 candidates=0 corpus=132 coverage=15026 exec total=4267 (19/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:33:22 candidates=0 corpus=153 coverage=15207 exec total=4987 (21/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:33:32 candidates=0 corpus=174 coverage=15387 exec total=5472 (22/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:33:34 XXXXX REACH
+2024/09/25 20:33:34 XXXXX REACH
+2024/09/25 20:33:34 XXXXX REACH
+2024/09/25 20:33:34 XXXXX REACH
+2024/09/25 20:33:34 XXXXX REACH
+2024/09/25 20:33:34 XXXXX REACH
+2024/09/25 20:33:34 XXXXX REACH
+2024/09/25 20:33:34 XXXXX REACH
+2024/09/25 20:33:34 XXXXX REACH
+2024/09/25 20:33:35 XXXXX REACH
+2024/09/25 20:33:35 XXXXX REACH
+2024/09/25 20:33:35 XXXXX REACH
+2024/09/25 20:33:35 XXXXX REACH
+2024/09/25 20:33:35 XXXXX REACH
+2024/09/25 20:33:35 XXXXX REACH
+2024/09/25 20:33:35 XXXXX REACH
+2024/09/25 20:33:35 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:36 XXXXX REACH
+2024/09/25 20:33:37 XXXXX REACH
+2024/09/25 20:33:37 XXXXX REACH
+2024/09/25 20:33:37 XXXXX REACH
+2024/09/25 20:33:37 XXXXX REACH
+2024/09/25 20:33:37 XXXXX REACH
+2024/09/25 20:33:38 XXXXX REACH
+2024/09/25 20:33:38 XXXXX REACH
+2024/09/25 20:33:38 XXXXX REACH
+2024/09/25 20:33:38 XXXXX REACH
+2024/09/25 20:33:38 XXXXX REACH
+2024/09/25 20:33:39 Hit times: 38
+2024/09/25 20:33:39 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 20:33:41 close ask
+close ask Error: 
+close ask Output: [setfsgid, setfsgid16, setresgid, setgid, setresuid, setuid, setfsuid]
+
+2024/09/25 20:33:42 candidates=0 corpus=174 coverage=15387 exec total=5484 (21/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:33:52 candidates=0 corpus=174 coverage=15387 exec total=5531 (21/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:34:02 candidates=0 corpus=171 coverage=15411 exec total=5555 (20/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:34:12 candidates=0 corpus=174 coverage=15426 exec total=5575 (19/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:34:22 candidates=0 corpus=174 coverage=15426 exec total=5592 (19/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:34:32 candidates=0 corpus=174 coverage=15426 exec total=5610 (18/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:34:42 candidates=0 corpus=175 coverage=15427 exec total=5625 (18/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:34:52 candidates=0 corpus=175 coverage=15427 exec total=5641 (17/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:35:02 candidates=0 corpus=175 coverage=15427 exec total=5657 (17/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:35:12 candidates=0 corpus=175 coverage=15427 exec total=5673 (16/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:35:22 candidates=0 corpus=175 coverage=15427 exec total=5700 (16/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:35:32 candidates=0 corpus=176 coverage=15427 exec total=5748 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:35:42 candidates=0 corpus=178 coverage=15437 exec total=5781 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:35:52 candidates=0 corpus=178 coverage=15437 exec total=5797 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:36:02 candidates=0 corpus=177 coverage=15437 exec total=5812 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:36:12 candidates=0 corpus=177 coverage=15437 exec total=5831 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:36:22 candidates=0 corpus=179 coverage=15438 exec total=5875 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:36:32 candidates=0 corpus=181 coverage=15450 exec total=5930 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:36:42 candidates=0 corpus=183 coverage=15456 exec total=5967 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:36:52 candidates=0 corpus=183 coverage=15456 exec total=5989 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:37:02 candidates=0 corpus=182 coverage=15456 exec total=6007 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:37:12 candidates=0 corpus=183 coverage=15475 exec total=6036 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:37:22 candidates=0 corpus=184 coverage=15488 exec total=6061 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:37:32 candidates=0 corpus=184 coverage=15488 exec total=6105 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:37:42 candidates=0 corpus=186 coverage=15502 exec total=6152 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:37:52 candidates=0 corpus=188 coverage=15517 exec total=6199 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:38:02 candidates=0 corpus=188 coverage=15517 exec total=6241 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:38:12 candidates=0 corpus=188 coverage=15517 exec total=6289 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:38:22 candidates=0 corpus=190 coverage=15534 exec total=6337 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:38:32 candidates=0 corpus=190 coverage=15534 exec total=6380 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:38:42 candidates=0 corpus=194 coverage=15535 exec total=6470 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:38:52 candidates=0 corpus=196 coverage=15565 exec total=6518 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:39:02 candidates=0 corpus=195 coverage=15565 exec total=6566 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:39:12 candidates=0 corpus=195 coverage=15565 exec total=6610 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:39:22 candidates=0 corpus=196 coverage=15566 exec total=6657 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:39:32 candidates=0 corpus=198 coverage=15570 exec total=6692 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:39:42 candidates=0 corpus=200 coverage=15615 exec total=6732 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:39:52 candidates=0 corpus=200 coverage=15615 exec total=6759 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:40:02 candidates=0 corpus=201 coverage=15630 exec total=6778 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:40:12 candidates=0 corpus=202 coverage=15632 exec total=6802 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:40:22 candidates=0 corpus=202 coverage=15632 exec total=6826 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:40:32 candidates=0 corpus=203 coverage=15633 exec total=6848 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:40:42 candidates=0 corpus=205 coverage=15640 exec total=6881 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:40:52 candidates=0 corpus=206 coverage=15641 exec total=6919 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:41:02 candidates=0 corpus=206 coverage=15641 exec total=6940 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:41:12 candidates=0 corpus=208 coverage=15642 exec total=6957 (596/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:41:22 candidates=0 corpus=208 coverage=15642 exec total=6973 (589/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:41:32 candidates=0 corpus=208 coverage=15642 exec total=6989 (582/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:41:42 candidates=0 corpus=209 coverage=15644 exec total=7007 (575/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:41:52 candidates=0 corpus=209 coverage=15644 exec total=7024 (569/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:42:02 candidates=0 corpus=208 coverage=15644 exec total=7049 (563/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:42:12 candidates=0 corpus=208 coverage=15644 exec total=7077 (558/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:42:22 candidates=0 corpus=210 coverage=15654 exec total=7101 (553/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:42:32 candidates=0 corpus=212 coverage=15656 exec total=7122 (547/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:42:42 candidates=0 corpus=213 coverage=15657 exec total=7141 (542/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:42:52 candidates=0 corpus=216 coverage=15657 exec total=7187 (539/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:43:02 candidates=0 corpus=216 coverage=15657 exec total=7204 (533/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:43:12 candidates=0 corpus=216 coverage=15657 exec total=7216 (528/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:43:22 candidates=0 corpus=216 coverage=15657 exec total=7227 (522/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:43:32 candidates=0 corpus=216 coverage=15657 exec total=7242 (517/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:43:42 candidates=0 corpus=216 coverage=15657 exec total=7254 (512/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:43:52 candidates=0 corpus=216 coverage=15657 exec total=7273 (507/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:44:02 candidates=0 corpus=217 coverage=15660 exec total=7317 (504/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:44:12 candidates=0 corpus=217 coverage=15660 exec total=7361 (501/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:44:22 candidates=0 corpus=218 coverage=15663 exec total=7409 (499/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:44:32 candidates=0 corpus=219 coverage=15678 exec total=7445 (496/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:44:42 candidates=0 corpus=221 coverage=15678 exec total=7476 (492/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:44:52 candidates=0 corpus=222 coverage=15678 exec total=7493 (488/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:45:02 candidates=0 corpus=222 coverage=15678 exec total=7509 (484/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:45:12 candidates=0 corpus=222 coverage=15678 exec total=7524 (480/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:45:22 candidates=0 corpus=222 coverage=15678 exec total=7540 (476/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:45:32 candidates=0 corpus=222 coverage=15678 exec total=7557 (472/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:45:42 candidates=0 corpus=222 coverage=15678 exec total=7589 (469/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:45:52 candidates=0 corpus=224 coverage=15738 exec total=7624 (466/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:46:02 candidates=0 corpus=221 coverage=15738 exec total=7640 (463/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:46:12 candidates=0 corpus=222 coverage=15738 exec total=7655 (459/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:46:22 candidates=0 corpus=222 coverage=15738 exec total=7681 (456/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:46:32 candidates=0 corpus=222 coverage=15738 exec total=7709 (453/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:46:42 candidates=0 corpus=222 coverage=15738 exec total=7749 (451/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:46:52 candidates=0 corpus=225 coverage=15807 exec total=7797 (449/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:47:02 candidates=0 corpus=225 coverage=15807 exec total=7829 (447/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:47:12 candidates=0 corpus=227 coverage=15828 exec total=7877 (445/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:47:22 candidates=0 corpus=231 coverage=15880 exec total=7932 (444/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:47:32 candidates=0 corpus=232 coverage=15880 exec total=7964 (442/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:47:42 candidates=0 corpus=233 coverage=15882 exec total=8012 (441/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:47:52 candidates=0 corpus=235 coverage=15883 exec total=8064 (439/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:48:02 candidates=0 corpus=234 coverage=15883 exec total=8112 (438/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:48:12 candidates=0 corpus=235 coverage=16055 exec total=8156 (436/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:48:22 candidates=0 corpus=235 coverage=16055 exec total=8199 (435/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:48:32 candidates=0 corpus=237 coverage=16074 exec total=8239 (433/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:48:42 candidates=0 corpus=237 coverage=16074 exec total=8278 (431/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:48:52 candidates=0 corpus=240 coverage=16091 exec total=8325 (430/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:49:02 candidates=0 corpus=240 coverage=16091 exec total=8352 (428/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:49:12 candidates=0 corpus=242 coverage=16104 exec total=8382 (426/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:49:22 candidates=0 corpus=243 coverage=16108 exec total=8418 (424/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:49:32 candidates=0 corpus=244 coverage=16113 exec total=8461 (423/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:49:42 candidates=0 corpus=245 coverage=16123 exec total=8485 (420/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:49:52 candidates=0 corpus=246 coverage=16126 exec total=8506 (418/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:50:02 candidates=0 corpus=248 coverage=16453 exec total=8530 (416/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:50:12 candidates=0 corpus=248 coverage=16453 exec total=8549 (413/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:50:22 candidates=0 corpus=248 coverage=16453 exec total=8566 (411/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:50:32 candidates=0 corpus=249 coverage=16481 exec total=8593 (409/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:50:42 candidates=0 corpus=250 coverage=16481 exec total=8640 (408/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:50:52 candidates=0 corpus=252 coverage=16500 exec total=8684 (407/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:51:02 candidates=0 corpus=255 coverage=16516 exec total=8719 (405/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:51:12 candidates=0 corpus=256 coverage=16524 exec total=8750 (403/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:51:22 candidates=0 corpus=257 coverage=16532 exec total=8786 (402/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:51:32 candidates=0 corpus=258 coverage=16565 exec total=8830 (401/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:51:42 candidates=0 corpus=259 coverage=16568 exec total=8874 (400/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:51:52 candidates=0 corpus=262 coverage=16578 exec total=8914 (399/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:52:02 candidates=0 corpus=261 coverage=16606 exec total=8961 (398/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:52:12 candidates=0 corpus=261 coverage=16607 exec total=8977 (396/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:52:22 candidates=0 corpus=262 coverage=16644 exec total=9007 (394/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:52:32 candidates=0 corpus=263 coverage=16644 exec total=9034 (392/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:52:42 candidates=0 corpus=263 coverage=16644 exec total=9059 (391/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:52:52 candidates=0 corpus=264 coverage=16655 exec total=9107 (390/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:53:02 candidates=0 corpus=265 coverage=16655 exec total=9138 (388/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:08 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:09 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:10 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:11 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 candidates=0 corpus=266 coverage=16655 exec total=9175 (387/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:12 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:13 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:14 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 XXXXX REACH
+2024/09/25 20:53:15 Hit times: 329
+2024/09/25 20:53:15 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 20:53:17 close ask
+close ask Error: 
+close ask Output: [setfsuid, setfsgid, setfsuid32, setfsgid16, chown, fchown, lchown, chown32, fchown32, lchown32]
+
+2024/09/25 20:53:22 candidates=0 corpus=267 coverage=16655 exec total=9193 (385/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:53:32 candidates=0 corpus=267 coverage=16655 exec total=9233 (384/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:53:42 candidates=0 corpus=268 coverage=16671 exec total=9281 (384/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:53:52 candidates=0 corpus=269 coverage=16672 exec total=9325 (383/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:54:02 candidates=0 corpus=270 coverage=16750 exec total=9369 (382/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:54:12 candidates=0 corpus=272 coverage=16770 exec total=9417 (381/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:54:22 candidates=0 corpus=273 coverage=16770 exec total=9461 (380/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:54:32 candidates=0 corpus=273 coverage=16770 exec total=9509 (380/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:54:42 candidates=0 corpus=273 coverage=16770 exec total=9553 (379/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:54:52 candidates=0 corpus=273 coverage=16770 exec total=9600 (378/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:55:02 candidates=0 corpus=275 coverage=18147 exec total=9648 (378/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:55:12 candidates=0 corpus=275 coverage=18147 exec total=9683 (377/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:55:22 candidates=0 corpus=275 coverage=18147 exec total=9728 (376/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:55:32 candidates=0 corpus=277 coverage=18164 exec total=9772 (375/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:55:42 candidates=0 corpus=279 coverage=18171 exec total=9812 (374/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:55:52 candidates=0 corpus=280 coverage=18178 exec total=9840 (373/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:56:02 candidates=0 corpus=280 coverage=18178 exec total=9864 (372/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:56:12 candidates=0 corpus=284 coverage=18304 exec total=10137 (380/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:56:22 candidates=0 corpus=351 coverage=19117 exec total=11663 (434/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:56:32 candidates=0 corpus=354 coverage=19166 exec total=11753 (435/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:56:42 candidates=0 corpus=356 coverage=19173 exec total=11782 (433/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:56:52 candidates=0 corpus=356 coverage=19173 exec total=11799 (431/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:57:02 candidates=0 corpus=352 coverage=19173 exec total=11823 (429/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:57:12 candidates=0 corpus=354 coverage=19178 exec total=11860 (428/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:57:22 candidates=0 corpus=355 coverage=19178 exec total=11891 (427/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:57:32 candidates=0 corpus=360 coverage=19191 exec total=11958 (427/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:57:42 candidates=0 corpus=362 coverage=19216 exec total=12005 (426/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:57:52 candidates=0 corpus=394 coverage=19545 exec total=12659 (446/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:57:54 update choice table with LLM
+2024/09/25 20:57:54 UpdateChoiceTable using LLM comm content
+2024/09/25 20:57:54 Build Choice Table with LLM
+2024/09/25 20:58:02 candidates=0 corpus=410 coverage=19686 exec total=13557 (475/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:58:12 candidates=0 corpus=416 coverage=19893 exec total=13697 (477/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:58:22 candidates=0 corpus=420 coverage=19959 exec total=13773 (477/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:58:32 candidates=0 corpus=420 coverage=19959 exec total=13808 (476/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:58:42 candidates=0 corpus=422 coverage=19975 exec total=13841 (474/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:58:52 candidates=0 corpus=425 coverage=19991 exec total=13914 (474/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:59:02 candidates=0 corpus=429 coverage=20030 exec total=14005 (474/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:59:12 candidates=0 corpus=431 coverage=20074 exec total=14053 (473/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:59:22 candidates=0 corpus=437 coverage=20082 exec total=14138 (473/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:59:32 candidates=0 corpus=439 coverage=20099 exec total=14186 (472/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:59:34 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:35 XXXXX REACH
+2024/09/25 20:59:36 XXXXX REACH
+2024/09/25 20:59:36 XXXXX REACH
+2024/09/25 20:59:36 XXXXX REACH
+2024/09/25 20:59:36 XXXXX REACH
+2024/09/25 20:59:36 XXXXX REACH
+2024/09/25 20:59:36 XXXXX REACH
+2024/09/25 20:59:36 XXXXX REACH
+2024/09/25 20:59:37 XXXXX REACH
+2024/09/25 20:59:37 XXXXX REACH
+2024/09/25 20:59:37 XXXXX REACH
+2024/09/25 20:59:37 XXXXX REACH
+2024/09/25 20:59:38 XXXXX REACH
+2024/09/25 20:59:38 XXXXX REACH
+2024/09/25 20:59:38 XXXXX REACH
+2024/09/25 20:59:38 XXXXX REACH
+2024/09/25 20:59:38 XXXXX REACH
+2024/09/25 20:59:38 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:39 XXXXX REACH
+2024/09/25 20:59:40 XXXXX REACH
+2024/09/25 20:59:40 XXXXX REACH
+2024/09/25 20:59:40 XXXXX REACH
+2024/09/25 20:59:40 XXXXX REACH
+2024/09/25 20:59:40 XXXXX REACH
+2024/09/25 20:59:40 XXXXX REACH
+2024/09/25 20:59:40 XXXXX REACH
+2024/09/25 20:59:40 XXXXX REACH
+2024/09/25 20:59:40 XXXXX REACH
+2024/09/25 20:59:41 XXXXX REACH
+2024/09/25 20:59:41 XXXXX REACH
+2024/09/25 20:59:41 XXXXX REACH
+2024/09/25 20:59:41 XXXXX REACH
+2024/09/25 20:59:41 Hit times: 88
+2024/09/25 20:59:41 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 20:59:42 candidates=0 corpus=443 coverage=20119 exec total=14273 (473/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 20:59:43 close ask
+close ask Error: 
+close ask Output: [setfsgid, setfsgid16, setgid, setresgid, setregid]
+
+2024/09/25 20:59:52 candidates=0 corpus=469 coverage=20635 exec total=14790 (487/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:00:02 candidates=0 corpus=467 coverage=20654 exec total=14972 (490/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:00:12 candidates=0 corpus=469 coverage=20689 exec total=15012 (489/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:00:22 candidates=0 corpus=486 coverage=20859 exec total=15369 (498/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:00:32 candidates=0 corpus=505 coverage=21154 exec total=15710 (506/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:00:42 candidates=0 corpus=551 coverage=22432 exec total=16793 (538/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:00:52 candidates=0 corpus=560 coverage=22815 exec total=17106 (545/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:01:02 candidates=0 corpus=560 coverage=22894 exec total=17415 (552/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:01:12 candidates=0 corpus=560 coverage=22894 exec total=17443 (550/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:01:22 candidates=0 corpus=581 coverage=23059 exec total=17983 (564/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:01:32 candidates=0 corpus=584 coverage=23080 exec total=18031 (563/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:01:42 candidates=0 corpus=600 coverage=23123 exec total=18429 (572/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:01:52 candidates=0 corpus=624 coverage=23250 exec total=18956 (586/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:01:55 XXXXX REACH
+2024/09/25 21:01:55 XXXXX REACH
+2024/09/25 21:01:55 XXXXX REACH
+2024/09/25 21:01:55 XXXXX REACH
+2024/09/25 21:01:55 XXXXX REACH
+2024/09/25 21:01:55 XXXXX REACH
+2024/09/25 21:01:55 XXXXX REACH
+2024/09/25 21:01:55 XXXXX REACH
+2024/09/25 21:01:55 XXXXX REACH
+2024/09/25 21:01:56 XXXXX REACH
+2024/09/25 21:01:56 XXXXX REACH
+2024/09/25 21:01:56 XXXXX REACH
+2024/09/25 21:01:56 XXXXX REACH
+2024/09/25 21:01:56 XXXXX REACH
+2024/09/25 21:01:56 XXXXX REACH
+2024/09/25 21:01:56 XXXXX REACH
+2024/09/25 21:01:56 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:57 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:58 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:01:59 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:00 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 XXXXX REACH
+2024/09/25 21:02:01 Hit times: 113
+2024/09/25 21:02:01 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 21:02:02 candidates=0 corpus=629 coverage=23790 exec total=19243 (592/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:02:03 close ask
+close ask Error: 
+close ask Output: [setfsgid, setfsgid16, fork, execve, exit, waitpid]
+
+2024/09/25 21:02:12 candidates=0 corpus=640 coverage=24154 exec total=19617 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:02:22 candidates=0 corpus=648 coverage=24265 exec total=19777 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:02:32 candidates=0 corpus=649 coverage=24265 exec total=19814 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:02:42 candidates=0 corpus=653 coverage=24293 exec total=19920 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:02:52 candidates=0 corpus=656 coverage=24333 exec total=19985 (599/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:03:02 candidates=0 corpus=649 coverage=24336 exec total=20017 (597/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:03:12 candidates=0 corpus=649 coverage=24336 exec total=20065 (595/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:03:22 candidates=0 corpus=649 coverage=24336 exec total=20113 (594/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:03:32 candidates=0 corpus=652 coverage=24348 exec total=20182 (593/min) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:03:42 candidates=0 corpus=672 coverage=24465 exec total=21058 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:03:52 candidates=0 corpus=700 coverage=24669 exec total=22349 (10/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:04:02 candidates=0 corpus=704 coverage=24752 exec total=22795 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:04:12 candidates=0 corpus=713 coverage=25117 exec total=23187 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:04:22 candidates=0 corpus=714 coverage=25127 exec total=23234 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:04:32 candidates=0 corpus=727 coverage=25792 exec total=23578 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:04:37 update choice table with LLM
+2024/09/25 21:04:37 UpdateChoiceTable using LLM comm content
+2024/09/25 21:04:37 Build Choice Table with LLM
+2024/09/25 21:04:42 candidates=0 corpus=742 coverage=25831 exec total=23992 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:04:52 candidates=0 corpus=754 coverage=25878 exec total=24552 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:05:02 candidates=0 corpus=753 coverage=25891 exec total=24844 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:05:12 candidates=0 corpus=761 coverage=26095 exec total=25225 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:05:22 candidates=0 corpus=766 coverage=26131 exec total=25509 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:05:32 candidates=0 corpus=767 coverage=26131 exec total=25553 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:05:42 candidates=0 corpus=771 coverage=26153 exec total=25686 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:05:52 candidates=0 corpus=772 coverage=26154 exec total=25758 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:05:59 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:00 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:01 XXXXX REACH
+2024/09/25 21:06:02 candidates=0 corpus=767 coverage=26333 exec total=25901 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:02 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:03 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:04 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 XXXXX REACH
+2024/09/25 21:06:05 Hit times: 145
+2024/09/25 21:06:05 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 21:06:11 close ask
+close ask Error: 
+close ask Output: [setfsgid, setfsgid16, setgid, setgid32, setresgid, setresgid32, setregid, setregid32]
+
+2024/09/25 21:06:12 candidates=0 corpus=769 coverage=26335 exec total=25977 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:06:22 candidates=0 corpus=803 coverage=26699 exec total=26844 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:06:32 candidates=0 corpus=829 coverage=27252 exec total=27414 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:06:42 candidates=0 corpus=829 coverage=27252 exec total=27446 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:06:52 candidates=0 corpus=830 coverage=27257 exec total=27487 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:07:02 candidates=0 corpus=825 coverage=27310 exec total=27536 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:07:12 candidates=0 corpus=826 coverage=27310 exec total=27571 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:07:22 candidates=0 corpus=828 coverage=27312 exec total=27591 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:07:32 candidates=0 corpus=828 coverage=27312 exec total=27627 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:07:42 candidates=0 corpus=832 coverage=27340 exec total=27655 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:07:52 candidates=0 corpus=832 coverage=27340 exec total=27699 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:08:02 candidates=0 corpus=834 coverage=27351 exec total=27747 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:08:12 candidates=0 corpus=836 coverage=27372 exec total=27795 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:08:22 candidates=0 corpus=838 coverage=27373 exec total=27830 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:08:32 candidates=0 corpus=838 coverage=27373 exec total=27877 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:08:42 candidates=0 corpus=841 coverage=27376 exec total=27937 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:08:52 candidates=0 corpus=843 coverage=27398 exec total=27975 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:09:02 candidates=0 corpus=843 coverage=27398 exec total=28008 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:09:12 candidates=0 corpus=845 coverage=27404 exec total=28052 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:09:22 candidates=0 corpus=845 coverage=27404 exec total=28096 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:09:32 candidates=0 corpus=848 coverage=27418 exec total=28131 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:09:42 candidates=0 corpus=849 coverage=27418 exec total=28179 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:09:52 candidates=0 corpus=850 coverage=27425 exec total=28227 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:10:02 candidates=0 corpus=847 coverage=27425 exec total=28267 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:10:12 candidates=0 corpus=849 coverage=27427 exec total=28315 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:10:22 candidates=0 corpus=849 coverage=27427 exec total=28353 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:10:32 candidates=0 corpus=858 coverage=27500 exec total=28569 (11/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:10:42 candidates=0 corpus=904 coverage=28089 exec total=29650 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:10:52 candidates=0 corpus=924 coverage=28329 exec total=30092 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:11:02 candidates=0 corpus=916 coverage=28341 exec total=30235 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:11:12 candidates=0 corpus=917 coverage=28344 exec total=30283 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:11:22 candidates=0 corpus=933 coverage=28471 exec total=30664 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:11:32 candidates=0 corpus=951 coverage=28539 exec total=31141 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:11:42 candidates=0 corpus=964 coverage=28616 exec total=31395 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:11:52 candidates=0 corpus=968 coverage=28636 exec total=31497 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:12:00 XXXXX REACH
+2024/09/25 21:12:00 XXXXX REACH
+2024/09/25 21:12:00 XXXXX REACH
+2024/09/25 21:12:00 XXXXX REACH
+2024/09/25 21:12:01 XXXXX REACH
+2024/09/25 21:12:01 XXXXX REACH
+2024/09/25 21:12:01 XXXXX REACH
+2024/09/25 21:12:01 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 candidates=0 corpus=959 coverage=28682 exec total=31565 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:02 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:03 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:04 XXXXX REACH
+2024/09/25 21:12:05 XXXXX REACH
+2024/09/25 21:12:05 XXXXX REACH
+2024/09/25 21:12:05 XXXXX REACH
+2024/09/25 21:12:05 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 XXXXX REACH
+2024/09/25 21:12:06 Hit times: 84
+2024/09/25 21:12:06 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 21:12:09 close ask
+close ask Error: 
+close ask Output: [setfsgid, setfsgid16, getgid, getegid, setgid, setegid, fork, clone, execve, open, read, write, close, ioctl, socket, connect, accept, bind, listen, sendto, recvfrom, sendmsg, recvmsg, setsockopt, getsockopt, shutdown, mmap, munmap, mprotect, sched_yield, kill, pause, alarm, futex, nanosleep, getpid, getppid]
+
+2024/09/25 21:12:12 candidates=0 corpus=960 coverage=28692 exec total=31594 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:12:22 candidates=0 corpus=961 coverage=28713 exec total=31645 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:12:32 candidates=0 corpus=963 coverage=28727 exec total=31693 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:12:42 candidates=0 corpus=967 coverage=28746 exec total=31783 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:12:52 candidates=0 corpus=968 coverage=28746 exec total=31819 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:13:02 candidates=0 corpus=970 coverage=28746 exec total=31874 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:13:12 candidates=0 corpus=972 coverage=28747 exec total=31917 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:13:22 candidates=0 corpus=1006 coverage=29006 exec total=32679 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:13:32 candidates=0 corpus=1045 coverage=29192 exec total=33578 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:13:42 candidates=0 corpus=1045 coverage=29192 exec total=33613 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:13:52 candidates=0 corpus=1047 coverage=29194 exec total=33670 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:14:02 candidates=0 corpus=1036 coverage=29195 exec total=33761 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:14:12 candidates=0 corpus=1051 coverage=29337 exec total=34071 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:14:22 candidates=0 corpus=1058 coverage=29371 exec total=34334 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:14:32 candidates=0 corpus=1058 coverage=29371 exec total=34382 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:14:42 candidates=0 corpus=1061 coverage=29386 exec total=34580 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:14:52 candidates=0 corpus=1061 coverage=29386 exec total=34622 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:15:02 candidates=0 corpus=1061 coverage=29386 exec total=34669 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:15:12 candidates=0 corpus=1062 coverage=29402 exec total=34713 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:15:22 candidates=0 corpus=1063 coverage=29411 exec total=34751 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:15:32 candidates=0 corpus=1064 coverage=29411 exec total=34788 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:15:42 candidates=0 corpus=1065 coverage=29413 exec total=34847 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:15:52 candidates=0 corpus=1065 coverage=29413 exec total=34892 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:16:02 candidates=0 corpus=1066 coverage=29413 exec total=34951 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:16:12 candidates=0 corpus=1066 coverage=29413 exec total=34993 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:16:22 candidates=0 corpus=1067 coverage=29414 exec total=35040 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:16:32 candidates=0 corpus=1067 coverage=29414 exec total=35087 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:16:42 candidates=0 corpus=1069 coverage=29414 exec total=35201 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:16:52 candidates=0 corpus=1069 coverage=29414 exec total=35251 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:16:57 update choice table with LLM
+2024/09/25 21:16:57 UpdateChoiceTable using LLM comm content
+2024/09/25 21:16:57 Build Choice Table with LLM
+2024/09/25 21:17:02 candidates=0 corpus=1070 coverage=29459 exec total=35662 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:17:12 candidates=0 corpus=1074 coverage=29464 exec total=36102 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:17:22 candidates=0 corpus=1097 coverage=29647 exec total=36948 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:17:32 candidates=0 corpus=1112 coverage=29711 exec total=37395 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:17:42 candidates=0 corpus=1114 coverage=29714 exec total=37467 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:17:52 candidates=0 corpus=1114 coverage=29714 exec total=37515 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:18:02 candidates=0 corpus=1114 coverage=29729 exec total=37602 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:18:12 candidates=0 corpus=1116 coverage=29733 exec total=37638 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:18:22 candidates=0 corpus=1116 coverage=29733 exec total=37664 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:18:32 candidates=0 corpus=1117 coverage=29733 exec total=37685 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:18:42 candidates=0 corpus=1117 coverage=29733 exec total=37720 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:18:52 candidates=0 corpus=1119 coverage=29735 exec total=37793 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:19:02 candidates=0 corpus=1121 coverage=29736 exec total=37838 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:19:12 candidates=0 corpus=1129 coverage=29804 exec total=38107 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:20 XXXXX REACH
+2024/09/25 21:19:21 XXXXX REACH
+2024/09/25 21:19:21 XXXXX REACH
+2024/09/25 21:19:21 XXXXX REACH
+2024/09/25 21:19:21 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 candidates=0 corpus=1159 coverage=30109 exec total=38873 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:22 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:23 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:24 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:25 XXXXX REACH
+2024/09/25 21:19:26 XXXXX REACH
+2024/09/25 21:19:26 XXXXX REACH
+2024/09/25 21:19:26 XXXXX REACH
+2024/09/25 21:19:26 XXXXX REACH
+2024/09/25 21:19:26 XXXXX REACH
+2024/09/25 21:19:26 XXXXX REACH
+2024/09/25 21:19:26 XXXXX REACH
+2024/09/25 21:19:26 XXXXX REACH
+2024/09/25 21:19:26 Hit times: 104
+2024/09/25 21:19:26 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 21:19:29 close ask
+close ask Error: Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 72, in map_httpcore_exceptions
+    yield
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 236, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 216, in handle_request
+    raise exc from None
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 196, in handle_request
+    response = connection.handle_request(
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 99, in handle_request
+    raise exc
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 76, in handle_request
+    stream = self._connect(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 154, in _connect
+    stream = stream.start_tls(**kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_backends/sync.py", line 152, in start_tls
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 973, in _request
+    response = self._client.send(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 926, in send
+    response = self._send_handling_auth(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 954, in _send_handling_auth
+    response = self._send_handling_redirects(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 991, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 1027, in _send_single_request
+    response = transport.handle_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 235, in handle_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 89, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 478, in <module>
+    llm_list_result = interface.ask_for_syscalls_to_improve(target_function_list)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 155, in ask_for_syscalls_to_improve
+    answer = self.ask_question_and_record(description)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 61, in ask_question_and_record
+    res = self.client.chat.completions.create(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_utils/_utils.py", line 274, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/openai/resources/chat/completions.py", line 668, in create
+    return self._post(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1260, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 937, in request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1007, in _request
+    raise APIConnectionError(request=request) from err
+openai.APIConnectionError: Connection error.
+
+close ask Output: 
+2024/09/25 21:19:32 candidates=0 corpus=1159 coverage=30109 exec total=38950 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:19:42 candidates=0 corpus=1182 coverage=30282 exec total=39446 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:19:52 candidates=0 corpus=1183 coverage=30291 exec total=39480 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:20:02 candidates=0 corpus=1174 coverage=30291 exec total=39529 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:20:12 candidates=0 corpus=1177 coverage=30327 exec total=39578 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:20:22 candidates=0 corpus=1180 coverage=30329 exec total=39626 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:20:32 candidates=0 corpus=1182 coverage=30329 exec total=39658 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:20:42 candidates=0 corpus=1184 coverage=30331 exec total=39700 (12/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:20:52 candidates=0 corpus=1201 coverage=30525 exec total=40075 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:21:02 candidates=0 corpus=1200 coverage=30571 exec total=40392 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:21:12 candidates=0 corpus=1203 coverage=30588 exec total=40481 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:21:22 candidates=0 corpus=1221 coverage=30670 exec total=41166 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:21:32 candidates=0 corpus=1232 coverage=30844 exec total=41615 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:21:42 candidates=0 corpus=1240 coverage=30882 exec total=41861 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:21:52 candidates=0 corpus=1256 coverage=30986 exec total=42388 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:22:02 candidates=0 corpus=1249 coverage=30986 exec total=42436 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:22:12 candidates=0 corpus=1259 coverage=31009 exec total=42724 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:22:22 candidates=0 corpus=1260 coverage=31027 exec total=42796 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:22:32 candidates=0 corpus=1261 coverage=31031 exec total=42840 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:22:42 candidates=0 corpus=1264 coverage=31073 exec total=42934 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:22:52 candidates=0 corpus=1279 coverage=31255 exec total=43434 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:23:02 candidates=0 corpus=1285 coverage=31320 exec total=43696 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:23:12 candidates=0 corpus=1294 coverage=31421 exec total=44083 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:23:22 candidates=0 corpus=1327 coverage=31590 exec total=44783 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:23:30 XXXXX REACH
+2024/09/25 21:23:30 XXXXX REACH
+2024/09/25 21:23:30 XXXXX REACH
+2024/09/25 21:23:30 XXXXX REACH
+2024/09/25 21:23:31 XXXXX REACH
+2024/09/25 21:23:31 XXXXX REACH
+2024/09/25 21:23:31 XXXXX REACH
+2024/09/25 21:23:31 XXXXX REACH
+2024/09/25 21:23:31 XXXXX REACH
+2024/09/25 21:23:31 XXXXX REACH
+2024/09/25 21:23:31 XXXXX REACH
+2024/09/25 21:23:31 XXXXX REACH
+2024/09/25 21:23:32 candidates=0 corpus=1346 coverage=31750 exec total=45317 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:23:32 XXXXX REACH
+2024/09/25 21:23:32 XXXXX REACH
+2024/09/25 21:23:32 XXXXX REACH
+2024/09/25 21:23:32 XXXXX REACH
+2024/09/25 21:23:33 XXXXX REACH
+2024/09/25 21:23:33 XXXXX REACH
+2024/09/25 21:23:33 XXXXX REACH
+2024/09/25 21:23:33 XXXXX REACH
+2024/09/25 21:23:33 XXXXX REACH
+2024/09/25 21:23:33 XXXXX REACH
+2024/09/25 21:23:33 XXXXX REACH
+2024/09/25 21:23:33 XXXXX REACH
+2024/09/25 21:23:33 XXXXX REACH
+2024/09/25 21:23:34 XXXXX REACH
+2024/09/25 21:23:34 XXXXX REACH
+2024/09/25 21:23:34 XXXXX REACH
+2024/09/25 21:23:34 XXXXX REACH
+2024/09/25 21:23:34 XXXXX REACH
+2024/09/25 21:23:34 XXXXX REACH
+2024/09/25 21:23:34 XXXXX REACH
+2024/09/25 21:23:35 XXXXX REACH
+2024/09/25 21:23:35 XXXXX REACH
+2024/09/25 21:23:35 XXXXX REACH
+2024/09/25 21:23:35 XXXXX REACH
+2024/09/25 21:23:35 XXXXX REACH
+2024/09/25 21:23:35 XXXXX REACH
+2024/09/25 21:23:36 Hit times: 38
+2024/09/25 21:23:36 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 21:23:39 close ask
+close ask Error: Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 72, in map_httpcore_exceptions
+    yield
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 236, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 216, in handle_request
+    raise exc from None
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 196, in handle_request
+    response = connection.handle_request(
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 99, in handle_request
+    raise exc
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 76, in handle_request
+    stream = self._connect(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 154, in _connect
+    stream = stream.start_tls(**kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_backends/sync.py", line 152, in start_tls
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 973, in _request
+    response = self._client.send(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 926, in send
+    response = self._send_handling_auth(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 954, in _send_handling_auth
+    response = self._send_handling_redirects(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 991, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 1027, in _send_single_request
+    response = transport.handle_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 235, in handle_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 89, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 478, in <module>
+    llm_list_result = interface.ask_for_syscalls_to_improve(target_function_list)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 155, in ask_for_syscalls_to_improve
+    answer = self.ask_question_and_record(description)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 61, in ask_question_and_record
+    res = self.client.chat.completions.create(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_utils/_utils.py", line 274, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/openai/resources/chat/completions.py", line 668, in create
+    return self._post(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1260, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 937, in request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1007, in _request
+    raise APIConnectionError(request=request) from err
+openai.APIConnectionError: Connection error.
+
+close ask Output: 
+2024/09/25 21:23:42 candidates=0 corpus=1352 coverage=31768 exec total=45433 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:23:52 candidates=0 corpus=1366 coverage=31875 exec total=45743 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:24:02 candidates=0 corpus=1365 coverage=32110 exec total=46175 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:24:12 candidates=0 corpus=1367 coverage=32122 exec total=46237 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:24:22 candidates=0 corpus=1367 coverage=32122 exec total=46301 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:24:32 candidates=0 corpus=1368 coverage=32153 exec total=46386 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:24:42 candidates=0 corpus=1370 coverage=32153 exec total=46451 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:24:52 candidates=0 corpus=1370 coverage=32153 exec total=46481 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:25:02 candidates=0 corpus=1371 coverage=32196 exec total=46524 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:25:12 candidates=0 corpus=1373 coverage=32198 exec total=46586 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:25:22 candidates=0 corpus=1374 coverage=32209 exec total=46622 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:25:32 candidates=0 corpus=1375 coverage=32209 exec total=46654 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:25:42 candidates=0 corpus=1385 coverage=32278 exec total=46910 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:25:47 update choice table with LLM
+2024/09/25 21:25:47 UpdateChoiceTable using LLM comm content
+2024/09/25 21:25:47 Build Choice Table with LLM
+2024/09/25 21:25:52 candidates=0 corpus=1412 coverage=32536 exec total=47693 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:26:02 candidates=0 corpus=1424 coverage=32701 exec total=48367 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:26:12 candidates=0 corpus=1431 coverage=32864 exec total=48685 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:26:22 candidates=0 corpus=1452 coverage=33042 exec total=49195 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:26:32 candidates=0 corpus=1453 coverage=33046 exec total=49284 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:26:42 candidates=0 corpus=1455 coverage=33086 exec total=49345 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:26:52 candidates=0 corpus=1456 coverage=33092 exec total=49377 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:27:02 candidates=0 corpus=1458 coverage=33125 exec total=49424 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:27:12 candidates=0 corpus=1466 coverage=33130 exec total=49542 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:27:22 candidates=0 corpus=1471 coverage=33178 exec total=49609 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:27:32 candidates=0 corpus=1474 coverage=33190 exec total=49715 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:27:42 candidates=0 corpus=1474 coverage=33190 exec total=49759 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:27:52 candidates=0 corpus=1475 coverage=33192 exec total=49792 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:28:02 candidates=0 corpus=1479 coverage=33524 exec total=50661 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:28:12 candidates=0 corpus=1480 coverage=33524 exec total=50696 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:28:22 candidates=0 corpus=1489 coverage=33581 exec total=51030 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:28:32 XXXXX REACH
+2024/09/25 21:28:32 XXXXX REACH
+2024/09/25 21:28:32 XXXXX REACH
+2024/09/25 21:28:32 XXXXX REACH
+2024/09/25 21:28:32 candidates=0 corpus=1494 coverage=33645 exec total=51177 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:28:32 XXXXX REACH
+2024/09/25 21:28:32 XXXXX REACH
+2024/09/25 21:28:33 XXXXX REACH
+2024/09/25 21:28:33 XXXXX REACH
+2024/09/25 21:28:33 XXXXX REACH
+2024/09/25 21:28:33 XXXXX REACH
+2024/09/25 21:28:33 XXXXX REACH
+2024/09/25 21:28:33 XXXXX REACH
+2024/09/25 21:28:34 XXXXX REACH
+2024/09/25 21:28:34 XXXXX REACH
+2024/09/25 21:28:34 XXXXX REACH
+2024/09/25 21:28:34 XXXXX REACH
+2024/09/25 21:28:35 XXXXX REACH
+2024/09/25 21:28:35 XXXXX REACH
+2024/09/25 21:28:35 XXXXX REACH
+2024/09/25 21:28:35 XXXXX REACH
+2024/09/25 21:28:35 XXXXX REACH
+2024/09/25 21:28:35 XXXXX REACH
+2024/09/25 21:28:35 XXXXX REACH
+2024/09/25 21:28:36 XXXXX REACH
+2024/09/25 21:28:36 XXXXX REACH
+2024/09/25 21:28:36 XXXXX REACH
+2024/09/25 21:28:36 XXXXX REACH
+2024/09/25 21:28:36 XXXXX REACH
+2024/09/25 21:28:36 XXXXX REACH
+2024/09/25 21:28:36 XXXXX REACH
+2024/09/25 21:28:36 XXXXX REACH
+2024/09/25 21:28:36 XXXXX REACH
+2024/09/25 21:28:36 XXXXX REACH
+2024/09/25 21:28:37 XXXXX REACH
+2024/09/25 21:28:37 XXXXX REACH
+2024/09/25 21:28:37 XXXXX REACH
+2024/09/25 21:28:37 XXXXX REACH
+2024/09/25 21:28:37 Hit times: 37
+2024/09/25 21:28:37 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 21:28:42 candidates=0 corpus=1494 coverage=33645 exec total=51177 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:28:42 close ask
+close ask Error: Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 72, in map_httpcore_exceptions
+    yield
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 236, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 216, in handle_request
+    raise exc from None
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 196, in handle_request
+    response = connection.handle_request(
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 99, in handle_request
+    raise exc
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 76, in handle_request
+    stream = self._connect(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 154, in _connect
+    stream = stream.start_tls(**kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_backends/sync.py", line 152, in start_tls
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 973, in _request
+    response = self._client.send(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 926, in send
+    response = self._send_handling_auth(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 954, in _send_handling_auth
+    response = self._send_handling_redirects(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 991, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 1027, in _send_single_request
+    response = transport.handle_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 235, in handle_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 89, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 478, in <module>
+    llm_list_result = interface.ask_for_syscalls_to_improve(target_function_list)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 155, in ask_for_syscalls_to_improve
+    answer = self.ask_question_and_record(description)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 61, in ask_question_and_record
+    res = self.client.chat.completions.create(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_utils/_utils.py", line 274, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/openai/resources/chat/completions.py", line 668, in create
+    return self._post(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1260, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 937, in request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1007, in _request
+    raise APIConnectionError(request=request) from err
+openai.APIConnectionError: Connection error.
+
+close ask Output: 
+2024/09/25 21:28:52 candidates=0 corpus=1500 coverage=33702 exec total=51327 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:29:02 candidates=0 corpus=1510 coverage=33864 exec total=51858 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:29:12 candidates=0 corpus=1512 coverage=33866 exec total=51903 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:29:22 candidates=0 corpus=1542 coverage=34124 exec total=52589 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:29:32 candidates=0 corpus=1544 coverage=34135 exec total=52674 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:29:42 candidates=0 corpus=1545 coverage=34186 exec total=52718 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:29:42 vm-1: running for 1h0m0.001537086s, restarting
+2024/09/25 21:29:52 candidates=0 corpus=1545 coverage=34186 exec total=52718 (14/sec) fuzzing VMs=0 reproducing=0 
+2024/09/25 21:29:53 XXX Fuzzer command: 
+/syz-fuzzer -executor=/syz-executor -name=vm-2 -arch=amd64 -manager=localhost:46009 -sandbox=none -cover=true -debug=false  -optional=slowdown=1:sandbox_arg=0:pprof_port=6060
+2024/09/25 21:30:02 candidates=0 corpus=1546 coverage=34187 exec total=52745 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:30:12 candidates=0 corpus=1547 coverage=34195 exec total=52785 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:30:22 candidates=0 corpus=1548 coverage=34195 exec total=52830 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:30:32 candidates=0 corpus=1548 coverage=34195 exec total=52856 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:30:42 candidates=0 corpus=1548 coverage=34195 exec total=52896 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:30:52 candidates=0 corpus=1549 coverage=34208 exec total=52940 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:31:02 candidates=0 corpus=1549 coverage=34208 exec total=52983 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:31:12 candidates=0 corpus=1550 coverage=34216 exec total=53023 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:31:22 candidates=0 corpus=1551 coverage=34217 exec total=53054 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:31:32 candidates=0 corpus=1551 coverage=34217 exec total=53078 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:31:42 candidates=0 corpus=1553 coverage=34218 exec total=53119 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:31:52 candidates=0 corpus=1555 coverage=34218 exec total=53152 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:32:02 candidates=0 corpus=1555 coverage=34218 exec total=53197 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:32:12 candidates=0 corpus=1556 coverage=34221 exec total=53241 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:32:22 candidates=0 corpus=1557 coverage=34270 exec total=53285 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:32:32 candidates=0 corpus=1559 coverage=34277 exec total=53333 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:32:42 candidates=0 corpus=1563 coverage=34320 exec total=53529 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:32:52 candidates=0 corpus=1572 coverage=34690 exec total=53808 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:33:02 candidates=0 corpus=1558 coverage=34694 exec total=53888 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:33:12 candidates=0 corpus=1563 coverage=34711 exec total=53947 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:33:22 candidates=0 corpus=1563 coverage=34711 exec total=53994 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:33:32 candidates=0 corpus=1564 coverage=34716 exec total=54043 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:33:42 candidates=0 corpus=1569 coverage=35071 exec total=54144 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:33:52 candidates=0 corpus=1570 coverage=35250 exec total=54173 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:34:02 candidates=0 corpus=1570 coverage=35250 exec total=54222 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:34:12 candidates=0 corpus=1572 coverage=35263 exec total=54266 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:34:22 candidates=0 corpus=1580 coverage=35458 exec total=54536 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:34:32 candidates=0 corpus=1585 coverage=35476 exec total=54664 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:34:42 candidates=0 corpus=1588 coverage=35482 exec total=54795 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:34:52 candidates=0 corpus=1595 coverage=35525 exec total=54934 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:35:02 candidates=0 corpus=1603 coverage=35577 exec total=55146 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:35:12 candidates=0 corpus=1635 coverage=35738 exec total=55990 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:35:22 candidates=0 corpus=1639 coverage=35760 exec total=56096 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:35:32 candidates=0 corpus=1640 coverage=35761 exec total=56140 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:35:42 candidates=0 corpus=1640 coverage=35761 exec total=56168 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:35:52 candidates=0 corpus=1641 coverage=35766 exec total=56189 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:36:02 candidates=0 corpus=1627 coverage=35768 exec total=56208 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:36:12 candidates=0 corpus=1628 coverage=35769 exec total=56231 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:36:22 candidates=0 corpus=1631 coverage=35770 exec total=56343 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:36:32 candidates=0 corpus=1654 coverage=35966 exec total=57094 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:36:42 candidates=0 corpus=1669 coverage=35999 exec total=57354 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:36:52 candidates=0 corpus=1673 coverage=36007 exec total=57468 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:37:02 candidates=0 corpus=1676 coverage=36058 exec total=57883 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:37:12 candidates=0 corpus=1678 coverage=36059 exec total=57939 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:37:19 XXXXX REACH
+2024/09/25 21:37:19 XXXXX REACH
+2024/09/25 21:37:19 XXXXX REACH
+2024/09/25 21:37:19 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:20 XXXXX REACH
+2024/09/25 21:37:21 XXXXX REACH
+2024/09/25 21:37:21 XXXXX REACH
+2024/09/25 21:37:21 XXXXX REACH
+2024/09/25 21:37:21 XXXXX REACH
+2024/09/25 21:37:21 XXXXX REACH
+2024/09/25 21:37:21 XXXXX REACH
+2024/09/25 21:37:21 XXXXX REACH
+2024/09/25 21:37:21 XXXXX REACH
+2024/09/25 21:37:22 candidates=0 corpus=1690 coverage=36155 exec total=58235 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:37:22 XXXXX REACH
+2024/09/25 21:37:22 XXXXX REACH
+2024/09/25 21:37:22 XXXXX REACH
+2024/09/25 21:37:22 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:23 XXXXX REACH
+2024/09/25 21:37:24 XXXXX REACH
+2024/09/25 21:37:24 XXXXX REACH
+2024/09/25 21:37:24 XXXXX REACH
+2024/09/25 21:37:25 Hit times: 42
+2024/09/25 21:37:25 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 21:37:28 close ask
+close ask Error: Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 72, in map_httpcore_exceptions
+    yield
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 236, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 216, in handle_request
+    raise exc from None
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 196, in handle_request
+    response = connection.handle_request(
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 99, in handle_request
+    raise exc
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 76, in handle_request
+    stream = self._connect(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 154, in _connect
+    stream = stream.start_tls(**kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_backends/sync.py", line 152, in start_tls
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 973, in _request
+    response = self._client.send(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 926, in send
+    response = self._send_handling_auth(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 954, in _send_handling_auth
+    response = self._send_handling_redirects(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 991, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 1027, in _send_single_request
+    response = transport.handle_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 235, in handle_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 89, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 478, in <module>
+    llm_list_result = interface.ask_for_syscalls_to_improve(target_function_list)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 155, in ask_for_syscalls_to_improve
+    answer = self.ask_question_and_record(description)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 61, in ask_question_and_record
+    res = self.client.chat.completions.create(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_utils/_utils.py", line 274, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/openai/resources/chat/completions.py", line 668, in create
+    return self._post(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1260, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 937, in request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1007, in _request
+    raise APIConnectionError(request=request) from err
+openai.APIConnectionError: Connection error.
+
+close ask Output: 
+2024/09/25 21:37:32 candidates=0 corpus=1696 coverage=36166 exec total=58415 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:37:42 candidates=0 corpus=1722 coverage=36468 exec total=58929 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:37:52 candidates=0 corpus=1730 coverage=36511 exec total=59174 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:38:02 candidates=0 corpus=1715 coverage=36521 exec total=59220 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:38:12 candidates=0 corpus=1726 coverage=36566 exec total=59412 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:38:22 candidates=0 corpus=1727 coverage=36569 exec total=59460 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:38:26 update choice table with LLM
+2024/09/25 21:38:26 UpdateChoiceTable using LLM comm content
+2024/09/25 21:38:26 Build Choice Table with LLM
+2024/09/25 21:38:32 candidates=0 corpus=1752 coverage=36768 exec total=60005 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:38:42 candidates=0 corpus=1778 coverage=37021 exec total=60532 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:38:52 candidates=0 corpus=1778 coverage=37021 exec total=60584 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:39:02 candidates=0 corpus=1769 coverage=37056 exec total=60675 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:39:12 candidates=0 corpus=1772 coverage=37062 exec total=60773 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:39:22 candidates=0 corpus=1785 coverage=37136 exec total=61052 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:39:32 candidates=0 corpus=1803 coverage=37279 exec total=61479 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:39:42 candidates=0 corpus=1804 coverage=37290 exec total=61519 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:39:52 candidates=0 corpus=1805 coverage=37290 exec total=61554 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:40:02 candidates=0 corpus=1806 coverage=37290 exec total=61577 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:40:12 candidates=0 corpus=1806 coverage=37290 exec total=61595 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:40:22 candidates=0 corpus=1806 coverage=37290 exec total=61613 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:40:32 candidates=0 corpus=1807 coverage=37290 exec total=61640 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:40:42 candidates=0 corpus=1808 coverage=37295 exec total=61656 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:40:52 candidates=0 corpus=1808 coverage=37295 exec total=61677 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:41:02 candidates=0 corpus=1809 coverage=37297 exec total=61696 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:41:12 candidates=0 corpus=1810 coverage=37297 exec total=61716 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:41:22 candidates=0 corpus=1810 coverage=37297 exec total=61740 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:41:32 candidates=0 corpus=1810 coverage=37297 exec total=61756 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:41:42 candidates=0 corpus=1811 coverage=37297 exec total=61770 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:41:52 candidates=0 corpus=1811 coverage=37297 exec total=61782 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:42:02 candidates=0 corpus=1811 coverage=37297 exec total=61797 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:42:12 candidates=0 corpus=1811 coverage=37297 exec total=61811 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:42:22 candidates=0 corpus=1811 coverage=37297 exec total=61823 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:42:32 candidates=0 corpus=1812 coverage=37315 exec total=61840 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:42:42 candidates=0 corpus=1812 coverage=37315 exec total=61858 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:42:52 candidates=0 corpus=1812 coverage=37315 exec total=61874 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:43:02 candidates=0 corpus=1812 coverage=37315 exec total=61891 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:43:12 candidates=0 corpus=1812 coverage=37326 exec total=61910 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:43:22 candidates=0 corpus=1812 coverage=37326 exec total=61939 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:43:32 candidates=0 corpus=1819 coverage=37341 exec total=62196 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:43:42 candidates=0 corpus=1823 coverage=37343 exec total=62317 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:43:52 candidates=0 corpus=1827 coverage=37368 exec total=62495 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:44:02 candidates=0 corpus=1814 coverage=37368 exec total=62631 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:44:10 XXXXX REACH
+2024/09/25 21:44:10 XXXXX REACH
+2024/09/25 21:44:11 XXXXX REACH
+2024/09/25 21:44:11 XXXXX REACH
+2024/09/25 21:44:11 XXXXX REACH
+2024/09/25 21:44:11 XXXXX REACH
+2024/09/25 21:44:11 XXXXX REACH
+2024/09/25 21:44:12 candidates=0 corpus=1824 coverage=37399 exec total=62966 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:44:13 XXXXX REACH
+2024/09/25 21:44:13 XXXXX REACH
+2024/09/25 21:44:13 XXXXX REACH
+2024/09/25 21:44:13 XXXXX REACH
+2024/09/25 21:44:14 XXXXX REACH
+2024/09/25 21:44:14 XXXXX REACH
+2024/09/25 21:44:15 XXXXX REACH
+2024/09/25 21:44:15 XXXXX REACH
+2024/09/25 21:44:15 XXXXX REACH
+2024/09/25 21:44:15 XXXXX REACH
+2024/09/25 21:44:15 XXXXX REACH
+2024/09/25 21:44:15 XXXXX REACH
+2024/09/25 21:44:15 XXXXX REACH
+2024/09/25 21:44:16 Hit times: 20
+2024/09/25 21:44:16 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 21:44:19 close ask
+close ask Error: Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 72, in map_httpcore_exceptions
+    yield
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 236, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 216, in handle_request
+    raise exc from None
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 196, in handle_request
+    response = connection.handle_request(
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 99, in handle_request
+    raise exc
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 76, in handle_request
+    stream = self._connect(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 154, in _connect
+    stream = stream.start_tls(**kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_backends/sync.py", line 152, in start_tls
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 973, in _request
+    response = self._client.send(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 926, in send
+    response = self._send_handling_auth(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 954, in _send_handling_auth
+    response = self._send_handling_redirects(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 991, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 1027, in _send_single_request
+    response = transport.handle_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 235, in handle_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 89, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 478, in <module>
+    llm_list_result = interface.ask_for_syscalls_to_improve(target_function_list)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 155, in ask_for_syscalls_to_improve
+    answer = self.ask_question_and_record(description)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 61, in ask_question_and_record
+    res = self.client.chat.completions.create(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_utils/_utils.py", line 274, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/openai/resources/chat/completions.py", line 668, in create
+    return self._post(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1260, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 937, in request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1007, in _request
+    raise APIConnectionError(request=request) from err
+openai.APIConnectionError: Connection error.
+
+close ask Output: 
+2024/09/25 21:44:22 candidates=0 corpus=1824 coverage=37399 exec total=62985 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:44:32 candidates=0 corpus=1824 coverage=37399 exec total=63030 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:44:42 candidates=0 corpus=1825 coverage=37401 exec total=63081 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:44:52 candidates=0 corpus=1835 coverage=37466 exec total=63439 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:45:02 candidates=0 corpus=1852 coverage=37567 exec total=64268 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:45:12 candidates=0 corpus=1863 coverage=37609 exec total=64711 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:45:22 candidates=0 corpus=1875 coverage=37652 exec total=65507 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:45:32 candidates=0 corpus=1886 coverage=37722 exec total=65782 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:45:42 candidates=0 corpus=1897 coverage=37760 exec total=66197 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:45:52 candidates=0 corpus=1915 coverage=37859 exec total=66661 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:46:02 candidates=0 corpus=1900 coverage=37942 exec total=66824 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:46:12 candidates=0 corpus=1900 coverage=37942 exec total=66872 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:46:22 candidates=0 corpus=1907 coverage=38026 exec total=66994 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:46:32 candidates=0 corpus=1908 coverage=38030 exec total=67063 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:46:42 candidates=0 corpus=1922 coverage=38109 exec total=67520 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:46:52 candidates=0 corpus=1938 coverage=38328 exec total=68413 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:47:02 candidates=0 corpus=1941 coverage=38334 exec total=68656 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:47:09 XXXXX REACH
+2024/09/25 21:47:09 XXXXX REACH
+2024/09/25 21:47:09 XXXXX REACH
+2024/09/25 21:47:09 XXXXX REACH
+2024/09/25 21:47:10 XXXXX REACH
+2024/09/25 21:47:10 XXXXX REACH
+2024/09/25 21:47:10 XXXXX REACH
+2024/09/25 21:47:10 XXXXX REACH
+2024/09/25 21:47:10 XXXXX REACH
+2024/09/25 21:47:10 XXXXX REACH
+2024/09/25 21:47:10 XXXXX REACH
+2024/09/25 21:47:10 XXXXX REACH
+2024/09/25 21:47:11 XXXXX REACH
+2024/09/25 21:47:11 XXXXX REACH
+2024/09/25 21:47:12 XXXXX REACH
+2024/09/25 21:47:12 XXXXX REACH
+2024/09/25 21:47:12 XXXXX REACH
+2024/09/25 21:47:12 candidates=0 corpus=1957 coverage=38375 exec total=69575 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:47:12 XXXXX REACH
+2024/09/25 21:47:12 XXXXX REACH
+2024/09/25 21:47:12 XXXXX REACH
+2024/09/25 21:47:13 XXXXX REACH
+2024/09/25 21:47:13 XXXXX REACH
+2024/09/25 21:47:13 XXXXX REACH
+2024/09/25 21:47:13 XXXXX REACH
+2024/09/25 21:47:13 XXXXX REACH
+2024/09/25 21:47:13 XXXXX REACH
+2024/09/25 21:47:13 XXXXX REACH
+2024/09/25 21:47:16 Hit times: 27
+2024/09/25 21:47:16 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 21:47:19 close ask
+close ask Error: Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 72, in map_httpcore_exceptions
+    yield
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 236, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 216, in handle_request
+    raise exc from None
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection_pool.py", line 196, in handle_request
+    response = connection.handle_request(
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 99, in handle_request
+    raise exc
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 76, in handle_request
+    stream = self._connect(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_sync/connection.py", line 154, in _connect
+    stream = stream.start_tls(**kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_backends/sync.py", line 152, in start_tls
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 973, in _request
+    response = self._client.send(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 926, in send
+    response = self._send_handling_auth(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 954, in _send_handling_auth
+    response = self._send_handling_redirects(
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 991, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_client.py", line 1027, in _send_single_request
+    response = transport.handle_request(request)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 235, in handle_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/dist-packages/httpx/_transports/default.py", line 89, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 478, in <module>
+    llm_list_result = interface.ask_for_syscalls_to_improve(target_function_list)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 155, in ask_for_syscalls_to_improve
+    answer = self.ask_question_and_record(description)
+  File "/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer/chat_interface.py", line 61, in ask_question_and_record
+    res = self.client.chat.completions.create(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_utils/_utils.py", line 274, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/openai/resources/chat/completions.py", line 668, in create
+    return self._post(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1260, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 937, in request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 997, in _request
+    return self._retry_request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1075, in _retry_request
+    return self._request(
+  File "/usr/local/lib/python3.10/dist-packages/openai/_base_client.py", line 1007, in _request
+    raise APIConnectionError(request=request) from err
+openai.APIConnectionError: Connection error.
+
+close ask Output: 
+2024/09/25 21:47:22 candidates=0 corpus=1961 coverage=38400 exec total=69831 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:47:32 candidates=0 corpus=1962 coverage=38400 exec total=69895 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:47:42 candidates=0 corpus=1963 coverage=38400 exec total=69945 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:47:52 candidates=0 corpus=1980 coverage=38503 exec total=70507 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:48:02 candidates=0 corpus=1979 coverage=38603 exec total=71364 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:48:12 candidates=0 corpus=1993 coverage=38773 exec total=71764 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:48:22 candidates=0 corpus=1993 coverage=38773 exec total=71786 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:48:32 candidates=0 corpus=1993 coverage=38773 exec total=71815 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:48:42 candidates=0 corpus=1993 coverage=38773 exec total=71866 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:48:52 candidates=0 corpus=1996 coverage=38848 exec total=71917 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:49:02 candidates=0 corpus=1997 coverage=38849 exec total=71970 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:49:12 candidates=0 corpus=2000 coverage=38850 exec total=72069 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:49:22 candidates=0 corpus=2003 coverage=38852 exec total=72163 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:49:32 candidates=0 corpus=2017 coverage=38961 exec total=72505 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:49:42 candidates=0 corpus=2027 coverage=39073 exec total=72661 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:49:52 candidates=0 corpus=2029 coverage=39074 exec total=72690 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:50:02 candidates=0 corpus=2029 coverage=39074 exec total=72716 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:50:12 candidates=0 corpus=2030 coverage=39183 exec total=72760 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:50:22 candidates=0 corpus=2031 coverage=39355 exec total=72780 (15/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:50:32 candidates=0 corpus=2031 coverage=39355 exec total=72800 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:50:42 candidates=0 corpus=2031 coverage=39355 exec total=72858 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:50:52 candidates=0 corpus=2033 coverage=39373 exec total=72903 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:51:02 candidates=0 corpus=2019 coverage=39373 exec total=72939 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:51:12 candidates=0 corpus=2019 coverage=39373 exec total=72963 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:51:22 candidates=0 corpus=2019 coverage=39373 exec total=72983 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:51:32 candidates=0 corpus=2019 coverage=39373 exec total=73018 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:51:42 candidates=0 corpus=2020 coverage=39376 exec total=73048 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:51:52 candidates=0 corpus=2021 coverage=39377 exec total=73085 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:52:02 candidates=0 corpus=2022 coverage=39381 exec total=73128 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:52:12 candidates=0 corpus=2023 coverage=39382 exec total=73153 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:52:22 candidates=0 corpus=2024 coverage=39382 exec total=73174 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:52:32 candidates=0 corpus=2025 coverage=39385 exec total=73209 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:52:42 candidates=0 corpus=2025 coverage=39385 exec total=73257 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:52:52 candidates=0 corpus=2026 coverage=39385 exec total=73290 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:53:02 candidates=0 corpus=2028 coverage=39389 exec total=73337 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:53:12 candidates=0 corpus=2028 coverage=39389 exec total=73369 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:53:22 candidates=0 corpus=2028 coverage=39389 exec total=73409 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:53:32 candidates=0 corpus=2028 coverage=39389 exec total=73450 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:53:42 candidates=0 corpus=2030 coverage=39389 exec total=73545 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:53:52 candidates=0 corpus=2032 coverage=39396 exec total=73618 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:54:02 candidates=0 corpus=2032 coverage=39396 exec total=73648 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:54:12 candidates=0 corpus=2033 coverage=39397 exec total=73706 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:54:22 candidates=0 corpus=2033 coverage=39397 exec total=73762 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:54:32 candidates=0 corpus=2035 coverage=39398 exec total=74015 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:54:42 candidates=0 corpus=2037 coverage=39439 exec total=74148 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:54:52 candidates=0 corpus=2045 coverage=39516 exec total=74381 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:55:02 candidates=0 corpus=2051 coverage=39537 exec total=74564 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:55:08 update choice table with LLM
+2024/09/25 21:55:08 UpdateChoiceTable using LLM comm content
+2024/09/25 21:55:08 Build Choice Table with LLM
+2024/09/25 21:55:12 candidates=0 corpus=2073 coverage=39622 exec total=75138 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:55:22 candidates=0 corpus=2075 coverage=39624 exec total=75195 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:55:32 candidates=0 corpus=2076 coverage=39625 exec total=75239 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:55:42 candidates=0 corpus=2078 coverage=39634 exec total=75337 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:55:52 candidates=0 corpus=2078 coverage=39634 exec total=75384 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:56:02 candidates=0 corpus=2079 coverage=39669 exec total=75467 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:56:03 XXXXX REACH
+2024/09/25 21:56:03 XXXXX REACH
+2024/09/25 21:56:04 XXXXX REACH
+2024/09/25 21:56:04 XXXXX REACH
+2024/09/25 21:56:04 XXXXX REACH
+2024/09/25 21:56:04 XXXXX REACH
+2024/09/25 21:56:06 XXXXX REACH
+2024/09/25 21:56:06 XXXXX REACH
+2024/09/25 21:56:08 Hit times: 8
+2024/09/25 21:56:08 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 21:56:09 close ask
+close ask Error: 
+close ask Output: [setfsgid, setfsgid16, clone, fork, setgid, setgroups, execve, setregid, setresgid]
+
+2024/09/25 21:56:12 candidates=0 corpus=2079 coverage=39669 exec total=75488 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:56:22 candidates=0 corpus=2081 coverage=39678 exec total=75529 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:56:32 candidates=0 corpus=2082 coverage=39704 exec total=75577 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:56:42 candidates=0 corpus=2083 coverage=39705 exec total=75625 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:56:52 candidates=0 corpus=2085 coverage=39706 exec total=75670 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:57:02 candidates=0 corpus=2073 coverage=39718 exec total=75718 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:57:12 candidates=0 corpus=2074 coverage=39718 exec total=75762 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:57:22 candidates=0 corpus=2075 coverage=39719 exec total=75822 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:57:32 candidates=0 corpus=2075 coverage=39719 exec total=75846 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:57:42 candidates=0 corpus=2075 coverage=39723 exec total=75882 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:57:52 candidates=0 corpus=2076 coverage=39726 exec total=75930 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:58:02 candidates=0 corpus=2078 coverage=39735 exec total=75977 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:58:12 candidates=0 corpus=2080 coverage=39768 exec total=76024 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:58:22 candidates=0 corpus=2082 coverage=39769 exec total=76072 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:58:32 candidates=0 corpus=2082 coverage=39769 exec total=76112 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:58:42 candidates=0 corpus=2083 coverage=39774 exec total=76160 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:58:52 candidates=0 corpus=2083 coverage=39774 exec total=76204 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:59:02 candidates=0 corpus=2085 coverage=39776 exec total=76252 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:59:12 candidates=0 corpus=2086 coverage=39780 exec total=76299 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:59:22 candidates=0 corpus=2086 coverage=39780 exec total=76327 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:59:32 candidates=0 corpus=2087 coverage=39780 exec total=76375 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:59:42 candidates=0 corpus=2089 coverage=39807 exec total=76422 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 21:59:52 candidates=0 corpus=2089 coverage=39807 exec total=76470 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:00:02 candidates=0 corpus=2091 coverage=39808 exec total=76504 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:00:12 candidates=0 corpus=2092 coverage=39811 exec total=76550 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:00:22 candidates=0 corpus=2092 coverage=39811 exec total=76593 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:00:32 candidates=0 corpus=2094 coverage=39813 exec total=76633 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:00:42 candidates=0 corpus=2095 coverage=39814 exec total=76668 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:00:52 candidates=0 corpus=2095 coverage=39814 exec total=76716 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:01:02 candidates=0 corpus=2097 coverage=39814 exec total=76764 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:01:12 candidates=0 corpus=2098 coverage=39824 exec total=76807 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:01:22 candidates=0 corpus=2098 coverage=39824 exec total=76854 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:01:32 candidates=0 corpus=2099 coverage=39824 exec total=76896 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:01:42 candidates=0 corpus=2100 coverage=39827 exec total=76942 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:01:52 candidates=0 corpus=2100 coverage=39827 exec total=76986 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:02:02 candidates=0 corpus=2102 coverage=39827 exec total=77034 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:02:12 candidates=0 corpus=2103 coverage=39827 exec total=77082 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:02:22 candidates=0 corpus=2104 coverage=39837 exec total=77126 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:02:32 candidates=0 corpus=2111 coverage=39842 exec total=77324 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:02:42 candidates=0 corpus=2128 coverage=39911 exec total=77944 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:02:52 candidates=0 corpus=2138 coverage=39956 exec total=78226 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:03:02 candidates=0 corpus=2131 coverage=39973 exec total=78483 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:03:12 candidates=0 corpus=2131 coverage=39973 exec total=78541 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:03:22 candidates=0 corpus=2134 coverage=40001 exec total=78602 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:03:32 candidates=0 corpus=2139 coverage=40025 exec total=78884 (13/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:03:42 candidates=0 corpus=2157 coverage=40068 exec total=79512 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:03:52 candidates=0 corpus=2162 coverage=40081 exec total=79607 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:04:02 candidates=0 corpus=2164 coverage=40081 exec total=79694 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:04:12 candidates=0 corpus=2169 coverage=40114 exec total=79844 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:04:22 candidates=0 corpus=2179 coverage=40165 exec total=80122 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:04:32 candidates=0 corpus=2197 coverage=40259 exec total=80642 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:04:42 candidates=0 corpus=2201 coverage=40290 exec total=80724 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:04:52 candidates=0 corpus=2205 coverage=40307 exec total=80850 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:05:02 candidates=0 corpus=2198 coverage=40330 exec total=80972 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:05:12 candidates=0 corpus=2204 coverage=40354 exec total=81174 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:05:22 candidates=0 corpus=2205 coverage=40357 exec total=81209 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:05:32 candidates=0 corpus=2206 coverage=40358 exec total=81242 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:05:42 candidates=0 corpus=2207 coverage=40376 exec total=81271 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:05:52 candidates=0 corpus=2207 coverage=40376 exec total=81301 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:06:02 candidates=0 corpus=2208 coverage=40383 exec total=81331 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:06:12 candidates=0 corpus=2211 coverage=40396 exec total=81411 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:06:22 candidates=0 corpus=2221 coverage=40439 exec total=81657 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:06:32 candidates=0 corpus=2237 coverage=40527 exec total=82019 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:06:42 candidates=0 corpus=2239 coverage=40532 exec total=82076 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:06:52 candidates=0 corpus=2242 coverage=40534 exec total=82120 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:07:02 candidates=0 corpus=2244 coverage=40538 exec total=82168 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:07:12 candidates=0 corpus=2250 coverage=40604 exec total=82300 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:07:22 candidates=0 corpus=2258 coverage=40620 exec total=82584 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:07:32 candidates=0 corpus=2263 coverage=40635 exec total=82735 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:07:42 candidates=0 corpus=2269 coverage=40653 exec total=82893 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:07:51 XXXXX REACH
+2024/09/25 22:07:51 XXXXX REACH
+2024/09/25 22:07:51 XXXXX REACH
+2024/09/25 22:07:52 candidates=0 corpus=2275 coverage=40702 exec total=83103 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:07:53 XXXXX REACH
+2024/09/25 22:07:53 XXXXX REACH
+2024/09/25 22:07:53 XXXXX REACH
+2024/09/25 22:07:53 XXXXX REACH
+2024/09/25 22:07:53 XXXXX REACH
+2024/09/25 22:07:55 XXXXX REACH
+2024/09/25 22:07:55 XXXXX REACH
+2024/09/25 22:07:56 XXXXX REACH
+2024/09/25 22:07:56 XXXXX REACH
+2024/09/25 22:07:56 XXXXX REACH
+2024/09/25 22:07:56 XXXXX REACH
+2024/09/25 22:07:56 XXXXX REACH
+2024/09/25 22:07:56 XXXXX REACH
+2024/09/25 22:07:57 Hit times: 16
+2024/09/25 22:07:57 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 22:07:59 close ask
+close ask Error: 
+close ask Output: [setfsgid, setfsgid16, setfsuid, setuid, setgid, setresuid, setresgid, setreuid, setregid, getuid, getgid, geteuid, getegid]
+
+2024/09/25 22:08:02 candidates=0 corpus=2262 coverage=40702 exec total=83147 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:08:12 candidates=0 corpus=2263 coverage=40702 exec total=83212 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:08:22 candidates=0 corpus=2264 coverage=40703 exec total=83262 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:08:32 candidates=0 corpus=2265 coverage=40703 exec total=83310 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:08:42 candidates=0 corpus=2270 coverage=40708 exec total=83497 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:08:52 candidates=0 corpus=2285 coverage=40762 exec total=84035 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:09:02 candidates=0 corpus=2300 coverage=40861 exec total=84437 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:09:12 candidates=0 corpus=2304 coverage=40920 exec total=84552 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:09:22 candidates=0 corpus=2310 coverage=40923 exec total=84856 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:09:32 candidates=0 corpus=2333 coverage=40972 exec total=85407 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:09:42 candidates=0 corpus=2355 coverage=41334 exec total=85971 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:09:52 candidates=0 corpus=2359 coverage=41340 exec total=86070 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:10:02 candidates=0 corpus=2332 coverage=41343 exec total=86148 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:10:12 candidates=0 corpus=2333 coverage=41344 exec total=86185 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:10:22 candidates=0 corpus=2334 coverage=41346 exec total=86232 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:10:32 candidates=0 corpus=2359 coverage=41468 exec total=86810 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:10:42 candidates=0 corpus=2362 coverage=41477 exec total=86862 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:10:52 candidates=0 corpus=2365 coverage=41507 exec total=86946 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:11:02 candidates=0 corpus=2369 coverage=41515 exec total=87078 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:11:12 candidates=0 corpus=2372 coverage=41520 exec total=87128 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:11:22 candidates=0 corpus=2374 coverage=41526 exec total=87177 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:11:32 candidates=0 corpus=2375 coverage=41526 exec total=87201 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:11:42 candidates=0 corpus=2378 coverage=41530 exec total=87287 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:11:52 candidates=0 corpus=2380 coverage=41531 exec total=87336 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:12:02 candidates=0 corpus=2381 coverage=41532 exec total=87360 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:12:12 candidates=0 corpus=2382 coverage=41865 exec total=87394 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:12:22 candidates=0 corpus=2394 coverage=41935 exec total=87812 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:12:27 update choice table with LLM
+2024/09/25 22:12:27 UpdateChoiceTable using LLM comm content
+2024/09/25 22:12:27 Build Choice Table with LLM
+2024/09/25 22:12:32 candidates=0 corpus=2406 coverage=41973 exec total=88255 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:12:42 candidates=0 corpus=2407 coverage=41992 exec total=88304 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:12:52 candidates=0 corpus=2407 coverage=41992 exec total=88349 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:13:02 candidates=0 corpus=2390 coverage=42000 exec total=88443 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:13:12 candidates=0 corpus=2390 coverage=42000 exec total=88486 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:13:22 candidates=0 corpus=2399 coverage=42104 exec total=88814 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:13:32 candidates=0 corpus=2409 coverage=42165 exec total=89227 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:13:42 candidates=0 corpus=2424 coverage=42174 exec total=89711 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:13:52 candidates=0 corpus=2426 coverage=42174 exec total=89773 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:13:59 XXXXX REACH
+2024/09/25 22:13:59 XXXXX REACH
+2024/09/25 22:13:59 XXXXX REACH
+2024/09/25 22:13:59 XXXXX REACH
+2024/09/25 22:14:00 XXXXX REACH
+2024/09/25 22:14:00 XXXXX REACH
+2024/09/25 22:14:00 XXXXX REACH
+2024/09/25 22:14:00 XXXXX REACH
+2024/09/25 22:14:00 XXXXX REACH
+2024/09/25 22:14:00 XXXXX REACH
+2024/09/25 22:14:01 XXXXX REACH
+2024/09/25 22:14:01 XXXXX REACH
+2024/09/25 22:14:01 XXXXX REACH
+2024/09/25 22:14:01 XXXXX REACH
+2024/09/25 22:14:01 XXXXX REACH
+2024/09/25 22:14:01 XXXXX REACH
+2024/09/25 22:14:01 XXXXX REACH
+2024/09/25 22:14:01 XXXXX REACH
+2024/09/25 22:14:01 XXXXX REACH
+2024/09/25 22:14:01 XXXXX REACH
+2024/09/25 22:14:02 candidates=0 corpus=2430 coverage=42209 exec total=89904 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:14:04 XXXXX REACH
+2024/09/25 22:14:04 XXXXX REACH
+2024/09/25 22:14:04 XXXXX REACH
+2024/09/25 22:14:04 XXXXX REACH
+2024/09/25 22:14:04 XXXXX REACH
+2024/09/25 22:14:04 XXXXX REACH
+2024/09/25 22:14:04 XXXXX REACH
+2024/09/25 22:14:05 XXXXX REACH
+2024/09/25 22:14:05 XXXXX REACH
+2024/09/25 22:14:05 Hit times: 29
+2024/09/25 22:14:05 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 22:14:06 close ask
+close ask Error: 
+close ask Output: [setfsgid, setfsgid16, setfsuid, setresgid, setresuid]
+
+2024/09/25 22:14:12 candidates=0 corpus=2438 coverage=42225 exec total=90057 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:14:22 candidates=0 corpus=2440 coverage=42228 exec total=90140 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:14:32 candidates=0 corpus=2446 coverage=42277 exec total=90306 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:14:42 candidates=0 corpus=2452 coverage=42313 exec total=90422 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:14:52 candidates=0 corpus=2456 coverage=42362 exec total=90657 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:15:02 candidates=0 corpus=2456 coverage=42437 exec total=91483 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:15:12 candidates=0 corpus=2472 coverage=42495 exec total=92064 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:15:22 candidates=0 corpus=2481 coverage=42504 exec total=92867 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:15:32 candidates=0 corpus=2491 coverage=42518 exec total=93311 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:15:42 candidates=0 corpus=2504 coverage=42557 exec total=93960 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:15:52 candidates=0 corpus=2514 coverage=42580 exec total=94364 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:16:02 candidates=0 corpus=2509 coverage=42656 exec total=94789 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:16:12 candidates=0 corpus=2509 coverage=42656 exec total=94839 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:16:22 candidates=0 corpus=2509 coverage=42656 exec total=94899 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:16:32 candidates=0 corpus=2510 coverage=42656 exec total=94946 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:16:42 candidates=0 corpus=2511 coverage=42663 exec total=94984 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:16:52 candidates=0 corpus=2537 coverage=42761 exec total=95741 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:17:02 candidates=0 corpus=2552 coverage=42792 exec total=96174 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:17:12 candidates=0 corpus=2564 coverage=42813 exec total=96607 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:17:22 candidates=0 corpus=2570 coverage=42817 exec total=96912 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:17:32 candidates=0 corpus=2572 coverage=42821 exec total=96948 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:17:42 candidates=0 corpus=2572 coverage=42821 exec total=97004 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:17:52 candidates=0 corpus=2574 coverage=42826 exec total=97043 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:18:02 candidates=0 corpus=2578 coverage=42832 exec total=97155 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:18:12 candidates=0 corpus=2579 coverage=42832 exec total=97183 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:18:22 candidates=0 corpus=2579 coverage=42832 exec total=97214 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:18:32 candidates=0 corpus=2579 coverage=42832 exec total=97258 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:18:42 candidates=0 corpus=2579 coverage=42832 exec total=97282 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:18:52 candidates=0 corpus=2580 coverage=42832 exec total=97322 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:19:02 candidates=0 corpus=2581 coverage=42832 exec total=97371 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:19:12 candidates=0 corpus=2590 coverage=42859 exec total=97744 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:19:22 candidates=0 corpus=2600 coverage=42888 exec total=97955 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:19:32 candidates=0 corpus=2603 coverage=42890 exec total=98091 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:19:42 candidates=0 corpus=2606 coverage=42893 exec total=98155 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:19:52 candidates=0 corpus=2607 coverage=42901 exec total=98194 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:20:02 candidates=0 corpus=2584 coverage=42901 exec total=98230 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:20:12 candidates=0 corpus=2585 coverage=42901 exec total=98254 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:20:22 candidates=0 corpus=2587 coverage=42904 exec total=98280 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:20:25 XXXXX REACH
+2024/09/25 22:20:25 XXXXX REACH
+2024/09/25 22:20:26 XXXXX REACH
+2024/09/25 22:20:26 XXXXX REACH
+2024/09/25 22:20:26 XXXXX REACH
+2024/09/25 22:20:26 XXXXX REACH
+2024/09/25 22:20:26 XXXXX REACH
+2024/09/25 22:20:26 XXXXX REACH
+2024/09/25 22:20:26 XXXXX REACH
+2024/09/25 22:20:26 XXXXX REACH
+2024/09/25 22:20:28 XXXXX REACH
+2024/09/25 22:20:28 XXXXX REACH
+2024/09/25 22:20:28 XXXXX REACH
+2024/09/25 22:20:28 XXXXX REACH
+2024/09/25 22:20:28 XXXXX REACH
+2024/09/25 22:20:28 XXXXX REACH
+2024/09/25 22:20:28 XXXXX REACH
+2024/09/25 22:20:28 XXXXX REACH
+2024/09/25 22:20:28 XXXXX REACH
+2024/09/25 22:20:28 XXXXX REACH
+2024/09/25 22:20:29 XXXXX REACH
+2024/09/25 22:20:29 XXXXX REACH
+2024/09/25 22:20:29 XXXXX REACH
+2024/09/25 22:20:29 XXXXX REACH
+2024/09/25 22:20:30 XXXXX REACH
+2024/09/25 22:20:30 XXXXX REACH
+2024/09/25 22:20:30 XXXXX REACH
+2024/09/25 22:20:30 XXXXX REACH
+2024/09/25 22:20:30 XXXXX REACH
+2024/09/25 22:20:30 XXXXX REACH
+2024/09/25 22:20:30 XXXXX REACH
+2024/09/25 22:20:30 XXXXX REACH
+2024/09/25 22:20:30 XXXXX REACH
+2024/09/25 22:20:31 XXXXX REACH
+2024/09/25 22:20:31 XXXXX REACH
+2024/09/25 22:20:31 Hit times: 35
+2024/09/25 22:20:31 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 22:20:32 candidates=0 corpus=2587 coverage=42904 exec total=98284 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:20:33 close ask
+close ask Error: 
+close ask Output: [setfsgid, setfsgid16, setgid, setegid, setreuid]
+
+2024/09/25 22:20:42 candidates=0 corpus=2588 coverage=42904 exec total=98309 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:20:52 candidates=0 corpus=2588 coverage=42904 exec total=98353 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:21:02 candidates=0 corpus=2599 coverage=42937 exec total=98715 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:21:12 candidates=0 corpus=2601 coverage=42949 exec total=98758 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:21:22 candidates=0 corpus=2601 coverage=42949 exec total=98797 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:21:32 candidates=0 corpus=2601 coverage=42949 exec total=98838 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:21:42 candidates=0 corpus=2602 coverage=42949 exec total=98873 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:21:52 candidates=0 corpus=2604 coverage=42964 exec total=98909 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:22:02 candidates=0 corpus=2609 coverage=42997 exec total=99021 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:22:12 candidates=0 corpus=2610 coverage=42997 exec total=99065 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:22:22 candidates=0 corpus=2613 coverage=43009 exec total=99120 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:22:32 candidates=0 corpus=2615 coverage=43016 exec total=99169 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:22:42 candidates=0 corpus=2616 coverage=43079 exec total=99213 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:22:52 candidates=0 corpus=2626 coverage=43146 exec total=99525 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:23:02 candidates=0 corpus=2649 coverage=43270 exec total=100063 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:23:12 candidates=0 corpus=2656 coverage=43436 exec total=100278 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:23:22 candidates=0 corpus=2660 coverage=43454 exec total=100346 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:23:32 candidates=0 corpus=2663 coverage=43460 exec total=100526 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:23:42 candidates=0 corpus=2674 coverage=43513 exec total=100877 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:23:52 candidates=0 corpus=2681 coverage=43536 exec total=100997 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:24:02 candidates=0 corpus=2665 coverage=43685 exec total=101296 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:24:12 candidates=0 corpus=2667 coverage=43686 exec total=101361 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:24:22 candidates=0 corpus=2669 coverage=43686 exec total=101427 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:24:32 candidates=0 corpus=2677 coverage=43701 exec total=101666 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:24:42 candidates=0 corpus=2688 coverage=43724 exec total=101994 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:24:52 candidates=0 corpus=2698 coverage=43740 exec total=102318 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:25:02 candidates=0 corpus=2702 coverage=43742 exec total=102448 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:25:12 candidates=0 corpus=2703 coverage=43743 exec total=102497 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:25:22 candidates=0 corpus=2703 coverage=43743 exec total=102553 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:25:32 candidates=0 corpus=2706 coverage=43747 exec total=102597 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:25:42 candidates=0 corpus=2707 coverage=43750 exec total=102645 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:25:52 candidates=0 corpus=2707 coverage=43750 exec total=102693 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:26:02 candidates=0 corpus=2721 coverage=43868 exec total=103060 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:26:09 update choice table with LLM
+2024/09/25 22:26:09 UpdateChoiceTable using LLM comm content
+2024/09/25 22:26:09 Build Choice Table with LLM
+2024/09/25 22:26:12 candidates=0 corpus=2744 coverage=43958 exec total=103776 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:26:22 candidates=0 corpus=2754 coverage=44015 exec total=104051 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:26:32 candidates=0 corpus=2761 coverage=44037 exec total=104313 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:26:42 candidates=0 corpus=2766 coverage=44041 exec total=104452 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:26:52 candidates=0 corpus=2777 coverage=44062 exec total=104789 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:27:02 candidates=0 corpus=2757 coverage=44065 exec total=104961 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:27:04 XXXXX REACH
+2024/09/25 22:27:04 XXXXX REACH
+2024/09/25 22:27:04 XXXXX REACH
+2024/09/25 22:27:04 XXXXX REACH
+2024/09/25 22:27:05 XXXXX REACH
+2024/09/25 22:27:05 XXXXX REACH
+2024/09/25 22:27:05 XXXXX REACH
+2024/09/25 22:27:05 XXXXX REACH
+2024/09/25 22:27:05 XXXXX REACH
+2024/09/25 22:27:05 XXXXX REACH
+2024/09/25 22:27:05 XXXXX REACH
+2024/09/25 22:27:05 XXXXX REACH
+2024/09/25 22:27:05 XXXXX REACH
+2024/09/25 22:27:05 XXXXX REACH
+2024/09/25 22:27:07 XXXXX REACH
+2024/09/25 22:27:07 XXXXX REACH
+2024/09/25 22:27:07 XXXXX REACH
+2024/09/25 22:27:07 XXXXX REACH
+2024/09/25 22:27:07 XXXXX REACH
+2024/09/25 22:27:07 XXXXX REACH
+2024/09/25 22:27:08 XXXXX REACH
+2024/09/25 22:27:08 XXXXX REACH
+2024/09/25 22:27:08 XXXXX REACH
+2024/09/25 22:27:08 XXXXX REACH
+2024/09/25 22:27:09 XXXXX REACH
+2024/09/25 22:27:09 XXXXX REACH
+2024/09/25 22:27:09 XXXXX REACH
+2024/09/25 22:27:09 XXXXX REACH
+2024/09/25 22:27:10 Hit times: 28
+2024/09/25 22:27:10 process print: /usr/bin/python3 ./scripts/process_close_cov_result.py
+2024/09/25 22:27:11 close ask
+close ask Error: 
+close ask Output: [setfsgid, setfsgid16, setgid, setgroups, setresgid]
+
+2024/09/25 22:27:12 candidates=0 corpus=2762 coverage=44082 exec total=105117 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:27:22 candidates=0 corpus=2774 coverage=44112 exec total=105576 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:27:32 candidates=0 corpus=2775 coverage=44112 exec total=105626 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:27:42 candidates=0 corpus=2777 coverage=44116 exec total=105675 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:27:52 candidates=0 corpus=2777 coverage=44116 exec total=105723 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:28:02 candidates=0 corpus=2778 coverage=44118 exec total=105772 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:28:12 candidates=0 corpus=2789 coverage=44136 exec total=106041 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:28:22 candidates=0 corpus=2790 coverage=44141 exec total=106121 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:28:32 candidates=0 corpus=2797 coverage=44156 exec total=106288 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:28:42 candidates=0 corpus=2797 coverage=44156 exec total=106321 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:28:52 candidates=0 corpus=2799 coverage=44162 exec total=106370 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:29:02 candidates=0 corpus=2801 coverage=44162 exec total=106476 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:29:12 candidates=0 corpus=2801 coverage=44162 exec total=106522 (14/sec) fuzzing VMs=1 reproducing=0 
+2024/09/25 22:29:22 candidates=0 corpus=2804 coverage=44164 exec total=106649 (14/sec) fuzzing VMs=1 reproducing=0 
+SIGINT: shutting down...
+2024/09/25 22:29:31 vm-2: running for 59m38.378548475s, restarting

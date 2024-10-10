@@ -1,0 +1,6214 @@
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+{
+----- addresses:
+ffffffff8190772c
+ffffffff8190772d
+ffffffff81907724
+ffffffff81907720
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+struct task_struct *task = get_proc_task(inode);
+----- addresses:
+ffffffff81907724
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+struct mm_struct *mm = ERR_PTR(-ESRCH);
+----- addresses:
+ffffffff81907759
+ffffffff81907768
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (task) {
+----- addresses:
+ffffffff81907768
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+mm = mm_access(task, mode | PTRACE_MODE_FSCREDS);
+----- addresses:
+ffffffff81907775
+ffffffff81907772
+ffffffff81907790
+ffffffff81907783
+ffffffff8190776d
+ffffffff8190777c
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+put_task_struct(task);
+----- addresses:
+ffffffff81907793
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (!IS_ERR_OR_NULL(mm)) {
+----- addresses:
+ffffffff819077b4
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+mmgrab(mm);
+----- addresses:
+ffffffff819077cc
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+mmput(mm);
+----- addresses:
+ffffffff819077e3
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+return mm;
+----- addresses:
+ffffffff819077eb
+----- funcname:
+proc_mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+}
+----- addresses:
+ffffffff819077f5
+ffffffff819077f0
+ffffffff819077f7
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+{
+----- addresses:
+ffffffff811e2bad
+ffffffff811e2ba0
+ffffffff811e2ba4
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+struct mm_struct *active_mm;
+----- addresses:
+ffffffff811e2ba4
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+struct task_struct *tsk = current;
+----- addresses:
+ffffffff811e2ba4
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+WARN_ON_ONCE(!(tsk->flags & PF_KTHREAD));
+----- addresses:
+ffffffff811e2cf2
+ffffffff811e2d2e
+ffffffff811e2cf3
+ffffffff811e2bf8
+ffffffff811e2cf5
+ffffffff811e2d24
+ffffffff811e2bec
+ffffffff811e2bbd
+ffffffff811e2cfb
+ffffffff811e2ced
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+WARN_ON_ONCE(tsk->mm);
+----- addresses:
+ffffffff811e2d00
+ffffffff811e2c2f
+ffffffff811e2bf8
+ffffffff811e2d45
+ffffffff811e2d01
+ffffffff811e2cfb
+ffffffff811e2d09
+ffffffff811e2c20
+ffffffff811e2d03
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+mmgrab(mm);
+----- addresses:
+ffffffff811e2c2f
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+task_lock(tsk);
+----- addresses:
+ffffffff811e2c45
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+local_irq_disable();
+----- addresses:
+ffffffff811e2c56
+ffffffff811e2c55
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+active_mm = tsk->active_mm;
+----- addresses:
+ffffffff811e2d3b
+ffffffff811e2c56
+ffffffff811e2c7c
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+tsk->active_mm = mm;
+----- addresses:
+ffffffff811e2c8e
+ffffffff811e2c84
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+tsk->mm = mm;
+----- addresses:
+ffffffff811e2c79
+ffffffff811e2c96
+ffffffff811e2d2e
+ffffffff811e2c84
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+membarrier_update_current_mm(mm);
+----- addresses:
+ffffffff811e2cac
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+switch_mm_irqs_off(active_mm, mm, tsk);
+----- addresses:
+ffffffff811e2cb4
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+local_irq_enable();
+----- addresses:
+ffffffff811e2cc2
+ffffffff811e2cc3
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+task_unlock(tsk);
+----- addresses:
+ffffffff811e2cc3
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+mmdrop_lazy_tlb(active_mm);
+----- addresses:
+ffffffff811e2ccb
+----- funcname:
+kthread_use_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+}
+----- addresses:
+ffffffff811e2d19
+ffffffff811e2ce2
+ffffffff811e2d1b
+ffffffff811e2ce6
+ffffffff811e2d1f
+ffffffff811e2d16
+ffffffff811e2ce0
+ffffffff811e2ce4
+ffffffff811e2ce8
+ffffffff811e2d1d
+ffffffff811e2d17
+ffffffff811e2cdf
+----- funcname:
+mmu_interval_notifier_insert_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+{
+----- addresses:
+ffffffff8171fd20
+ffffffff8171fd24
+----- funcname:
+mmu_interval_notifier_insert_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+struct mmu_notifier_subscriptions *subscriptions =
+----- addresses:
+ffffffff8171fe81
+ffffffff8171fd46
+ffffffff8171fd24
+ffffffff8171fd79
+ffffffff8171fd41
+----- funcname:
+mmu_interval_notifier_insert_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+int ret;
+----- addresses:
+ffffffff8171fd80
+----- funcname:
+mmu_interval_notifier_insert_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+mmap_assert_write_locked(mm);
+----- addresses:
+ffffffff8171fd80
+----- funcname:
+mmu_interval_notifier_insert_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (!subscriptions || !subscriptions->has_itree) {
+----- addresses:
+ffffffff8171fdea
+ffffffff8171fe77
+ffffffff8171fdb7
+ffffffff8171fdc1
+----- funcname:
+mmu_interval_notifier_insert_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+ret = __mmu_notifier_register(NULL, mm);
+----- addresses:
+ffffffff8171fe2c
+----- funcname:
+mmu_interval_notifier_insert_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (ret)
+----- addresses:
+ffffffff8171fe3e
+----- funcname:
+mmu_interval_notifier_insert_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscriptions = mm->notifier_subscriptions;
+----- addresses:
+ffffffff8171fe9a
+ffffffff8171fe42
+ffffffff8171fe67
+ffffffff8171fe47
+----- funcname:
+mmu_interval_notifier_insert_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return __mmu_interval_notifier_insert(interval_sub, mm, subscriptions,
+----- addresses:
+ffffffff8171fe11
+ffffffff8171fdf2
+----- funcname:
+mmu_interval_notifier_insert_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+}
+----- addresses:
+ffffffff8171fe16
+ffffffff8171fe23
+ffffffff8171fe25
+ffffffff8171fe27
+ffffffff8171fe1f
+ffffffff8171fe1e
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+{
+----- addresses:
+ffffffff823b2174
+ffffffff823b2170
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+struct iommu_mm_data *iommu_mm;
+----- addresses:
+ffffffff823b2174
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+struct iommu_domain *domain;
+----- addresses:
+ffffffff823b2174
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+struct iommu_sva *handle;
+----- addresses:
+ffffffff823b2174
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+int ret;
+----- addresses:
+ffffffff823b2174
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+mutex_lock(&iommu_sva_lock);
+----- addresses:
+ffffffff823b2174
+ffffffff823b218d
+ffffffff823b2188
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+iommu_mm = iommu_alloc_mm_data(mm, dev);
+----- addresses:
+ffffffff823b2199
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+if (IS_ERR(iommu_mm)) {
+----- addresses:
+ffffffff823b2257
+ffffffff823b2252
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+list_for_each_entry(handle, &mm->iommu_mm->sva_handles, handle_item) {
+----- addresses:
+ffffffff823b2953
+ffffffff823b22ed
+ffffffff823b22c9
+ffffffff823b22b0
+ffffffff823b2949
+ffffffff823b2992
+ffffffff823b22e4
+ffffffff823b2264
+ffffffff823b29a1
+ffffffff823b22e9
+ffffffff823b2983
+ffffffff823b22b4
+ffffffff823b29ae
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+if (handle->dev == dev) {
+----- addresses:
+ffffffff823b22f6
+ffffffff823b230c
+ffffffff823b293c
+ffffffff823b22bd
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+refcount_inc(&handle->users);
+----- addresses:
+ffffffff823b2312
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+mutex_unlock(&iommu_sva_lock);
+----- addresses:
+ffffffff823b25ea
+ffffffff823b25f5
+ffffffff823b2358
+ffffffff823b28db
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+handle = kzalloc(sizeof(*handle), GFP_KERNEL);
+----- addresses:
+ffffffff823b238d
+ffffffff823b23ca
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+if (!handle) {
+----- addresses:
+ffffffff823b23ca
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+list_for_each_entry(domain, &mm->iommu_mm->sva_domains, next) {
+----- addresses:
+ffffffff823b2953
+ffffffff823b295d
+ffffffff823b29d9
+ffffffff823b2482
+ffffffff823b247b
+ffffffff823b29f5
+ffffffff823b23d3
+ffffffff823b241f
+ffffffff823b296c
+ffffffff823b2457
+ffffffff823b23d8
+ffffffff823b2444
+ffffffff823b2488
+ffffffff823b29e8
+ffffffff823b245c
+ffffffff823b2472
+ffffffff823b2423
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+ret = iommu_attach_device_pasid(domain, dev, iommu_mm->pasid);
+----- addresses:
+ffffffff823b249c
+ffffffff823b2667
+ffffffff823b2439
+ffffffff823b2976
+ffffffff823b2ad5
+ffffffff823b2662
+ffffffff823b242c
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+if (!ret) {
+----- addresses:
+ffffffff823b24c3
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+domain->users++;
+----- addresses:
+ffffffff823b2aec
+ffffffff823b24cc
+ffffffff823b2ae2
+ffffffff823b24f1
+ffffffff823b24c7
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+goto out;
+----- addresses:
+ffffffff823b24f5
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+domain = iommu_sva_domain_alloc(dev, mm);
+----- addresses:
+ffffffff823b2653
+ffffffff823b2643
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+if (IS_ERR(domain)) {
+----- addresses:
+ffffffff823b2656
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+ret = PTR_ERR(domain);
+----- addresses:
+ffffffff823b2919
+ffffffff823b291e
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+goto out_free_handle;
+----- addresses:
+ffffffff823b2921
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+if (ret)
+----- addresses:
+ffffffff823b269a
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+goto out_free_domain;
+----- addresses:
+ffffffff823b28e0
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+domain->users = 1;
+----- addresses:
+ffffffff823b26a2
+ffffffff823b2b5d
+ffffffff823b26a7
+ffffffff823b26d1
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+list_add(&domain->next, &mm->iommu_mm->sva_domains);
+----- addresses:
+ffffffff823b26d8
+ffffffff823b26cc
+ffffffff823b2705
+ffffffff823b26f7
+ffffffff823b2b4e
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+refcount_set(&handle->users, 1);
+----- addresses:
+ffffffff823b24f5
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+list_add(&handle->handle_item, &mm->iommu_mm->sva_handles);
+----- addresses:
+ffffffff823b2b83
+ffffffff823b2569
+ffffffff823b252d
+ffffffff823b255a
+ffffffff823b2b74
+ffffffff823b2545
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+handle->dev = dev;
+----- addresses:
+ffffffff823b29bf
+ffffffff823b25fa
+ffffffff823b261a
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+handle->domain = domain;
+----- addresses:
+ffffffff823b2615
+ffffffff823b29f5
+ffffffff823b261e
+ffffffff823b29ff
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+return handle;
+----- addresses:
+ffffffff823b263e
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+iommu_domain_free(domain);
+----- addresses:
+ffffffff823b28e5
+ffffffff823b28e0
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+kfree(handle);
+----- addresses:
+ffffffff823b28ed
+ffffffff823b28fd
+ffffffff823b28f8
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+return ERR_PTR(ret);
+----- addresses:
+ffffffff823b28f5
+ffffffff823b29d1
+ffffffff823b2369
+----- funcname:
+iommu_sva_bind_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+}
+----- addresses:
+ffffffff823b2384
+ffffffff823b238d
+ffffffff823b236e
+----- funcname:
+pagemap_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+{
+----- addresses:
+ffffffff818eeef0
+ffffffff818eeef4
+----- funcname:
+pagemap_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+struct mm_struct *mm;
+----- addresses:
+ffffffff818eeef4
+----- funcname:
+pagemap_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+mm = proc_mem_open(inode, PTRACE_MODE_READ);
+----- addresses:
+ffffffff818eeefe
+ffffffff818eeef4
+ffffffff818eef03
+----- funcname:
+pagemap_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+if (IS_ERR(mm))
+----- addresses:
+ffffffff818eef13
+----- funcname:
+pagemap_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+return PTR_ERR(mm);
+----- addresses:
+ffffffff818eef60
+ffffffff818eef63
+ffffffff818eef5b
+----- funcname:
+pagemap_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+file->private_data = mm;
+----- addresses:
+ffffffff818eef74
+ffffffff818eef1b
+ffffffff818eef20
+----- funcname:
+pagemap_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+return 0;
+----- addresses:
+ffffffff818eef47
+ffffffff818eef4a
+----- funcname:
+pagemap_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+}
+----- addresses:
+ffffffff818eef68
+ffffffff818eef53
+ffffffff818eef6c
+ffffffff818eef6d
+ffffffff818eef4f
+ffffffff818eef54
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+{
+----- addresses:
+ffffffff811e33b4
+ffffffff811e33b0
+ffffffff811e33bb
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+struct task_struct *tsk = current;
+----- addresses:
+ffffffff811e33b4
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+WARN_ON_ONCE(!(tsk->flags & PF_KTHREAD));
+----- addresses:
+ffffffff811e34cb
+ffffffff811e34ca
+ffffffff811e34fa
+ffffffff811e34c5
+ffffffff811e34d3
+ffffffff811e33fa
+ffffffff811e3504
+ffffffff811e34cd
+ffffffff811e3406
+ffffffff811e33cb
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+WARN_ON_ONCE(!tsk->mm);
+----- addresses:
+ffffffff811e34d8
+ffffffff811e34db
+ffffffff811e34d9
+ffffffff811e342e
+ffffffff811e34d3
+ffffffff811e343d
+ffffffff811e34e1
+ffffffff811e3511
+ffffffff811e3406
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+task_lock(tsk);
+----- addresses:
+ffffffff811e343d
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+smp_mb__after_spinlock();
+----- addresses:
+ffffffff811e3452
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+local_irq_disable();
+----- addresses:
+ffffffff811e3453
+ffffffff811e3452
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+tsk->mm = NULL;
+----- addresses:
+ffffffff811e3453
+ffffffff811e3504
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+membarrier_update_current_mm(NULL);
+----- addresses:
+ffffffff811e347a
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+mmgrab_lazy_tlb(mm);
+----- addresses:
+ffffffff811e3481
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+enter_lazy_tlb(mm, tsk);
+----- addresses:
+ffffffff811e3492
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+local_irq_enable();
+----- addresses:
+ffffffff811e349e
+ffffffff811e349d
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+task_unlock(tsk);
+----- addresses:
+ffffffff811e349e
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+mmdrop(mm);
+----- addresses:
+ffffffff811e34a6
+----- funcname:
+kthread_unuse_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/kthread.c
+----- source:
+}
+----- addresses:
+ffffffff811e34be
+ffffffff811e34f3
+ffffffff811e34ee
+ffffffff811e34f1
+ffffffff811e34ba
+ffffffff811e34bc
+ffffffff811e34ef
+ffffffff811e34b9
+ffffffff811e34c0
+ffffffff811e34f5
+----- funcname:
+mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+{
+----- addresses:
+ffffffff8171fecb
+ffffffff8171fec4
+ffffffff8171fec0
+----- funcname:
+mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+int ret;
+----- addresses:
+ffffffff8171fec4
+----- funcname:
+mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+mmap_write_lock(mm);
+----- addresses:
+ffffffff8171fec4
+----- funcname:
+mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+ret = __mmu_notifier_register(subscription, mm);
+----- addresses:
+ffffffff8171fef1
+----- funcname:
+mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+mmap_write_unlock(mm);
+----- addresses:
+ffffffff8171ff04
+----- funcname:
+mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return ret;
+----- addresses:
+ffffffff8171ff85
+----- funcname:
+mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+}
+----- addresses:
+ffffffff8171ff89
+ffffffff8171ff8a
+ffffffff8171ff85
+ffffffff8171ff8c
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+{
+----- addresses:
+ffffffff81907423
+ffffffff81907393
+ffffffff81907370
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+char buffer[PROC_NUMBUF] = {};
+----- addresses:
+ffffffff819073e0
+ffffffff81907404
+ffffffff819073f7
+ffffffff819073db
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+int oom_adj;
+----- addresses:
+ffffffff81907411
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+int err;
+----- addresses:
+ffffffff81907411
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (count > sizeof(buffer) - 1)
+----- addresses:
+ffffffff81907411
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (copy_from_user(buffer, buf, count)) {
+----- addresses:
+ffffffff81907419
+ffffffff81907411
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+err = kstrtoint(strstrip(buffer), 0, &oom_adj);
+----- addresses:
+ffffffff81907475
+ffffffff8190747a
+ffffffff81907466
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (err)
+----- addresses:
+ffffffff81907487
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if ((oom_adj < OOM_ADJUST_MIN || oom_adj > OOM_ADJUST_MAX) &&
+----- addresses:
+ffffffff8190752f
+ffffffff81907490
+ffffffff8190753b
+ffffffff8190749e
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (oom_adj == OOM_ADJUST_MAX)
+----- addresses:
+ffffffff819074b2
+ffffffff819074a7
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+oom_adj = OOM_SCORE_ADJ_MAX;
+----- addresses:
+ffffffff819074ac
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+oom_adj = (oom_adj * OOM_SCORE_ADJ_MAX) / -OOM_DISABLE;
+----- addresses:
+ffffffff819074b8
+ffffffff819074c4
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+err = __set_oom_adj(file, oom_adj, true);
+----- addresses:
+ffffffff819074de
+ffffffff819074f7
+ffffffff81907559
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+return err < 0 ? err : count;
+----- addresses:
+ffffffff81907518
+ffffffff8190754a
+ffffffff81907522
+ffffffff8190752a
+----- funcname:
+oom_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+}
+----- addresses:
+ffffffff8190745f
+ffffffff8190743e
+ffffffff81907554
+ffffffff81907452
+ffffffff8190745b
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+static __cold int io_uring_create(unsigned entries, struct io_uring_params *p,
+----- addresses:
+ffffffff81f11e23
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+struct io_ring_ctx *ctx;
+----- addresses:
+ffffffff81f11e23
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+struct io_uring_task *tctx;
+----- addresses:
+ffffffff81f11e23
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+struct file *file;
+----- addresses:
+ffffffff81f11e23
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+int ret;
+----- addresses:
+ffffffff81f11e23
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (!entries)
+----- addresses:
+ffffffff81f11e23
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (entries > IORING_MAX_ENTRIES) {
+----- addresses:
+ffffffff81f11e2c
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (!(p->flags & IORING_SETUP_CLAMP))
+----- addresses:
+ffffffff81f11e39
+ffffffff81f11e3e
+ffffffff81f1325a
+ffffffff81f13255
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+entries = IORING_MAX_ENTRIES;
+----- addresses:
+ffffffff81f11e44
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if ((p->flags & IORING_SETUP_REGISTERED_FD_ONLY)
+----- addresses:
+ffffffff81f11e5c
+ffffffff81f11e49
+ffffffff81f11e55
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+&& !(p->flags & IORING_SETUP_NO_MMAP))
+----- addresses:
+ffffffff81f11e49
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->sq_entries = roundup_pow_of_two(entries);
+----- addresses:
+ffffffff81f11ed2
+ffffffff81f11eb5
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (p->flags & IORING_SETUP_CQSIZE) {
+----- addresses:
+ffffffff81f11ed6
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (!p->cq_entries)
+----- addresses:
+ffffffff81f1323a
+ffffffff81f13230
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (p->cq_entries > IORING_MAX_CQ_ENTRIES) {
+----- addresses:
+ffffffff81f13243
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_entries = IORING_MAX_CQ_ENTRIES;
+----- addresses:
+ffffffff81f1327b
+ffffffff81f13263
+ffffffff81f13287
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_entries = roundup_pow_of_two(p->cq_entries);
+----- addresses:
+ffffffff81f137e7
+ffffffff81f137de
+ffffffff81f13800
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (p->cq_entries < p->sq_entries)
+----- addresses:
+ffffffff81f13804
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_entries = 2 * p->sq_entries;
+----- addresses:
+ffffffff81f11ee0
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ctx = io_ring_ctx_alloc(p);
+----- addresses:
+ffffffff81f11eeb
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (!ctx)
+----- addresses:
+ffffffff81f12c57
+ffffffff81f13654
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if ((ctx->flags & IORING_SETUP_DEFER_TASKRUN) &&
+----- addresses:
+ffffffff81f12c57
+ffffffff81f12c86
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+!(ctx->flags & IORING_SETUP_IOPOLL) &&
+----- addresses:
+ffffffff81f12c57
+ffffffff81f14726
+ffffffff81f12c78
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ctx->task_complete = true;
+----- addresses:
+ffffffff81f136d5
+ffffffff81f14957
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (ctx->task_complete || (ctx->flags & IORING_SETUP_IOPOLL))
+----- addresses:
+ffffffff81f12cbf
+ffffffff81f14733
+ffffffff81f12c91
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ctx->lockless_cq = true;
+----- addresses:
+ffffffff81f147fd
+ffffffff81f12cc1
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (!ctx->task_complete)
+----- addresses:
+ffffffff81f14740
+ffffffff81f12cf4
+ffffffff81f12d20
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ctx->poll_activated = true;
+----- addresses:
+ffffffff81f1480a
+ffffffff81f12d26
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (ctx->flags & IORING_SETUP_IOPOLL &&
+----- addresses:
+ffffffff81f12d61
+ffffffff81f12d59
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ctx->syscall_iopoll = 1;
+----- addresses:
+ffffffff81f1494a
+ffffffff81f1369d
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ctx->compat = in_compat_syscall();
+----- addresses:
+ffffffff81f12d6a
+ffffffff81f12dbf
+ffffffff81f14757
+ffffffff81f12dac
+ffffffff81f12db9
+ffffffff81f12d9c
+ffffffff81f12de1
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (!ns_capable_noaudit(&init_user_ns, CAP_IPC_LOCK))
+----- addresses:
+ffffffff81f12dee
+ffffffff81f12dd5
+ffffffff81f12de9
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ctx->user = get_uid(current_user());
+----- addresses:
+ffffffff81f14821
+ffffffff81f14817
+ffffffff81f148c7
+ffffffff81f13747
+ffffffff81f13716
+ffffffff81f13728
+ffffffff81f13711
+ffffffff81f137ab
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ret = -EINVAL;
+----- addresses:
+ffffffff81f12df6
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (ctx->flags & IORING_SETUP_SQPOLL) {
+----- addresses:
+ffffffff81f14764
+ffffffff81f12e1f
+ffffffff81f12df6
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (ctx->flags & (IORING_SETUP_COOP_TASKRUN |
+----- addresses:
+ffffffff81f12e28
+ffffffff81f12e2d
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ctx->notify_method = TWA_SIGNAL_NO_IPI;
+----- addresses:
+ffffffff81f14771
+ffffffff81f12e6c
+ffffffff81f12e3c
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+} else if (ctx->flags & IORING_SETUP_COOP_TASKRUN) {
+----- addresses:
+ffffffff81f1365e
+ffffffff81f13659
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (ctx->flags & IORING_SETUP_TASKRUN_FLAG &&
+----- addresses:
+ffffffff81f13679
+ffffffff81f13667
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (ctx->flags & IORING_SETUP_DEFER_TASKRUN &&
+----- addresses:
+ffffffff81f12e70
+ffffffff81f12e66
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+mmgrab(current->mm);
+----- addresses:
+ffffffff81f12e93
+ffffffff81f14860
+ffffffff81f12e7c
+ffffffff81f12e81
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ctx->mm_account = current->mm;
+----- addresses:
+ffffffff81f12eca
+ffffffff81f1486a
+ffffffff81f12ef3
+ffffffff81f14874
+ffffffff81f14835
+ffffffff81f12efa
+ffffffff81f12f19
+ffffffff81f12ec2
+ffffffff81f12eec
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ret = io_allocate_scq_urings(ctx, p);
+----- addresses:
+ffffffff81f12f20
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (ret)
+----- addresses:
+ffffffff81f13f99
+ffffffff81f14187
+ffffffff81f13208
+ffffffff81f1321d
+ffffffff81f13dd0
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ret = io_sq_offload_create(ctx, p);
+----- addresses:
+ffffffff81f1321a
+ffffffff81f13215
+ffffffff81f13208
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ret = io_rsrc_init(ctx);
+----- addresses:
+ffffffff81f13d94
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->sq_off.head = offsetof(struct io_rings, sq.head);
+----- addresses:
+ffffffff81f13dd0
+ffffffff81f13dd8
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->sq_off.tail = offsetof(struct io_rings, sq.tail);
+----- addresses:
+ffffffff81f13dd5
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->sq_off.ring_mask = offsetof(struct io_rings, sq_ring_mask);
+----- addresses:
+ffffffff81f13dd5
+ffffffff81f13dee
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->sq_off.ring_entries = offsetof(struct io_rings, sq_ring_entries);
+----- addresses:
+ffffffff81f13dd5
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->sq_off.flags = offsetof(struct io_rings, sq_flags);
+----- addresses:
+ffffffff81f13dd5
+ffffffff81f13e00
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->sq_off.dropped = offsetof(struct io_rings, sq_dropped);
+----- addresses:
+ffffffff81f13dd5
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (!(ctx->flags & IORING_SETUP_NO_SQARRAY))
+----- addresses:
+ffffffff81f13e34
+ffffffff81f13e12
+ffffffff81f13dd5
+ffffffff81f13dea
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->sq_off.array = (char *)ctx->sq_array - (char *)ctx->rings;
+----- addresses:
+ffffffff81f13e65
+ffffffff81f147df
+ffffffff81f13e88
+ffffffff81f13e84
+ffffffff81f13e61
+ffffffff81f13e69
+ffffffff81f147e9
+ffffffff81f13e3d
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->sq_off.resv1 = 0;
+----- addresses:
+ffffffff81f13e8f
+ffffffff81f13e9b
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (!(ctx->flags & IORING_SETUP_NO_MMAP))
+----- addresses:
+ffffffff81f13ef3
+ffffffff81f1410c
+ffffffff81f13e94
+ffffffff81f13ea6
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->sq_off.user_addr = 0;
+----- addresses:
+ffffffff81f14107
+ffffffff81f1413a
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_off.head = offsetof(struct io_rings, cq.head);
+----- addresses:
+ffffffff81f1410c
+ffffffff81f13eb1
+ffffffff81f13eac
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_off.tail = offsetof(struct io_rings, cq.tail);
+----- addresses:
+ffffffff81f1410c
+ffffffff81f13eb1
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_off.ring_mask = offsetof(struct io_rings, cq_ring_mask);
+----- addresses:
+ffffffff81f1411e
+ffffffff81f1410c
+ffffffff81f13ec3
+ffffffff81f13eb1
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_off.ring_entries = offsetof(struct io_rings, cq_ring_entries);
+----- addresses:
+ffffffff81f1410c
+ffffffff81f13eb1
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_off.overflow = offsetof(struct io_rings, cq_overflow);
+----- addresses:
+ffffffff81f13eb1
+ffffffff81f14146
+ffffffff81f13ed5
+ffffffff81f1410c
+ffffffff81f14130
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_off.cqes = offsetof(struct io_rings, cqes);
+----- addresses:
+ffffffff81f1410c
+ffffffff81f13eb1
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_off.flags = offsetof(struct io_rings, cq_flags);
+----- addresses:
+ffffffff81f1410c
+ffffffff81f1414e
+ffffffff81f13eb1
+ffffffff81f13ee7
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_off.resv1 = 0;
+----- addresses:
+ffffffff81f1410c
+ffffffff81f13eb1
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->cq_off.user_addr = 0;
+----- addresses:
+ffffffff81f1410c
+ffffffff81f1415a
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+p->features = IORING_FEAT_SINGLE_MMAP | IORING_FEAT_NODROP |
+----- addresses:
+ffffffff81f13ef3
+ffffffff81f13f00
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (copy_to_user(params, p, sizeof(*p))) {
+----- addresses:
+ffffffff81f13f15
+ffffffff81f13f0b
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (ctx->flags & IORING_SETUP_SINGLE_ISSUER
+----- addresses:
+ffffffff81f13f4c
+ffffffff81f13f1e
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+&& !(ctx->flags & IORING_SETUP_R_DISABLED))
+----- addresses:
+ffffffff81f13f1e
+ffffffff81f14b49
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+WRITE_ONCE(ctx->submitter_task, get_task_struct(current));
+----- addresses:
+ffffffff81f14261
+ffffffff81f147d5
+ffffffff81f13f57
+ffffffff81f14213
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+file = io_uring_get_file(ctx);
+----- addresses:
+ffffffff81f13f57
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (IS_ERR(file)) {
+----- addresses:
+ffffffff81f13f7d
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ret = PTR_ERR(file);
+----- addresses:
+ffffffff81f1435b
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+goto err;
+----- addresses:
+ffffffff81f14360
+ffffffff81f14363
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ret = __io_uring_add_tctx_node(ctx);
+----- addresses:
+ffffffff81f13f89
+ffffffff81f13f8e
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+tctx = current->io_uring;
+----- addresses:
+ffffffff81f147c1
+ffffffff81f13fa1
+ffffffff81f13fa6
+ffffffff81f13fb8
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (p->flags & IORING_SETUP_REGISTERED_FD_ONLY)
+----- addresses:
+ffffffff81f13fd7
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ret = io_ring_add_registered_file(tctx, file, 0, IO_RINGFD_REG_MAX);
+----- addresses:
+ffffffff81f13fe2
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+ret = io_uring_install_fd(file);
+----- addresses:
+ffffffff81f141e8
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (ret < 0)
+----- addresses:
+ffffffff81f13ffc
+ffffffff81f1420e
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+trace_io_uring_create(ret, ctx, p->sq_entries, p->cq_entries, p->flags);
+----- addresses:
+ffffffff81f14004
+ffffffff81f1428e
+ffffffff81f142a1
+ffffffff81f1429c
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+io_ring_ctx_wait_and_kill(ctx);
+----- addresses:
+ffffffff81f1368b
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+return ret;
+----- addresses:
+ffffffff81f141c5
+ffffffff81f13698
+ffffffff81f141c0
+----- funcname:
+io_uring_create
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+fput(file);
+----- addresses:
+ffffffff81f141bb
+ffffffff81f141b0
+----- funcname:
+__mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+static int __mem_open(struct inode *inode, struct file *file, unsigned int mode)
+----- addresses:
+ffffffff819078fe
+ffffffff819079bd
+ffffffff8190787c
+ffffffff81907a5d
+----- funcname:
+__mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+struct mm_struct *mm = proc_mem_open(inode, mode);
+----- addresses:
+ffffffff81907a5e
+ffffffff81907a63
+ffffffff819079be
+ffffffff81907903
+ffffffff819078fe
+ffffffff819079c3
+ffffffff81907a5d
+ffffffff819079bd
+ffffffff8190787c
+----- funcname:
+__mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (IS_ERR(mm))
+----- addresses:
+ffffffff8190788c
+ffffffff819079d3
+ffffffff81907a73
+ffffffff81907913
+----- funcname:
+__mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+return PTR_ERR(mm);
+----- addresses:
+ffffffff81907a1b
+ffffffff8190798a
+ffffffff81907ac0
+ffffffff81907a23
+ffffffff81907991
+ffffffff8190798f
+ffffffff81907abb
+ffffffff81907ac3
+ffffffff81907a20
+----- funcname:
+__mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+file->private_data = mm;
+----- addresses:
+ffffffff81907a7b
+ffffffff819078d1
+ffffffff81907a34
+ffffffff8190791b
+ffffffff819079e0
+ffffffff81907ad4
+ffffffff81907a80
+ffffffff81907998
+ffffffff819078b0
+ffffffff81907894
+ffffffff81907920
+ffffffff81907899
+ffffffff819079db
+----- funcname:
+__mem_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+return 0;
+----- addresses:
+ffffffff81907a07
+ffffffff81907aaa
+ffffffff819078b7
+ffffffff81907945
+ffffffff81907a0a
+ffffffff81907aa7
+ffffffff81907948
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+{
+----- addresses:
+ffffffff815a67a0
+ffffffff815a67b1
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+struct task_struct *victim = oc->chosen;
+----- addresses:
+ffffffff815a67a0
+ffffffff815a67b5
+ffffffff815a67ba
+ffffffff815a73c6
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+struct mem_cgroup *oom_group;
+----- addresses:
+ffffffff815a67dd
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+static DEFINE_RATELIMIT_STATE(oom_rs, DEFAULT_RATELIMIT_INTERVAL,
+----- addresses:
+ffffffff815a67dd
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+task_lock(victim);
+----- addresses:
+ffffffff815a67dd
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (task_will_free_mem(victim)) {
+----- addresses:
+ffffffff815a67ec
+ffffffff815a67f4
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+mark_oom_victim(victim);
+----- addresses:
+ffffffff815a707f
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+queue_oom_reaper(victim);
+----- addresses:
+ffffffff815a708c
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+task_unlock(victim);
+----- addresses:
+ffffffff815a7094
+ffffffff815a67fc
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+put_task_struct(victim);
+----- addresses:
+ffffffff815a709c
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (__ratelimit(&oom_rs)) {
+----- addresses:
+ffffffff815a6809
+ffffffff815a681c
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+dump_header(oc);
+----- addresses:
+ffffffff815a6f2f
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+dump_oom_victim(oc, victim);
+----- addresses:
+ffffffff815a74da
+ffffffff815a732f
+ffffffff815a6f3c
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+oom_group = mem_cgroup_get_oom_group(victim, oc->memcg);
+----- addresses:
+ffffffff815a6824
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+__oom_kill_process(victim, message);
+----- addresses:
+ffffffff815a6824
+----- funcname:
+oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+}
+----- addresses:
+ffffffff815a6f1c
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+{
+----- addresses:
+ffffffff818efae4
+ffffffff818efae0
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+int ret;
+----- addresses:
+ffffffff818efae4
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+struct proc_maps_private *priv;
+----- addresses:
+ffffffff818efae4
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+priv = kzalloc(sizeof(*priv), GFP_KERNEL_ACCOUNT);
+----- addresses:
+ffffffff818efae4
+ffffffff818efb2f
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+if (!priv)
+----- addresses:
+ffffffff818efb2f
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+return -ENOMEM;
+----- addresses:
+ffffffff818efbf9
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+ret = single_open(file, show_smaps_rollup, priv);
+----- addresses:
+ffffffff818efb38
+ffffffff818efb3d
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+if (ret)
+----- addresses:
+ffffffff818efb52
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+priv->inode = inode;
+----- addresses:
+ffffffff818efb78
+ffffffff818efc04
+ffffffff818efb9c
+ffffffff818efb7d
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+priv->mm = proc_mem_open(inode, PTRACE_MODE_READ);
+----- addresses:
+ffffffff818efb94
+ffffffff818efc0e
+ffffffff818efbaf
+ffffffff818efba5
+ffffffff818efba0
+ffffffff818efbac
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+if (IS_ERR(priv->mm)) {
+----- addresses:
+ffffffff818efbc7
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+ret = PTR_ERR(priv->mm);
+----- addresses:
+ffffffff818efbdb
+ffffffff818efbd0
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+single_release(inode, file);
+----- addresses:
+ffffffff818efbde
+ffffffff818efbd5
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+goto out_free;
+----- addresses:
+ffffffff818efbe3
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+kfree(priv);
+----- addresses:
+ffffffff818efb56
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+return ret;
+----- addresses:
+ffffffff818efb63
+----- funcname:
+smaps_rollup_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+}
+----- addresses:
+ffffffff818efb73
+ffffffff818efb68
+ffffffff818efb71
+ffffffff818efb6d
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+{
+----- addresses:
+ffffffff85ed049f
+ffffffff85ed048e
+ffffffff85ed0440
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+unsigned long ptr = 0;
+----- addresses:
+ffffffff85ed0444
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+int i;
+----- addresses:
+ffffffff85ed0444
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+BUG_ON(&idle_sched_class != &fair_sched_class + 1 ||
+----- addresses:
+ffffffff85ed0479
+ffffffff85ed0444
+ffffffff85ed047b
+ffffffff85ed0478
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+BUG_ON(&dl_sched_class != &stop_sched_class + 1);
+----- addresses:
+ffffffff85ed1312
+ffffffff85ed1315
+ffffffff85ed1313
+ffffffff85ed047b
+ffffffff85ed048e
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+wait_bit_init();
+----- addresses:
+ffffffff85ed048e
+ffffffff85ed04a3
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+ptr += 2 * nr_cpu_ids * sizeof(void **);
+----- addresses:
+ffffffff85ed04a8
+ffffffff85ed1305
+ffffffff85ed0498
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+if (ptr) {
+----- addresses:
+ffffffff85ed04db
+ffffffff85ed04df
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+ptr = (unsigned long)kzalloc(ptr, GFP_NOWAIT);
+----- addresses:
+ffffffff85ed0faa
+ffffffff85ed0fa0
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+root_task_group.se = (struct sched_entity **)ptr;
+----- addresses:
+ffffffff85ed0faa
+ffffffff85ed0fbe
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+ptr += nr_cpu_ids * sizeof(void **);
+----- addresses:
+ffffffff85ed0ff6
+ffffffff85ed0fd8
+ffffffff85ed0ff2
+ffffffff85ed0faa
+ffffffff85ed0fc5
+ffffffff85ed1340
+ffffffff85ed0ffd
+ffffffff85ed1330
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+root_task_group.cfs_rq = (struct cfs_rq **)ptr;
+----- addresses:
+ffffffff85ed0fd8
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+root_task_group.shares = ROOT_TASK_GROUP_LOAD;
+----- addresses:
+ffffffff85ed0ffd
+ffffffff85ed0fe7
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+init_cfs_bandwidth(&root_task_group.cfs_bandwidth, NULL);
+----- addresses:
+ffffffff85ed1002
+ffffffff85ed0fde
+ffffffff85ed0ffd
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+init_rt_bandwidth(&def_rt_bandwidth, global_rt_period(), global_rt_runtime());
+----- addresses:
+ffffffff85ed056c
+ffffffff85ed04e5
+ffffffff85ed055e
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+init_defrootdomain();
+----- addresses:
+ffffffff85ed0571
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+task_group_cache = KMEM_CACHE(task_group, 0);
+----- addresses:
+ffffffff85ed0598
+ffffffff85ed0576
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+list_add(&root_task_group.list, &task_groups);
+----- addresses:
+ffffffff85ed059f
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+INIT_LIST_HEAD(&root_task_group.children);
+----- addresses:
+ffffffff85ed0603
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+INIT_LIST_HEAD(&root_task_group.siblings);
+----- addresses:
+ffffffff85ed060e
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+autogroup_init(&init_task);
+----- addresses:
+ffffffff85ed0624
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+for_each_possible_cpu(i) {
+----- addresses:
+ffffffff85ed0f2f
+ffffffff85ed0f70
+ffffffff85ed0624
+ffffffff85ed0f6e
+ffffffff85ed0869
+ffffffff85ed0f2c
+ffffffff85ed0867
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+struct rq *rq;
+----- addresses:
+ffffffff85ed0f79
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq = cpu_rq(i);
+----- addresses:
+ffffffff85ed08eb
+ffffffff85ed08fb
+ffffffff85ed08b5
+ffffffff85ed08da
+ffffffff85ed0f96
+ffffffff85ed0f79
+ffffffff85ed08f0
+ffffffff85ed0fa0
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+raw_spin_lock_init(&rq->__lock);
+----- addresses:
+ffffffff85ed091e
+ffffffff85ed08fb
+ffffffff85ed0917
+ffffffff85ed114d
+ffffffff85ed115a
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->nr_running = 0;
+----- addresses:
+ffffffff85ed091e
+ffffffff85ed10ef
+ffffffff85ed0913
+ffffffff85ed0946
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->calc_load_active = 0;
+----- addresses:
+ffffffff85ed10f9
+ffffffff85ed094e
+ffffffff85ed093f
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->calc_load_update = jiffies + LOAD_FREQ;
+----- addresses:
+ffffffff85ed0975
+ffffffff85ed0990
+ffffffff85ed1103
+ffffffff85ed0983
+ffffffff85ed1119
+ffffffff85ed098a
+ffffffff85ed1114
+ffffffff85ed08c5
+ffffffff85ed08e8
+ffffffff85ed096b
+ffffffff85ed097c
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+init_cfs_rq(&rq->cfs);
+----- addresses:
+ffffffff85ed09a2
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+init_rt_rq(&rq->rt);
+----- addresses:
+ffffffff85ed09b1
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+init_dl_rq(&rq->dl);
+----- addresses:
+ffffffff85ed09bd
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+INIT_LIST_HEAD(&rq->leaf_cfs_rq_list);
+----- addresses:
+ffffffff85ed09c9
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->tmp_alone_branch = &rq->leaf_cfs_rq_list;
+----- addresses:
+ffffffff85ed0a10
+ffffffff85ed10a7
+ffffffff85ed0a02
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+init_tg_cfs_entry(&root_task_group, &rq->cfs, NULL, i, NULL);
+----- addresses:
+ffffffff85ed0a29
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->rt.rt_runtime = def_rt_bandwidth.rt_runtime;
+----- addresses:
+ffffffff85ed0a5d
+ffffffff85ed10b6
+ffffffff85ed10c7
+ffffffff85ed0a3f
+ffffffff85ed08ae
+ffffffff85ed08c1
+ffffffff85ed0a76
+ffffffff85ed08cd
+ffffffff85ed0a4f
+ffffffff85ed0a56
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->sd = NULL;
+----- addresses:
+ffffffff85ed0a96
+ffffffff85ed0a7d
+ffffffff85ed10d1
+ffffffff85ed0a6f
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->rd = NULL;
+----- addresses:
+ffffffff85ed0aa1
+ffffffff85ed0aba
+ffffffff85ed0a8f
+ffffffff85ed10db
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->cpu_capacity = SCHED_CAPACITY_SCALE;
+----- addresses:
+ffffffff85ed0ade
+ffffffff85ed0ac5
+ffffffff85ed0ab3
+ffffffff85ed10e5
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->balance_callback = &balance_push_callback;
+----- addresses:
+ffffffff85ed0b02
+ffffffff85ed11b2
+ffffffff85ed0ad7
+ffffffff85ed0ae9
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->active_balance = 0;
+----- addresses:
+ffffffff85ed0afb
+ffffffff85ed11bc
+ffffffff85ed0b0d
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->next_balance = jiffies;
+----- addresses:
+ffffffff85ed11c6
+ffffffff85ed11d7
+ffffffff85ed0b61
+ffffffff85ed0b30
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->push_cpu = 0;
+----- addresses:
+ffffffff85ed0b5a
+ffffffff85ed0b68
+ffffffff85ed11e1
+ffffffff85ed0b90
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->cpu = i;
+----- addresses:
+ffffffff85ed0b9b
+ffffffff85ed0bba
+ffffffff85ed0b89
+ffffffff85ed11eb
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->online = 0;
+----- addresses:
+ffffffff85ed0bc1
+ffffffff85ed0be9
+ffffffff85ed0bb3
+ffffffff85ed11f5
+ffffffff85ed0bda
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->idle_stamp = 0;
+----- addresses:
+ffffffff85ed0c0d
+ffffffff85ed0bf4
+ffffffff85ed11ff
+ffffffff85ed0be2
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->avg_idle = 2*sysctl_sched_migration_cost;
+----- addresses:
+ffffffff85ed08d2
+ffffffff85ed0879
+ffffffff85ed0c18
+ffffffff85ed1209
+ffffffff85ed08c9
+ffffffff85ed0c36
+ffffffff85ed0c06
+ffffffff85ed0872
+ffffffff85ed1364
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->max_idle_balance_cost = sysctl_sched_migration_cost;
+----- addresses:
+ffffffff85ed08d7
+ffffffff85ed0c61
+ffffffff85ed08e4
+ffffffff85ed0c56
+ffffffff85ed1213
+ffffffff85ed0c3d
+ffffffff85ed0c2f
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+INIT_LIST_HEAD(&rq->cfs_tasks);
+----- addresses:
+ffffffff85ed0c4f
+ffffffff85ed0c68
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq_attach_root(rq, &def_root_domain);
+----- addresses:
+ffffffff85ed0c9a
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->last_blocked_load_update_tick = jiffies;
+----- addresses:
+ffffffff85ed1245
+ffffffff85ed1234
+ffffffff85ed0ca9
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+atomic_set(&rq->nohz_flags, 0);
+----- addresses:
+ffffffff85ed0cd4
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+INIT_CSD(&rq->nohz_csd, nohz_csd_func, rq);
+----- addresses:
+ffffffff85ed126b
+ffffffff85ed0d06
+ffffffff85ed115a
+ffffffff85ed116e
+ffffffff85ed0db0
+ffffffff85ed125c
+ffffffff85ed1164
+ffffffff85ed0db4
+ffffffff85ed0d12
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rcuwait_init(&rq->hotplug_wait);
+----- addresses:
+ffffffff85ed0db4
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+hrtick_rq_init(rq);
+----- addresses:
+ffffffff85ed0dd8
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+atomic_set(&rq->nr_iowait, 0);
+----- addresses:
+ffffffff85ed0ec8
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+zalloc_cpumask_var_node(&rq->scratch_mask, GFP_KERNEL, cpu_to_node(i));
+----- addresses:
+ffffffff85ed0f0f
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+set_load_weight(&init_task, false);
+----- addresses:
+ffffffff85ed0647
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+mmgrab_lazy_tlb(&init_mm);
+----- addresses:
+ffffffff85ed0788
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+enter_lazy_tlb(&init_mm, current);
+----- addresses:
+ffffffff85ed0794
+ffffffff85ed079c
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+WARN_ON(!set_kthread_struct(current));
+----- addresses:
+ffffffff85ed1071
+ffffffff85ed106f
+ffffffff85ed07ab
+ffffffff85ed1077
+ffffffff85ed07bb
+ffffffff85ed07b3
+ffffffff85ed106e
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+init_idle(current, smp_processor_id());
+----- addresses:
+ffffffff85ed07ca
+ffffffff85ed07bb
+ffffffff85ed07c2
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+calc_load_update = jiffies + LOAD_FREQ;
+----- addresses:
+ffffffff85ed0808
+ffffffff85ed080f
+ffffffff85ed12af
+ffffffff85ed07cf
+ffffffff85ed07f3
+ffffffff85ed129e
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+idle_thread_set_boot_cpu();
+----- addresses:
+ffffffff85ed0820
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+balance_push_set(smp_processor_id(), false);
+----- addresses:
+ffffffff85ed0825
+ffffffff85ed082e
+ffffffff85ed0827
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+init_sched_fair_class();
+----- addresses:
+ffffffff85ed0833
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+psi_init();
+----- addresses:
+ffffffff85ed0838
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+init_uclamp();
+----- addresses:
+ffffffff85ed0838
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+preempt_dynamic_init();
+----- addresses:
+ffffffff85ed0838
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+scheduler_running = 1;
+----- addresses:
+ffffffff85ed0845
+----- funcname:
+sched_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+}
+----- addresses:
+ffffffff85ed0855
+ffffffff85ed084f
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+void notrace cpu_init(void)
+----- addresses:
+ffffffff85e83666
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+/*
+----- addresses:
+ffffffff85e83666
+ffffffff85e84519
+ffffffff85e84512
+ffffffff85e84514
+ffffffff85e8366b
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+*/
+----- addresses:
+ffffffff85e83666
+ffffffff85e844c2
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+set_my_cpu_offset(per_cpu_offset(cpu));
+----- addresses:
+ffffffff85e844d7
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+cpu_proc_init();
+----- addresses:
+ffffffff85e8450a
+ffffffff85e844e1
+ffffffff85e844e6
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+* Define the placement constraint for the inline asm directive below.
+----- addresses:
+ffffffff85e84c90
+ffffffff85e84c83
+ffffffff85e84526
+ffffffff85e84500
+ffffffff85e84553
+ffffffff85e8455e
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+"mov	sp, r14\n\t"
+----- addresses:
+ffffffff85e83666
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+"add	r14, %0, %6\n\t"
+----- addresses:
+ffffffff85e83666
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+"add	r14, %0, %8\n\t"
+----- addresses:
+ffffffff85e8455e
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+PLC_l (PSR_F_BIT | PSR_I_BIT | SVC_MODE)
+----- addresses:
+ffffffff85e84590
+ffffffff85e8458c
+ffffffff85e8457b
+ffffffff85e84587
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+: "r14");
+----- addresses:
+ffffffff85e8459d
+ffffffff85e8457b
+ffffffff85e845c9
+ffffffff85e845b7
+ffffffff85e849fd
+ffffffff85e84a0a
+----- funcname:
+cpu_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/arm/kernel/setup.c
+----- source:
+#endif
+----- addresses:
+ffffffff85e845cd
+ffffffff85e845e3
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+{
+----- addresses:
+ffffffff83f2a810
+ffffffff83f2a840
+ffffffff83f2b229
+ffffffff83f2a839
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+struct task_struct *prev, *next;
+----- addresses:
+ffffffff83f2a8a2
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+unsigned long *switch_count;
+----- addresses:
+ffffffff83f2a8a2
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+unsigned long prev_state;
+----- addresses:
+ffffffff83f2a8a2
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+struct rq_flags rf;
+----- addresses:
+ffffffff83f2a8a2
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+struct rq *rq;
+----- addresses:
+ffffffff83f2a8a2
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+int cpu;
+----- addresses:
+ffffffff83f2a8a2
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+cpu = smp_processor_id();
+----- addresses:
+ffffffff83f2a8a2
+ffffffff83f2a8aa
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq = cpu_rq(cpu);
+----- addresses:
+ffffffff83f2c2d8
+ffffffff83f2a8b5
+ffffffff83f2a8ad
+ffffffff83f2a8aa
+ffffffff83f2a8ce
+ffffffff83f2c2e2
+ffffffff83f2a832
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+prev = rq->curr;
+----- addresses:
+ffffffff83f2a903
+ffffffff83f2a8ce
+ffffffff83f2c2c7
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+schedule_debug(prev, !!sched_mode);
+----- addresses:
+ffffffff83f2a90a
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+if (sched_feat(HRTICK) || sched_feat(HRTICK_DL))
+----- addresses:
+ffffffff83f2a957
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+local_irq_disable();
+----- addresses:
+ffffffff83f2a958
+ffffffff83f2a957
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rcu_note_context_switch(!!sched_mode);
+----- addresses:
+ffffffff83f2a958
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq_lock(rq, &rf);
+----- addresses:
+ffffffff83f2a963
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+smp_mb__after_spinlock();
+----- addresses:
+ffffffff83f2a991
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->clock_update_flags <<= 1;
+----- addresses:
+ffffffff83f2c17a
+ffffffff83f2a991
+ffffffff83f2a972
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+update_rq_clock(rq);
+----- addresses:
+ffffffff83f2a9af
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->clock_update_flags = RQCF_UPDATED;
+----- addresses:
+ffffffff83f2a9bb
+ffffffff83f2a9ea
+ffffffff83f2c159
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+switch_count = &prev->nivcsw;
+----- addresses:
+ffffffff83f2aa36
+ffffffff83f2a9f4
+ffffffff83f2aa3d
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+prev_state = READ_ONCE(prev->__state);
+----- addresses:
+ffffffff83f2aa25
+ffffffff83f2a9f4
+ffffffff83f2c159
+ffffffff83f2a9dc
+ffffffff83f2c14c
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+if (!(sched_mode & SM_MASK_PREEMPT) && prev_state) {
+----- addresses:
+ffffffff83f2aa25
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+if (signal_pending_state(prev_state, prev)) {
+----- addresses:
+ffffffff83f2b35e
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+WRITE_ONCE(prev->__state, TASK_RUNNING);
+----- addresses:
+ffffffff83f2bd28
+ffffffff83f2c329
+ffffffff83f2bd68
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+prev->sched_contributes_to_load =
+----- addresses:
+ffffffff83f2c6ba
+ffffffff83f2b36e
+ffffffff83f2b394
+ffffffff83f2b374
+ffffffff83f2b386
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+!(prev_state & TASK_NOLOAD) &&
+----- addresses:
+ffffffff83f2b37e
+ffffffff83f2b390
+ffffffff83f2b36e
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+if (prev->sched_contributes_to_load)
+----- addresses:
+ffffffff83f2b3c6
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->nr_uninterruptible++;
+----- addresses:
+ffffffff83f2bd82
+ffffffff83f2bdab
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+deactivate_task(rq, prev, DEQUEUE_SLEEP | DEQUEUE_NOCLOCK);
+----- addresses:
+ffffffff83f2b3ce
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+if (prev->in_iowait) {
+----- addresses:
+ffffffff83f2b54f
+ffffffff83f2c67d
+ffffffff83f2b529
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+atomic_inc(&rq->nr_iowait);
+----- addresses:
+ffffffff83f2b55d
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+delayacct_blkio_start();
+----- addresses:
+ffffffff83f2b575
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+switch_count = &prev->nvcsw;
+----- addresses:
+ffffffff83f2bd6f
+ffffffff83f2bd7d
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+next = pick_next_task(rq, prev, &rf);
+----- addresses:
+ffffffff83f2aa52
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+clear_tsk_need_resched(prev);
+----- addresses:
+ffffffff83f2ab5a
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+clear_preempt_need_resched();
+----- addresses:
+ffffffff83f2ab6c
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+if (likely(prev != next)) {
+----- addresses:
+ffffffff83f2ab77
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq->nr_switches++;
+----- addresses:
+ffffffff83f2ab80
+ffffffff83f2c265
+ffffffff83f2aba6
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+RCU_INIT_POINTER(rq->curr, next);
+----- addresses:
+ffffffff83f2abab
+ffffffff83f2ab9f
+ffffffff83f2abd1
+ffffffff83f2abca
+ffffffff83f2c29b
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+++*switch_count;
+----- addresses:
+ffffffff83f2abe9
+ffffffff83f2abd1
+ffffffff83f2c28a
+ffffffff83f2abc3
+ffffffff83f2ac01
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+migrate_disable_switch(rq, prev);
+----- addresses:
+ffffffff83f2ac05
+ffffffff83f2abf0
+ffffffff83f2c1c4
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+psi_sched_switch(prev, next, !task_on_rq_queued(prev));
+----- addresses:
+ffffffff83f2ac9a
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+trace_sched_switch(sched_mode & SM_MASK_PREEMPT, prev, next, prev_state);
+----- addresses:
+ffffffff83f2ac9a
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq = context_switch(rq, prev, next, &rf);
+----- addresses:
+ffffffff83f2ac9f
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+rq_unpin_lock(rq, &rf);
+----- addresses:
+ffffffff83f2c01d
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+__balance_callbacks(rq);
+----- addresses:
+ffffffff83f2c01d
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+raw_spin_rq_unlock_irq(rq);
+----- addresses:
+ffffffff83f2c04f
+----- funcname:
+__schedule
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sched/core.c
+----- source:
+}
+----- addresses:
+ffffffff83f2c303
+ffffffff83f2b250
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+{
+----- addresses:
+ffffffff81720144
+ffffffff81720156
+ffffffff81720140
+ffffffff8172014e
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+struct mmu_notifier *subscription;
+----- addresses:
+ffffffff81720144
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+int ret;
+----- addresses:
+ffffffff81720144
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+mmap_assert_write_locked(mm);
+----- addresses:
+ffffffff81720144
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (mm->notifier_subscriptions) {
+----- addresses:
+ffffffff81720195
+ffffffff817201c3
+ffffffff817203df
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscription = find_get_mmu_notifier(mm, ops);
+----- addresses:
+ffffffff817201cc
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (subscription)
+----- addresses:
+ffffffff817203b2
+ffffffff817203da
+ffffffff81720280
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscription = ops->alloc_notifier(mm);
+----- addresses:
+ffffffff81720403
+ffffffff81720280
+ffffffff817202a4
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (IS_ERR(subscription))
+----- addresses:
+ffffffff817202b3
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscription->ops = ops;
+----- addresses:
+ffffffff817202c0
+ffffffff817202bb
+ffffffff81720434
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+ret = __mmu_notifier_register(subscription, mm);
+----- addresses:
+ffffffff817202e5
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (ret)
+----- addresses:
+ffffffff817202f6
+ffffffff817202f2
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+goto out_free;
+----- addresses:
+ffffffff8172030b
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscription->ops->free_notifier(subscription);
+----- addresses:
+ffffffff81720455
+ffffffff81720359
+ffffffff81720310
+ffffffff8172034f
+ffffffff8172032b
+ffffffff8172033a
+ffffffff8172030b
+ffffffff81720335
+ffffffff8172044b
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return ERR_PTR(ret);
+----- addresses:
+ffffffff81720356
+ffffffff8172035e
+----- funcname:
+mmu_notifier_get_locked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+}
+----- addresses:
+ffffffff817202fb
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+static void __oom_kill_process(struct task_struct *victim, const char *message)
+----- addresses:
+ffffffff815a6824
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+struct task_struct *p;
+----- addresses:
+ffffffff815a6824
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+struct mm_struct *mm;
+----- addresses:
+ffffffff815a6824
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+bool can_oom_reap = true;
+----- addresses:
+ffffffff815a6824
+ffffffff815a6cd1
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+p = find_lock_task_mm(victim);
+----- addresses:
+ffffffff815a6824
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (!p) {
+----- addresses:
+ffffffff815a68f2
+ffffffff815a724a
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+pr_info("%s: OOM victim %d (%s) is already exiting. Skip killing the task\n",
+----- addresses:
+ffffffff815a7260
+ffffffff815a724a
+ffffffff815a729d
+ffffffff815a727f
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+put_task_struct(victim);
+----- addresses:
+ffffffff815a6957
+ffffffff815a709c
+ffffffff815a6ed8
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+} else if (victim != p) {
+----- addresses:
+ffffffff815a68fb
+ffffffff815a690e
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+get_task_struct(p);
+----- addresses:
+ffffffff815a6917
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+mm = victim->mm;
+----- addresses:
+ffffffff815a744a
+ffffffff815a69c4
+ffffffff815a699a
+ffffffff815a69ce
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+mmgrab(mm);
+----- addresses:
+ffffffff815a69d3
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+count_vm_event(OOM_KILL);
+----- addresses:
+ffffffff815a69dc
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+memcg_memory_event_mm(mm, MEMCG_OOM_KILL);
+----- addresses:
+ffffffff815a69e4
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+do_send_sig_info(SIGKILL, SEND_SIG_PRIV, victim, PIDTYPE_TGID);
+----- addresses:
+ffffffff815a69e4
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+mark_oom_victim(victim);
+----- addresses:
+ffffffff815a69fb
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+pr_err("%s: Killed process %d (%s) total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB, shmem-rss:%lukB, UID:%u pgtables:%lukB oom_score_adj:%hd\n",
+----- addresses:
+ffffffff815a743b
+ffffffff815a6aba
+ffffffff815a6bcd
+ffffffff815a6b15
+ffffffff815a6ba3
+ffffffff815a6c54
+ffffffff815a74e4
+ffffffff815a6aed
+ffffffff815a7496
+ffffffff815a6aae
+ffffffff815a6b1a
+ffffffff815a744a
+ffffffff815a7371
+ffffffff815a7457
+ffffffff815a6a71
+ffffffff815a6c29
+ffffffff815a6a03
+ffffffff815a74aa
+ffffffff815a6bdb
+ffffffff815a6b64
+ffffffff815a6ab5
+ffffffff815a7461
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+task_unlock(victim);
+----- addresses:
+ffffffff815a6c80
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+rcu_read_lock();
+----- addresses:
+ffffffff815a6c8c
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+for_each_process(p) {
+----- addresses:
+ffffffff815a6e87
+ffffffff815a6c91
+ffffffff815a6cbf
+ffffffff815a6e96
+ffffffff815a7325
+ffffffff815a6e6a
+ffffffff815a6e8e
+ffffffff815a747f
+ffffffff815a732f
+ffffffff815a6cb7
+ffffffff815a746e
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (!process_shares_mm(p, mm))
+----- addresses:
+ffffffff815a6cec
+ffffffff815a6da1
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (same_thread_group(p, victim))
+----- addresses:
+ffffffff815a6db1
+ffffffff815a6dc4
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (is_global_init(p)) {
+----- addresses:
+ffffffff815a6e07
+ffffffff815a6dda
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+can_oom_reap = false;
+----- addresses:
+ffffffff815a70ed
+ffffffff815a7175
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+set_bit(MMF_OOM_SKIP, &mm->flags);
+----- addresses:
+ffffffff815a70f2
+ffffffff815a70fc
+ffffffff815a70ed
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+pr_info("oom killer %d (%s) has mm pinned by %d (%s)\n",
+----- addresses:
+ffffffff815a7119
+ffffffff815a7159
+ffffffff815a7111
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+continue;
+----- addresses:
+ffffffff815a717a
+ffffffff815a7175
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (unlikely(p->flags & PF_KTHREAD))
+----- addresses:
+ffffffff815a6e43
+ffffffff815a7367
+ffffffff815a6e16
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+do_send_sig_info(SIGKILL, SEND_SIG_PRIV, p, PIDTYPE_TGID);
+----- addresses:
+ffffffff815a6e4e
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+rcu_read_unlock();
+----- addresses:
+ffffffff815a7193
+ffffffff815a6ea3
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (can_oom_reap)
+----- addresses:
+ffffffff815a6ead
+ffffffff815a719d
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+queue_oom_reaper(victim);
+----- addresses:
+ffffffff815a719d
+----- funcname:
+__oom_kill_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+mmdrop(mm);
+----- addresses:
+ffffffff815a6eb8
+----- funcname:
+trap_init
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/arch/alpha/kernel/traps.c
+----- source:
+wrent(entIF, 3);
+----- addresses:
+ffffffff81081380
+ffffffff81081387
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+{
+----- addresses:
+ffffffff823b1f2b
+ffffffff823b1f20
+ffffffff823b1f24
+ffffffff823b1f2d
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+const struct iommu_ops *ops = dev_iommu_ops(dev);
+----- addresses:
+ffffffff823b1f24
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+struct iommu_domain *domain;
+----- addresses:
+ffffffff823b1fb0
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+if (ops->domain_alloc_sva) {
+----- addresses:
+ffffffff823b1fc5
+ffffffff823b1fc9
+ffffffff823b1fa2
+ffffffff823b1fb0
+ffffffff823b2106
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+domain = ops->domain_alloc_sva(dev, mm);
+----- addresses:
+ffffffff823b1fd2
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+if (IS_ERR(domain))
+----- addresses:
+ffffffff823b1fe6
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+domain = ops->domain_alloc(IOMMU_DOMAIN_SVA);
+----- addresses:
+ffffffff823b214c
+ffffffff823b20d6
+ffffffff823b20b6
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+if (!domain)
+----- addresses:
+ffffffff823b20e7
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+return ERR_PTR(-ENOMEM);
+----- addresses:
+ffffffff823b20f0
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+domain->type = IOMMU_DOMAIN_SVA;
+----- addresses:
+ffffffff823b1ff7
+ffffffff823b2010
+ffffffff823b20f9
+ffffffff823b1ff2
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+mmgrab(mm);
+----- addresses:
+ffffffff823b2020
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+domain->mm = mm;
+----- addresses:
+ffffffff823b2142
+ffffffff823b2030
+ffffffff823b2055
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+domain->owner = ops;
+----- addresses:
+ffffffff823b205a
+ffffffff823b2138
+ffffffff823b207a
+ffffffff823b2050
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+domain->iopf_handler = iommu_sva_iopf_handler;
+----- addresses:
+ffffffff823b207f
+ffffffff823b2075
+ffffffff823b212e
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+return domain;
+----- addresses:
+ffffffff823b20a3
+----- funcname:
+iommu_sva_domain_alloc
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/drivers/iommu/iommu-sva.c
+----- source:
+}
+----- addresses:
+ffffffff823b20a8
+ffffffff823b20ad
+ffffffff823b20ac
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+{
+----- addresses:
+ffffffff81907626
+ffffffff81907595
+ffffffff81907570
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+char buffer[PROC_NUMBUF] = {};
+----- addresses:
+ffffffff819075de
+ffffffff819075fa
+ffffffff81907607
+ffffffff819075e3
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+int oom_score_adj;
+----- addresses:
+ffffffff81907614
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+int err;
+----- addresses:
+ffffffff81907614
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (count > sizeof(buffer) - 1)
+----- addresses:
+ffffffff81907614
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (copy_from_user(buffer, buf, count)) {
+----- addresses:
+ffffffff8190761c
+ffffffff81907614
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+err = kstrtoint(strstrip(buffer), 0, &oom_score_adj);
+----- addresses:
+ffffffff8190767a
+ffffffff8190766b
+ffffffff8190767f
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (err)
+----- addresses:
+ffffffff8190768c
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (oom_score_adj < OOM_SCORE_ADJ_MIN ||
+----- addresses:
+ffffffff819076a9
+ffffffff819076a2
+ffffffff81907691
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+err = __set_oom_adj(file, oom_score_adj, false);
+----- addresses:
+ffffffff819076b9
+ffffffff81907708
+ffffffff819076b4
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+return err < 0 ? err : count;
+----- addresses:
+ffffffff819076f9
+ffffffff819076f4
+ffffffff819076e2
+ffffffff819076ec
+----- funcname:
+oom_score_adj_write
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+}
+----- addresses:
+ffffffff81907655
+ffffffff81907662
+ffffffff81907641
+ffffffff8190765e
+ffffffff81907703
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+{
+----- addresses:
+ffffffff815a8102
+ffffffff815a83a0
+ffffffff815a80e0
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+unsigned long freed = 0;
+----- addresses:
+ffffffff815a815a
+ffffffff815a814e
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (oom_killer_disabled)
+----- addresses:
+ffffffff815a8163
+ffffffff815a8153
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+return false;
+----- addresses:
+ffffffff815a83e7
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (!is_memcg_oom(oc)) {
+----- addresses:
+ffffffff815a8169
+ffffffff815a8184
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+blocking_notifier_call_chain(&oom_notify_list, 0, &freed);
+----- addresses:
+ffffffff815a83ec
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (freed > 0 && !is_sysrq_oom(oc))
+----- addresses:
+ffffffff815a8444
+ffffffff815a8404
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+return true;
+----- addresses:
+ffffffff815a94e4
+ffffffff815a844e
+ffffffff815a846e
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (task_will_free_mem(current)) {
+----- addresses:
+ffffffff815a818f
+ffffffff815a819c
+ffffffff815a81a7
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+mark_oom_victim(current);
+----- addresses:
+ffffffff815a8459
+ffffffff815a845e
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+queue_oom_reaper(current);
+----- addresses:
+ffffffff815a8466
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (!(oc->gfp_mask & __GFP_FS) && !is_memcg_oom(oc))
+----- addresses:
+ffffffff815a820c
+ffffffff815a81af
+ffffffff815a81f7
+ffffffff815a8215
+ffffffff815a81f0
+ffffffff815a95b0
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+oc->constraint = constrained_alloc(oc);
+----- addresses:
+ffffffff815a9068
+ffffffff815a8eae
+ffffffff815a8253
+ffffffff815a93ef
+ffffffff815a973c
+ffffffff815a9732
+ffffffff815a8739
+ffffffff815a91f0
+ffffffff815a93be
+ffffffff815a8473
+ffffffff815a8edd
+ffffffff815a8247
+ffffffff815a91c1
+ffffffff815a8709
+ffffffff815a8278
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (oc->constraint != CONSTRAINT_MEMORY_POLICY)
+----- addresses:
+ffffffff815a8ee4
+ffffffff815a91f7
+ffffffff815a827f
+ffffffff815a8740
+ffffffff815a93f6
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+oc->nodemask = NULL;
+----- addresses:
+ffffffff815a97a8
+ffffffff815a875e
+ffffffff815a82a1
+ffffffff815a8ee4
+ffffffff815a91eb
+ffffffff815a91f7
+ffffffff815a8ed9
+ffffffff815a9859
+ffffffff815a827f
+ffffffff815a9216
+ffffffff815a8734
+ffffffff815a8740
+ffffffff815a8274
+ffffffff815a95e6
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+check_panic_on_oom(oc);
+----- addresses:
+ffffffff815a8766
+ffffffff815a82a9
+ffffffff815a921e
+ffffffff815a93f6
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (!is_memcg_oom(oc) && sysctl_oom_kill_allocating_task &&
+----- addresses:
+ffffffff815a8cf9
+ffffffff815a879a
+ffffffff815a878f
+ffffffff815a876e
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+current->mm && !oom_unkillable_task(current) &&
+----- addresses:
+ffffffff815a97e4
+ffffffff815a8dca
+ffffffff815a8ccf
+ffffffff815a8ce1
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+oom_cpuset_eligible(current, oc) &&
+----- addresses:
+ffffffff815a8d96
+ffffffff815a8dad
+ffffffff815a97cb
+ffffffff815a8e35
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+current->signal->oom_score_adj != OOM_SCORE_ADJ_MIN) {
+----- addresses:
+ffffffff815a8e04
+ffffffff815a97da
+ffffffff815a8de5
+ffffffff815a984f
+ffffffff815a8dd3
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+get_task_struct(current);
+----- addresses:
+ffffffff815a9465
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+oc->chosen = current;
+----- addresses:
+ffffffff815a94c7
+ffffffff815a94aa
+ffffffff815a9834
+ffffffff815a94a5
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+oom_kill_process(oc, "Out of memory (oom_kill_allocating_task)");
+----- addresses:
+ffffffff815a94d5
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+select_bad_process(oc);
+----- addresses:
+ffffffff815a8e69
+ffffffff815a988b
+ffffffff815a82af
+ffffffff815a87ad
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (!oc->chosen) {
+----- addresses:
+ffffffff815a82ea
+ffffffff815a8310
+ffffffff815a95bf
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+dump_header(oc);
+----- addresses:
+ffffffff815a8f54
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+pr_warn("Out of memory and no killable processes...\n");
+----- addresses:
+ffffffff815a8f61
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (!is_sysrq_oom(oc) && !is_memcg_oom(oc))
+----- addresses:
+ffffffff815a8f9c
+ffffffff815a8fc7
+ffffffff815a8f6d
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+panic("System is deadlocked on memory\n");
+----- addresses:
+ffffffff815a9764
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+if (oc->chosen && oc->chosen != (void *)-1UL)
+----- addresses:
+ffffffff815a8322
+ffffffff815a900b
+ffffffff815a8fd2
+ffffffff815a9723
+ffffffff815a8319
+ffffffff815a903d
+ffffffff815a8ff8
+ffffffff815a9755
+ffffffff815a8ffc
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+oom_kill_process(oc, !is_memcg_oom(oc) ? "Out of memory" :
+----- addresses:
+ffffffff815a8328
+ffffffff815a8357
+ffffffff815a835e
+ffffffff815a8349
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+return !!oc->chosen;
+----- addresses:
+ffffffff815a836e
+ffffffff815a839b
+ffffffff815a968c
+ffffffff815a838f
+----- funcname:
+out_of_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/oom_kill.c
+----- source:
+}
+----- addresses:
+ffffffff815a951e
+ffffffff815a83da
+ffffffff815a83b7
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+{
+----- addresses:
+ffffffff8171f270
+ffffffff8171f27a
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+interval_sub->mm = mm;
+----- addresses:
+ffffffff8171f290
+ffffffff8171f295
+ffffffff8171f27a
+ffffffff8171f2b8
+ffffffff8171f643
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+interval_sub->ops = ops;
+----- addresses:
+ffffffff8171f639
+ffffffff8171f2da
+ffffffff8171f2b4
+ffffffff8171f2bc
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+RB_CLEAR_NODE(&interval_sub->interval_tree.rb);
+----- addresses:
+ffffffff8171f2fa
+ffffffff8171f2d7
+ffffffff8171f2de
+ffffffff8171f618
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+interval_sub->interval_tree.start = start;
+----- addresses:
+ffffffff8171f2fe
+ffffffff8171f2f6
+ffffffff8171f62f
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (length == 0 ||
+----- addresses:
+ffffffff8171f35d
+ffffffff8171f31d
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+check_add_overflow(start, length - 1,
+----- addresses:
+ffffffff8171f625
+ffffffff8171f347
+ffffffff8171f32f
+ffffffff8171f326
+ffffffff8171f340
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return -EOVERFLOW;
+----- addresses:
+ffffffff8171f5de
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (WARN_ON(atomic_read(&mm->mm_users) <= 0))
+----- addresses:
+ffffffff8171f5f2
+ffffffff8171f5ee
+ffffffff8171f5e9
+ffffffff8171f3b0
+ffffffff8171f5f1
+ffffffff8171f366
+ffffffff8171f5ef
+ffffffff8171f3b8
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return -EINVAL;
+----- addresses:
+ffffffff8171f5f2
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+mmgrab(mm);
+----- addresses:
+ffffffff8171f3b8
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+spin_lock(&subscriptions->lock);
+----- addresses:
+ffffffff8171f3ce
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (subscriptions->active_invalidate_ranges) {
+----- addresses:
+ffffffff8171f64d
+ffffffff8171f3da
+ffffffff8171f3f9
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (mn_itree_is_invalidating(subscriptions))
+----- addresses:
+ffffffff8171f4c1
+ffffffff8171f499
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+hlist_add_head(&interval_sub->deferred_item,
+----- addresses:
+ffffffff8171f4d4
+ffffffff8171f4cb
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscriptions->invalidate_seq |= 1;
+----- addresses:
+ffffffff8171f5c3
+ffffffff8171f5d3
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+interval_tree_insert(&interval_sub->interval_tree,
+----- addresses:
+ffffffff8171f5d7
+ffffffff8171f5cc
+ffffffff8171f462
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+interval_sub->invalidate_seq = subscriptions->invalidate_seq;
+----- addresses:
+ffffffff8171f577
+ffffffff8171f597
+ffffffff8171f661
+ffffffff8171f59f
+ffffffff8171f59b
+ffffffff8171f66e
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+WARN_ON(mn_itree_is_invalidating(subscriptions));
+----- addresses:
+ffffffff8171f436
+ffffffff8171f60a
+ffffffff8171f42c
+ffffffff8171f610
+ffffffff8171f618
+ffffffff8171f404
+ffffffff8171f612
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+interval_sub->invalidate_seq =
+----- addresses:
+ffffffff8171f678
+ffffffff8171f443
+ffffffff8171f436
+ffffffff8171f43b
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscriptions->invalidate_seq - 1;
+----- addresses:
+ffffffff8171f43f
+ffffffff8171f436
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+spin_unlock(&subscriptions->lock);
+----- addresses:
+ffffffff8171f46e
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return 0;
+----- addresses:
+ffffffff8171f47e
+ffffffff8171f476
+----- funcname:
+__mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+}
+----- addresses:
+ffffffff8171f48c
+ffffffff8171f483
+----- funcname:
+io_uring_setup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+SYSCALL_DEFINE2(io_uring_setup, u32, entries,
+----- addresses:
+ffffffff81f25df6
+ffffffff81f25e50
+ffffffff81f25e43
+ffffffff81f25e5a
+ffffffff81f25d32
+ffffffff81f25d4a
+ffffffff81f25d40
+ffffffff81f25d7a
+ffffffff81f25e42
+ffffffff81f25c6a
+ffffffff81f25d70
+ffffffff81f25ce6
+ffffffff81f25e36
+ffffffff81f25c64
+ffffffff81f25d74
+ffffffff81f25c60
+ffffffff81f25dc7
+ffffffff81f25e64
+ffffffff81f25ded
+ffffffff81f25cb7
+ffffffff81f25d26
+ffffffff81f25c72
+ffffffff81f25cb4
+ffffffff81f25d82
+ffffffff81f25d33
+ffffffff81f25cdd
+----- funcname:
+io_uring_setup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+if (!io_uring_allowed())
+----- addresses:
+ffffffff81f25e36
+ffffffff81f25dc7
+ffffffff81f25cb7
+ffffffff81f25d26
+ffffffff81f25e32
+ffffffff81f25d22
+----- funcname:
+io_uring_setup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+return -EPERM;
+----- addresses:
+ffffffff81f25d32
+ffffffff81f25e42
+ffffffff81f25d2b
+ffffffff81f25e3b
+----- funcname:
+io_uring_setup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/io_uring/io_uring.c
+----- source:
+return io_uring_setup(entries, params);
+----- addresses:
+ffffffff81f25ccb
+ffffffff81f25ddb
+ffffffff81f25cdd
+ffffffff81f25ded
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+{
+----- addresses:
+ffffffff8171eb30
+ffffffff8171eb34
+ffffffff8171eb41
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+struct mmu_notifier_subscriptions *subscriptions = NULL;
+----- addresses:
+ffffffff8171f0f0
+ffffffff8171eb34
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+int ret;
+----- addresses:
+ffffffff8171eb34
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+mmap_assert_write_locked(mm);
+----- addresses:
+ffffffff8171eb34
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+BUG_ON(atomic_read(&mm->mm_users) <= 0);
+----- addresses:
+ffffffff8171f0f0
+ffffffff8171f0ee
+ffffffff8171ebd0
+ffffffff8171eb87
+ffffffff8171eea6
+ffffffff8171eeee
+ffffffff8171eee6
+ffffffff8171eef4
+ffffffff8171ebd8
+ffffffff8171f0e8
+ffffffff8171eef6
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (WARN_ON_ONCE(subscription &&
+----- addresses:
+ffffffff8171ec67
+ffffffff8171f164
+ffffffff8171f182
+ffffffff8171ebe6
+ffffffff8171ec65
+ffffffff8171ecb0
+ffffffff8171f217
+ffffffff8171ec34
+ffffffff8171ec5f
+ffffffff8171f20d
+ffffffff8171f16e
+ffffffff8171ebd8
+ffffffff8171ec85
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return -EINVAL;
+----- addresses:
+ffffffff8171ec68
+ffffffff8171ec6e
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (!mm->notifier_subscriptions) {
+----- addresses:
+ffffffff8171ecb0
+ffffffff8171ecd7
+ffffffff8171f14a
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscriptions = kzalloc(
+----- addresses:
+ffffffff8171ef49
+ffffffff8171ef86
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (!subscriptions)
+----- addresses:
+ffffffff8171ef86
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return -ENOMEM;
+----- addresses:
+ffffffff8171f20d
+ffffffff8171f202
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+INIT_HLIST_HEAD(&subscriptions->list);
+----- addresses:
+ffffffff8171ef8f
+ffffffff8171ef94
+ffffffff8171f22b
+ffffffff8171efb3
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+spin_lock_init(&subscriptions->lock);
+----- addresses:
+ffffffff8171efba
+ffffffff8171efe8
+ffffffff8171f126
+ffffffff8171efaf
+ffffffff8171eff0
+ffffffff8171f130
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscriptions->invalidate_seq = 2;
+----- addresses:
+ffffffff8171f00f
+ffffffff8171f217
+ffffffff8171efe4
+ffffffff8171f221
+ffffffff8171eff0
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscriptions->itree = RB_ROOT_CACHED;
+----- addresses:
+ffffffff8171f017
+ffffffff8171f238
+ffffffff8171f242
+ffffffff8171f00b
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+init_waitqueue_head(&subscriptions->wq);
+----- addresses:
+ffffffff8171f078
+ffffffff8171f061
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+INIT_HLIST_HEAD(&subscriptions->deferred_list);
+----- addresses:
+ffffffff8171f24c
+ffffffff8171f09f
+ffffffff8171f078
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+ret = mm_take_all_locks(mm);
+----- addresses:
+ffffffff8171ece5
+ffffffff8171f09f
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (unlikely(ret))
+----- addresses:
+ffffffff8171f0aa
+ffffffff8171ecf5
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+goto out_clean;
+----- addresses:
+ffffffff8171f0f3
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (subscriptions)
+----- addresses:
+ffffffff8171f0ae
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+smp_store_release(&mm->notifier_subscriptions, subscriptions);
+----- addresses:
+ffffffff8171f0ce
+ffffffff8171f0b3
+ffffffff8171f0ae
+ffffffff8171f157
+ffffffff8171ecfd
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (subscription) {
+----- addresses:
+ffffffff8171ecfd
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+mmgrab(mm);
+----- addresses:
+ffffffff8171ed0b
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscription->mm = mm;
+----- addresses:
+ffffffff8171ed43
+ffffffff8171f1da
+ffffffff8171ed20
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscription->users = 1;
+----- addresses:
+ffffffff8171ed3f
+ffffffff8171ed60
+ffffffff8171ed6b
+ffffffff8171ed47
+ffffffff8171f11c
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+spin_lock(&mm->notifier_subscriptions->lock);
+----- addresses:
+ffffffff8171f1b3
+ffffffff8171ed68
+ffffffff8171ed72
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+hlist_add_head_rcu(&subscription->hlist,
+----- addresses:
+ffffffff8171ed9a
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+&mm->notifier_subscriptions->list);
+----- addresses:
+ffffffff8171ed9a
+ffffffff8171f1c0
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+spin_unlock(&mm->notifier_subscriptions->lock);
+----- addresses:
+ffffffff8171ee69
+ffffffff8171f1e4
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+mm->notifier_subscriptions->has_itree = true;
+----- addresses:
+ffffffff8171f112
+ffffffff8171f1cd
+ffffffff8171ef1d
+ffffffff8171eef6
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+mm_drop_all_locks(mm);
+----- addresses:
+ffffffff8171ee99
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return 0;
+----- addresses:
+ffffffff8171eee3
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+kfree(subscriptions);
+----- addresses:
+ffffffff8171f0f8
+ffffffff8171f0f3
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return ret;
+----- addresses:
+ffffffff8171f100
+----- funcname:
+__mmu_notifier_register
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+}
+----- addresses:
+ffffffff8171ec73
+ffffffff8171ec77
+ffffffff8171ec7a
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+static int __set_oom_adj(struct file *file, int oom_adj, bool legacy)
+----- addresses:
+ffffffff8190674f
+ffffffff81906756
+ffffffff81906740
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+struct mm_struct *mm = NULL;
+----- addresses:
+ffffffff819068d3
+ffffffff81906c12
+ffffffff81906f0e
+ffffffff81906740
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+struct task_struct *task;
+----- addresses:
+ffffffff81906740
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+int err = 0;
+----- addresses:
+ffffffff81906ab2
+ffffffff81906740
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+task = get_proc_task(file_inode(file));
+----- addresses:
+ffffffff81906740
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (!task)
+----- addresses:
+ffffffff8190678c
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+return -ESRCH;
+----- addresses:
+ffffffff819070a9
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+mutex_lock(&oom_adj_mutex);
+----- addresses:
+ffffffff81906795
+ffffffff8190679a
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (legacy) {
+----- addresses:
+ffffffff819067a6
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (oom_adj < task->signal->oom_score_adj &&
+----- addresses:
+ffffffff8190681b
+ffffffff819067e2
+ffffffff819071e7
+ffffffff819071a6
+ffffffff81906e8e
+ffffffff819067af
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+!capable(CAP_SYS_RESOURCE)) {
+----- addresses:
+ffffffff81906e5d
+ffffffff81906e7f
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+err = -EACCES;
+----- addresses:
+ffffffff81906e74
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+pr_warn_once("%s (%d): /proc/%d/oom_adj is deprecated, please use /proc/%d/oom_score_adj instead.\n",
+----- addresses:
+ffffffff81907063
+ffffffff81906fd4
+ffffffff8190703e
+ffffffff81907057
+ffffffff8190705e
+ffffffff81906823
+ffffffff81906ff1
+ffffffff81907068
+ffffffff81906835
+ffffffff81906fea
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if ((short)oom_adj < task->signal->oom_score_adj_min &&
+----- addresses:
+ffffffff81906b41
+ffffffff81906b24
+ffffffff81906b57
+ffffffff81906b88
+ffffffff81906e6c
+ffffffff819071dd
+ffffffff819071ce
+ffffffff81906b1f
+ffffffff81906b46
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (!task->vfork_done) {
+----- addresses:
+ffffffff81906bbd
+ffffffff8190685c
+ffffffff819071c4
+ffffffff819071ba
+ffffffff81906835
+ffffffff81906869
+ffffffff81906b96
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+struct task_struct *p = find_lock_task_mm(task);
+----- addresses:
+ffffffff81906e98
+ffffffff819070b4
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (p) {
+----- addresses:
+ffffffff819070cf
+ffffffff81906ea8
+ffffffff81907236
+ffffffff81907240
+ffffffff819070c6
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (test_bit(MMF_MULTIPROCESS, &p->mm->flags)) {
+----- addresses:
+ffffffff81906eb6
+ffffffff81906f1e
+ffffffff81907227
+ffffffff8190721a
+ffffffff81906eb1
+ffffffff81906ee4
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+mm = p->mm;
+----- addresses:
+ffffffff81907068
+ffffffff81907097
+ffffffff81907200
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+mmgrab(mm);
+----- addresses:
+ffffffff8190709c
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+task_unlock(p);
+----- addresses:
+ffffffff81906f29
+ffffffff81906a46
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+task->signal->oom_score_adj = oom_adj;
+----- addresses:
+ffffffff81907274
+ffffffff819070cf
+ffffffff81906bcb
+ffffffff8190718d
+ffffffff81906898
+ffffffff81907240
+ffffffff81906f3a
+ffffffff819072ac
+ffffffff819070f8
+ffffffff81907227
+ffffffff81907314
+ffffffff81906864
+ffffffff819070d4
+ffffffff819072d5
+ffffffff819072a7
+ffffffff81907298
+ffffffff8190719c
+ffffffff81906bd7
+ffffffff81906f5e
+ffffffff8190686f
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (!legacy && has_capability_noaudit(current, CAP_SYS_RESOURCE))
+----- addresses:
+ffffffff81906dff
+ffffffff81906df0
+ffffffff81906f9b
+ffffffff81906c20
+ffffffff81906c12
+ffffffff81906de5
+ffffffff81906dd9
+ffffffff81907133
+ffffffff819068d3
+ffffffff81906c2d
+ffffffff81906c32
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+task->signal->oom_score_adj_min = (short)oom_adj;
+----- addresses:
+ffffffff81906c3a
+ffffffff81906c63
+ffffffff8190725b
+ffffffff81907265
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+trace_oom_score_adj_update(task);
+----- addresses:
+ffffffff819068dc
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (mm) {
+----- addresses:
+ffffffff819068e6
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+struct task_struct *p;
+----- addresses:
+ffffffff819068f7
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+rcu_read_lock();
+----- addresses:
+ffffffff819068f7
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+for_each_process(p) {
+----- addresses:
+ffffffff81906a80
+ffffffff8190717c
+ffffffff8190718d
+ffffffff81907142
+ffffffff81907138
+ffffffff81906901
+ffffffff81906927
+ffffffff81906a71
+ffffffff8190692e
+ffffffff81906a79
+ffffffff81906a53
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (same_thread_group(task, p))
+----- addresses:
+ffffffff81906962
+ffffffff81906993
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (p->flags & PF_KTHREAD || is_global_init(p))
+----- addresses:
+ffffffff8190715e
+ffffffff819069cc
+ffffffff81906a02
+ffffffff819069a0
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+task_lock(p);
+----- addresses:
+ffffffff81906a0c
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+if (!p->vfork_done && process_shares_mm(p, mm)) {
+----- addresses:
+ffffffff81906a20
+ffffffff81907168
+ffffffff81906d86
+ffffffff81906a38
+ffffffff81906d74
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+p->signal->oom_score_adj = oom_adj;
+----- addresses:
+ffffffff81907349
+ffffffff8190733a
+ffffffff81906dab
+ffffffff81906d8e
+ffffffff81906dde
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+p->signal->oom_score_adj_min = (short)oom_adj;
+----- addresses:
+ffffffff8190732b
+ffffffff81906e5d
+ffffffff81906e24
+ffffffff81907335
+ffffffff8190731e
+ffffffff81906e07
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+rcu_read_unlock();
+----- addresses:
+ffffffff81906a8d
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+mmdrop(mm);
+----- addresses:
+ffffffff81906a97
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+mutex_unlock(&oom_adj_mutex);
+----- addresses:
+ffffffff81906ab5
+ffffffff81906ac3
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+put_task_struct(task);
+----- addresses:
+ffffffff81906acf
+----- funcname:
+__set_oom_adj
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/base.c
+----- source:
+}
+----- addresses:
+ffffffff81906b09
+ffffffff81906b12
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+static void exit_mm(void)
+----- addresses:
+ffffffff811703d7
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+struct mm_struct *mm = current->mm;
+----- addresses:
+ffffffff81171cbc
+ffffffff811703d7
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+exit_mm_release(current, mm);
+----- addresses:
+ffffffff81170408
+ffffffff81170400
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+if (!mm)
+----- addresses:
+ffffffff81170410
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+mmap_read_lock(mm);
+----- addresses:
+ffffffff81170419
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+mmgrab_lazy_tlb(mm);
+----- addresses:
+ffffffff8117043c
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+BUG_ON(mm != current->active_mm);
+----- addresses:
+ffffffff81171cd0
+ffffffff8117172b
+ffffffff81171cc6
+ffffffff81171729
+ffffffff81171723
+ffffffff8117048a
+ffffffff8117045a
+ffffffff81170452
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+task_lock(current);
+----- addresses:
+ffffffff8117048a
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+smp_mb__after_spinlock();
+----- addresses:
+ffffffff811704a4
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+local_irq_disable();
+----- addresses:
+ffffffff811704a4
+ffffffff811704a5
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+current->mm = NULL;
+----- addresses:
+ffffffff811704a5
+ffffffff81171f42
+ffffffff81171f38
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+membarrier_update_current_mm(NULL);
+----- addresses:
+ffffffff811704d3
+ffffffff811704dd
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+enter_lazy_tlb(mm, current);
+----- addresses:
+ffffffff811704e2
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+local_irq_enable();
+----- addresses:
+ffffffff811704ed
+ffffffff811704ee
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+task_unlock(current);
+----- addresses:
+ffffffff811704ee
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+mmap_read_unlock(mm);
+----- addresses:
+ffffffff811704fb
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+mm_update_next_owner(mm);
+----- addresses:
+ffffffff8117050d
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+mmput(mm);
+----- addresses:
+ffffffff8117050d
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+if (test_thread_flag(TIF_MEMDIE))
+----- addresses:
+ffffffff8117054d
+ffffffff81170515
+----- funcname:
+exit_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/exit.c
+----- source:
+exit_oom_victim();
+----- addresses:
+ffffffff81170554
+ffffffff8117055e
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+{
+----- addresses:
+ffffffff81720010
+ffffffff81720014
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+struct mmu_notifier_subscriptions *subscriptions;
+----- addresses:
+ffffffff81720014
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+int ret;
+----- addresses:
+ffffffff81720014
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+might_lock(&mm->mmap_lock);
+----- addresses:
+ffffffff81720014
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscriptions = smp_load_acquire(&mm->notifier_subscriptions);
+----- addresses:
+ffffffff81720063
+ffffffff81720110
+ffffffff81720036
+ffffffff81720014
+ffffffff81720031
+ffffffff8172011e
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (!subscriptions || !subscriptions->has_itree) {
+----- addresses:
+ffffffff81720063
+ffffffff81720106
+ffffffff8172008c
+ffffffff81720068
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+ret = mmu_notifier_register(NULL, mm);
+----- addresses:
+ffffffff817200cd
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+if (ret)
+----- addresses:
+ffffffff817200dc
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+subscriptions = mm->notifier_subscriptions;
+----- addresses:
+ffffffff817200e0
+ffffffff8172011e
+ffffffff817200e5
+ffffffff81720104
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+return __mmu_interval_notifier_insert(interval_sub, mm, subscriptions,
+----- addresses:
+ffffffff81720093
+ffffffff817200af
+----- funcname:
+mmu_interval_notifier_insert
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mmu_notifier.c
+----- source:
+}
+----- addresses:
+ffffffff817200c8
+ffffffff817200c6
+ffffffff817200b7
+ffffffff817200c2
+ffffffff817200c4
+ffffffff817200bf
+ffffffff817200c0
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+static int proc_maps_open(struct inode *inode, struct file *file,
+----- addresses:
+ffffffff818f1741
+ffffffff818f1651
+ffffffff818eee11
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+struct proc_maps_private *priv = __seq_open_private(file, ops, psize);
+----- addresses:
+ffffffff818f1651
+ffffffff818f1657
+ffffffff818eee11
+ffffffff818f1742
+ffffffff818f1747
+ffffffff818f1741
+ffffffff818eee12
+ffffffff818eee17
+ffffffff818f1652
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+if (!priv)
+----- addresses:
+ffffffff818eee2b
+ffffffff818f166b
+ffffffff818f175b
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+return -ENOMEM;
+----- addresses:
+ffffffff818f16fb
+ffffffff818eeebb
+ffffffff818f17eb
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+priv->inode = inode;
+----- addresses:
+ffffffff818eeeca
+ffffffff818eee3c
+ffffffff818f1767
+ffffffff818f167c
+ffffffff818f170a
+ffffffff818f17fa
+ffffffff818f1677
+ffffffff818f176c
+ffffffff818eee37
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+priv->mm = proc_mem_open(inode, PTRACE_MODE_READ);
+----- addresses:
+ffffffff818eee63
+ffffffff818f1703
+ffffffff818eee6a
+ffffffff818eee56
+ffffffff818f16aa
+ffffffff818f179d
+ffffffff818f1793
+ffffffff818f1696
+ffffffff818f16ad
+ffffffff818eeec3
+ffffffff818eee6d
+ffffffff818f17f3
+ffffffff818f1786
+ffffffff818f179a
+ffffffff818f16a3
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+if (IS_ERR(priv->mm)) {
+----- addresses:
+ffffffff818f16c8
+ffffffff818eee91
+ffffffff818f16c5
+ffffffff818eee85
+ffffffff818f17b8
+ffffffff818f17c1
+ffffffff818f16d1
+ffffffff818f17b5
+ffffffff818eee88
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+int err = PTR_ERR(priv->mm);
+----- addresses:
+ffffffff818eeeb1
+ffffffff818f17e1
+ffffffff818f17d6
+ffffffff818eeea6
+ffffffff818f16e6
+ffffffff818f16f1
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+seq_release_private(inode, file);
+----- addresses:
+ffffffff818eeeb4
+ffffffff818f16eb
+ffffffff818f17db
+ffffffff818eeeab
+ffffffff818f16f4
+ffffffff818f17e4
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+return err;
+----- addresses:
+ffffffff818eeebb
+ffffffff818f17e9
+ffffffff818eeeb9
+ffffffff818f16f9
+ffffffff818f17eb
+ffffffff818f16fb
+----- funcname:
+proc_maps_open
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/task_mmu.c
+----- source:
+return 0;
+----- addresses:
+ffffffff818f16c5
+ffffffff818f17b5
+ffffffff818eee85

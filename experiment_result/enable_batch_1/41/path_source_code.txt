@@ -1,0 +1,1256 @@
+static int aio_migrate_folio(struct address_space *mapping, struct folio *dst,
+			struct folio *src, enum migrate_mode mode)
+{
+	struct kioctx *ctx;
+	unsigned long flags;
+	pgoff_t idx;
+	int rc;
+
+	/*
+	 * We cannot support the _NO_COPY case here, because copy needs to
+	 * happen under the ctx->completion_lock. That does not work with the
+	 * migration workflow of MIGRATE_SYNC_NO_COPY.
+	 */
+	if (mode == MIGRATE_SYNC_NO_COPY)
+		return -EINVAL;
+
+	rc = 0;
+
+	/* mapping->i_private_lock here protects against the kioctx teardown.  */
+	spin_lock(&mapping->i_private_lock);
+	ctx = mapping->i_private_data;
+	if (!ctx) {
+		rc = -EINVAL;
+		goto out;
+	}
+
+	/* The ring_lock mutex.  The prevents aio_read_events() from writing
+	 * to the ring's head, and prevents page migration from mucking in
+	 * a partially initialized kiotx.
+	 */
+	if (!mutex_trylock(&ctx->ring_lock)) {
+		rc = -EAGAIN;
+		goto out;
+	}
+
+	idx = src->index;
+	if (idx < (pgoff_t)ctx->nr_pages) {
+		/* Make sure the old folio hasn't already been changed */
+		if (ctx->ring_folios[idx] != src)
+			rc = -EAGAIN;
+	} else
+		rc = -EINVAL;
+
+	if (rc != 0)
+		goto out_unlock;
+
+	/* Writeback must be complete */
+	BUG_ON(folio_test_writeback(src));
+	folio_get(dst);
+
+	rc = folio_migrate_mapping(mapping, dst, src, 1);
+	if (rc != MIGRATEPAGE_SUCCESS) {
+		folio_put(dst);
+		goto out_unlock;
+	}
+
+	/* Take completion_lock to prevent other writes to the ring buffer
+	 * while the old folio is copied to the new.  This prevents new
+	 * events from being lost.
+	 */
+	spin_lock_irqsave(&ctx->completion_lock, flags);
+	folio_migrate_copy(dst, src);
+	BUG_ON(ctx->ring_folios[idx] != src);
+	ctx->ring_folios[idx] = dst;
+	spin_unlock_irqrestore(&ctx->completion_lock, flags);
+
+	/* The old folio is no longer accessible. */
+	folio_put(src);
+
+out_unlock:
+	mutex_unlock(&ctx->ring_lock);
+out:
+	spin_unlock(&mapping->i_private_lock);
+	return rc;
+}
+int __sched mutex_trylock(struct mutex *lock)
+{
+	bool locked;
+
+	MUTEX_WARN_ON(lock->magic != lock);
+
+	locked = __mutex_trylock(lock);
+	if (locked)
+		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+
+	return locked;
+}
+static inline bool __mutex_trylock(struct mutex *lock)
+{
+	return !__mutex_trylock_common(lock, false);
+}
+static inline struct task_struct *__mutex_trylock_common(struct mutex *lock, bool handoff)
+{
+	unsigned long owner, curr = (unsigned long)current;
+
+	owner = atomic_long_read(&lock->owner);
+	for (;;) { /* must loop, can race against a flag */
+		unsigned long flags = __owner_flags(owner);
+		unsigned long task = owner & ~MUTEX_FLAGS;
+
+		if (task) {
+			if (flags & MUTEX_FLAG_PICKUP) {
+				if (task != curr)
+					break;
+				flags &= ~MUTEX_FLAG_PICKUP;
+			} else if (handoff) {
+				if (flags & MUTEX_FLAG_HANDOFF)
+					break;
+				flags |= MUTEX_FLAG_HANDOFF;
+			} else {
+				break;
+			}
+		} else {
+			MUTEX_WARN_ON(flags & (MUTEX_FLAG_HANDOFF | MUTEX_FLAG_PICKUP));
+			task = curr;
+		}
+
+		if (atomic_long_try_cmpxchg_acquire(&lock->owner, &owner, task | flags)) {
+			if (task == curr)
+				return NULL;
+			break;
+		}
+	}
+
+	return __owner_task(owner);
+}
+static void engine_retire(struct work_struct *work)
+{
+	struct intel_engine_cs *engine =
+		container_of(work, typeof(*engine), retire_work);
+	struct intel_timeline *tl = xchg(&engine->retire, NULL);
+
+	do {
+		struct intel_timeline *next = xchg(&tl->retire, NULL);
+
+		/*
+		 * Our goal here is to retire _idle_ timelines as soon as
+		 * possible (as they are idle, we do not expect userspace
+		 * to be cleaning up anytime soon).
+		 *
+		 * If the timeline is currently locked, either it is being
+		 * retired elsewhere or about to be!
+		 */
+		if (mutex_trylock(&tl->mutex)) {
+			retire_requests(tl);
+			mutex_unlock(&tl->mutex);
+		}
+		intel_timeline_put(tl);
+
+		GEM_BUG_ON(!next);
+		tl = ptr_mask_bits(next, 1);
+	} while (tl);
+}
+int __sched mutex_trylock(struct mutex *lock)
+{
+	bool locked;
+
+	MUTEX_WARN_ON(lock->magic != lock);
+
+	locked = __mutex_trylock(lock);
+	if (locked)
+		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+
+	return locked;
+}
+static inline bool __mutex_trylock(struct mutex *lock)
+{
+	return !__mutex_trylock_common(lock, false);
+}
+static inline struct task_struct *__mutex_trylock_common(struct mutex *lock, bool handoff)
+{
+	unsigned long owner, curr = (unsigned long)current;
+
+	owner = atomic_long_read(&lock->owner);
+	for (;;) { /* must loop, can race against a flag */
+		unsigned long flags = __owner_flags(owner);
+		unsigned long task = owner & ~MUTEX_FLAGS;
+
+		if (task) {
+			if (flags & MUTEX_FLAG_PICKUP) {
+				if (task != curr)
+					break;
+				flags &= ~MUTEX_FLAG_PICKUP;
+			} else if (handoff) {
+				if (flags & MUTEX_FLAG_HANDOFF)
+					break;
+				flags |= MUTEX_FLAG_HANDOFF;
+			} else {
+				break;
+			}
+		} else {
+			MUTEX_WARN_ON(flags & (MUTEX_FLAG_HANDOFF | MUTEX_FLAG_PICKUP));
+			task = curr;
+		}
+
+		if (atomic_long_try_cmpxchg_acquire(&lock->owner, &owner, task | flags)) {
+			if (task == curr)
+				return NULL;
+			break;
+		}
+	}
+
+	return __owner_task(owner);
+}
+static int gmbus_trylock_bus(struct i2c_adapter *adapter,
+			     unsigned int flags)
+{
+	struct intel_gmbus *bus = to_intel_gmbus(adapter);
+	struct drm_i915_private *i915 = bus->i915;
+
+	return mutex_trylock(&i915->display.gmbus.mutex);
+}
+int __sched mutex_trylock(struct mutex *lock)
+{
+	bool locked;
+
+	MUTEX_WARN_ON(lock->magic != lock);
+
+	locked = __mutex_trylock(lock);
+	if (locked)
+		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+
+	return locked;
+}
+static inline bool __mutex_trylock(struct mutex *lock)
+{
+	return !__mutex_trylock_common(lock, false);
+}
+static inline struct task_struct *__mutex_trylock_common(struct mutex *lock, bool handoff)
+{
+	unsigned long owner, curr = (unsigned long)current;
+
+	owner = atomic_long_read(&lock->owner);
+	for (;;) { /* must loop, can race against a flag */
+		unsigned long flags = __owner_flags(owner);
+		unsigned long task = owner & ~MUTEX_FLAGS;
+
+		if (task) {
+			if (flags & MUTEX_FLAG_PICKUP) {
+				if (task != curr)
+					break;
+				flags &= ~MUTEX_FLAG_PICKUP;
+			} else if (handoff) {
+				if (flags & MUTEX_FLAG_HANDOFF)
+					break;
+				flags |= MUTEX_FLAG_HANDOFF;
+			} else {
+				break;
+			}
+		} else {
+			MUTEX_WARN_ON(flags & (MUTEX_FLAG_HANDOFF | MUTEX_FLAG_PICKUP));
+			task = curr;
+		}
+
+		if (atomic_long_try_cmpxchg_acquire(&lock->owner, &owner, task | flags)) {
+			if (task == curr)
+				return NULL;
+			break;
+		}
+	}
+
+	return __owner_task(owner);
+}
+static void heartbeat(struct work_struct *wrk)
+{
+	struct i915_sched_attr attr = { .priority = I915_PRIORITY_MIN };
+	struct intel_engine_cs *engine =
+		container_of(wrk, typeof(*engine), heartbeat.work.work);
+	struct intel_context *ce = engine->kernel_context;
+	struct i915_request *rq;
+	unsigned long serial;
+
+	/* Just in case everything has gone horribly wrong, give it a kick */
+	intel_engine_flush_submission(engine);
+
+	rq = engine->heartbeat.systole;
+	if (rq && i915_request_completed(rq)) {
+		i915_request_put(rq);
+		engine->heartbeat.systole = NULL;
+	}
+
+	if (!intel_engine_pm_get_if_awake(engine))
+		return;
+
+	if (intel_gt_is_wedged(engine->gt))
+		goto out;
+
+	if (i915_sched_engine_disabled(engine->sched_engine)) {
+		reset_engine(engine, engine->heartbeat.systole);
+		goto out;
+	}
+
+	if (engine->heartbeat.systole) {
+		long delay = READ_ONCE(engine->props.heartbeat_interval_ms);
+
+		/* Safeguard against too-fast worker invocations */
+		if (!time_after(jiffies,
+				rq->emitted_jiffies + msecs_to_jiffies(delay)))
+			goto out;
+
+		if (!i915_sw_fence_signaled(&rq->submit)) {
+			/*
+			 * Not yet submitted, system is stalled.
+			 *
+			 * This more often happens for ring submission,
+			 * where all contexts are funnelled into a common
+			 * ringbuffer. If one context is blocked on an
+			 * external fence, not only is it not submitted,
+			 * but all other contexts, including the kernel
+			 * context are stuck waiting for the signal.
+			 */
+		} else if (engine->sched_engine->schedule &&
+			   rq->sched.attr.priority < I915_PRIORITY_BARRIER) {
+			/*
+			 * Gradually raise the priority of the heartbeat to
+			 * give high priority work [which presumably desires
+			 * low latency and no jitter] the chance to naturally
+			 * complete before being preempted.
+			 */
+			attr.priority = I915_PRIORITY_NORMAL;
+			if (rq->sched.attr.priority >= attr.priority)
+				attr.priority = I915_PRIORITY_HEARTBEAT;
+			if (rq->sched.attr.priority >= attr.priority)
+				attr.priority = I915_PRIORITY_BARRIER;
+
+			local_bh_disable();
+			engine->sched_engine->schedule(rq, &attr);
+			local_bh_enable();
+		} else {
+			reset_engine(engine, rq);
+		}
+
+		rq->emitted_jiffies = jiffies;
+		goto out;
+	}
+
+	serial = READ_ONCE(engine->serial);
+	if (engine->wakeref_serial == serial)
+		goto out;
+
+	if (!mutex_trylock(&ce->timeline->mutex)) {
+		/* Unable to lock the kernel timeline, is the engine stuck? */
+		if (xchg(&engine->heartbeat.blocked, serial) == serial)
+			intel_gt_handle_error(engine->gt, engine->mask,
+					      I915_ERROR_CAPTURE,
+					      "no heartbeat on %s",
+					      engine->name);
+		goto out;
+	}
+
+	rq = heartbeat_create(ce, GFP_NOWAIT | __GFP_NOWARN);
+	if (IS_ERR(rq))
+		goto unlock;
+
+	heartbeat_commit(rq, &attr);
+
+unlock:
+	mutex_unlock(&ce->timeline->mutex);
+out:
+	if (!engine->i915->params.enable_hangcheck || !next_heartbeat(engine))
+		i915_request_put(fetch_and_zero(&engine->heartbeat.systole));
+	intel_engine_pm_put(engine);
+}
+int __sched mutex_trylock(struct mutex *lock)
+{
+	bool locked;
+
+	MUTEX_WARN_ON(lock->magic != lock);
+
+	locked = __mutex_trylock(lock);
+	if (locked)
+		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+
+	return locked;
+}
+static inline bool __mutex_trylock(struct mutex *lock)
+{
+	return !__mutex_trylock_common(lock, false);
+}
+static inline struct task_struct *__mutex_trylock_common(struct mutex *lock, bool handoff)
+{
+	unsigned long owner, curr = (unsigned long)current;
+
+	owner = atomic_long_read(&lock->owner);
+	for (;;) { /* must loop, can race against a flag */
+		unsigned long flags = __owner_flags(owner);
+		unsigned long task = owner & ~MUTEX_FLAGS;
+
+		if (task) {
+			if (flags & MUTEX_FLAG_PICKUP) {
+				if (task != curr)
+					break;
+				flags &= ~MUTEX_FLAG_PICKUP;
+			} else if (handoff) {
+				if (flags & MUTEX_FLAG_HANDOFF)
+					break;
+				flags |= MUTEX_FLAG_HANDOFF;
+			} else {
+				break;
+			}
+		} else {
+			MUTEX_WARN_ON(flags & (MUTEX_FLAG_HANDOFF | MUTEX_FLAG_PICKUP));
+			task = curr;
+		}
+
+		if (atomic_long_try_cmpxchg_acquire(&lock->owner, &owner, task | flags)) {
+			if (task == curr)
+				return NULL;
+			break;
+		}
+	}
+
+	return __owner_task(owner);
+}
+__cold void io_uring_show_fdinfo(struct seq_file *m, struct file *file)
+{
+	struct io_ring_ctx *ctx = file->private_data;
+	struct io_overflow_cqe *ocqe;
+	struct io_rings *r = ctx->rings;
+	struct rusage sq_usage;
+	unsigned int sq_mask = ctx->sq_entries - 1, cq_mask = ctx->cq_entries - 1;
+	unsigned int sq_head = READ_ONCE(r->sq.head);
+	unsigned int sq_tail = READ_ONCE(r->sq.tail);
+	unsigned int cq_head = READ_ONCE(r->cq.head);
+	unsigned int cq_tail = READ_ONCE(r->cq.tail);
+	unsigned int cq_shift = 0;
+	unsigned int sq_shift = 0;
+	unsigned int sq_entries, cq_entries;
+	int sq_pid = -1, sq_cpu = -1;
+	u64 sq_total_time = 0, sq_work_time = 0;
+	bool has_lock;
+	unsigned int i;
+
+	if (ctx->flags & IORING_SETUP_CQE32)
+		cq_shift = 1;
+	if (ctx->flags & IORING_SETUP_SQE128)
+		sq_shift = 1;
+
+	/*
+	 * we may get imprecise sqe and cqe info if uring is actively running
+	 * since we get cached_sq_head and cached_cq_tail without uring_lock
+	 * and sq_tail and cq_head are changed by userspace. But it's ok since
+	 * we usually use these info when it is stuck.
+	 */
+	seq_printf(m, "SqMask:\t0x%x\n", sq_mask);
+	seq_printf(m, "SqHead:\t%u\n", sq_head);
+	seq_printf(m, "SqTail:\t%u\n", sq_tail);
+	seq_printf(m, "CachedSqHead:\t%u\n", ctx->cached_sq_head);
+	seq_printf(m, "CqMask:\t0x%x\n", cq_mask);
+	seq_printf(m, "CqHead:\t%u\n", cq_head);
+	seq_printf(m, "CqTail:\t%u\n", cq_tail);
+	seq_printf(m, "CachedCqTail:\t%u\n", ctx->cached_cq_tail);
+	seq_printf(m, "SQEs:\t%u\n", sq_tail - sq_head);
+	sq_entries = min(sq_tail - sq_head, ctx->sq_entries);
+	for (i = 0; i < sq_entries; i++) {
+		unsigned int entry = i + sq_head;
+		struct io_uring_sqe *sqe;
+		unsigned int sq_idx;
+
+		if (ctx->flags & IORING_SETUP_NO_SQARRAY)
+			break;
+		sq_idx = READ_ONCE(ctx->sq_array[entry & sq_mask]);
+		if (sq_idx > sq_mask)
+			continue;
+		sqe = &ctx->sq_sqes[sq_idx << sq_shift];
+		seq_printf(m, "%5u: opcode:%s, fd:%d, flags:%x, off:%llu, "
+			      "addr:0x%llx, rw_flags:0x%x, buf_index:%d "
+			      "user_data:%llu",
+			   sq_idx, io_uring_get_opcode(sqe->opcode), sqe->fd,
+			   sqe->flags, (unsigned long long) sqe->off,
+			   (unsigned long long) sqe->addr, sqe->rw_flags,
+			   sqe->buf_index, sqe->user_data);
+		if (sq_shift) {
+			u64 *sqeb = (void *) (sqe + 1);
+			int size = sizeof(struct io_uring_sqe) / sizeof(u64);
+			int j;
+
+			for (j = 0; j < size; j++) {
+				seq_printf(m, ", e%d:0x%llx", j,
+						(unsigned long long) *sqeb);
+				sqeb++;
+			}
+		}
+		seq_printf(m, "\n");
+	}
+	seq_printf(m, "CQEs:\t%u\n", cq_tail - cq_head);
+	cq_entries = min(cq_tail - cq_head, ctx->cq_entries);
+	for (i = 0; i < cq_entries; i++) {
+		unsigned int entry = i + cq_head;
+		struct io_uring_cqe *cqe = &r->cqes[(entry & cq_mask) << cq_shift];
+
+		seq_printf(m, "%5u: user_data:%llu, res:%d, flag:%x",
+			   entry & cq_mask, cqe->user_data, cqe->res,
+			   cqe->flags);
+		if (cq_shift)
+			seq_printf(m, ", extra1:%llu, extra2:%llu\n",
+					cqe->big_cqe[0], cqe->big_cqe[1]);
+		seq_printf(m, "\n");
+	}
+
+	/*
+	 * Avoid ABBA deadlock between the seq lock and the io_uring mutex,
+	 * since fdinfo case grabs it in the opposite direction of normal use
+	 * cases. If we fail to get the lock, we just don't iterate any
+	 * structures that could be going away outside the io_uring mutex.
+	 */
+	has_lock = mutex_trylock(&ctx->uring_lock);
+
+	if (has_lock && (ctx->flags & IORING_SETUP_SQPOLL)) {
+		struct io_sq_data *sq = ctx->sq_data;
+
+		/*
+		 * sq->thread might be NULL if we raced with the sqpoll
+		 * thread termination.
+		 */
+		if (sq->thread) {
+			sq_pid = sq->task_pid;
+			sq_cpu = sq->sq_cpu;
+			getrusage(sq->thread, RUSAGE_SELF, &sq_usage);
+			sq_total_time = (sq_usage.ru_stime.tv_sec * 1000000
+					 + sq_usage.ru_stime.tv_usec);
+			sq_work_time = sq->work_time;
+		}
+	}
+
+	seq_printf(m, "SqThread:\t%d\n", sq_pid);
+	seq_printf(m, "SqThreadCpu:\t%d\n", sq_cpu);
+	seq_printf(m, "SqTotalTime:\t%llu\n", sq_total_time);
+	seq_printf(m, "SqWorkTime:\t%llu\n", sq_work_time);
+	seq_printf(m, "UserFiles:\t%u\n", ctx->nr_user_files);
+	for (i = 0; has_lock && i < ctx->nr_user_files; i++) {
+		struct file *f = io_file_from_index(&ctx->file_table, i);
+
+		if (f)
+			seq_printf(m, "%5u: %s\n", i, file_dentry(f)->d_iname);
+		else
+			seq_printf(m, "%5u: <none>\n", i);
+	}
+	seq_printf(m, "UserBufs:\t%u\n", ctx->nr_user_bufs);
+	for (i = 0; has_lock && i < ctx->nr_user_bufs; i++) {
+		struct io_mapped_ubuf *buf = ctx->user_bufs[i];
+		unsigned int len = buf->ubuf_end - buf->ubuf;
+
+		seq_printf(m, "%5u: 0x%llx/%u\n", i, buf->ubuf, len);
+	}
+	if (has_lock && !xa_empty(&ctx->personalities)) {
+		unsigned long index;
+		const struct cred *cred;
+
+		seq_printf(m, "Personalities:\n");
+		xa_for_each(&ctx->personalities, index, cred)
+			io_uring_show_cred(m, index, cred);
+	}
+
+	seq_puts(m, "PollList:\n");
+	for (i = 0; i < (1U << ctx->cancel_table.hash_bits); i++) {
+		struct io_hash_bucket *hb = &ctx->cancel_table.hbs[i];
+		struct io_hash_bucket *hbl = &ctx->cancel_table_locked.hbs[i];
+		struct io_kiocb *req;
+
+		spin_lock(&hb->lock);
+		hlist_for_each_entry(req, &hb->list, hash_node)
+			seq_printf(m, "  op=%d, task_works=%d\n", req->opcode,
+					task_work_pending(req->task));
+		spin_unlock(&hb->lock);
+
+		if (!has_lock)
+			continue;
+		hlist_for_each_entry(req, &hbl->list, hash_node)
+			seq_printf(m, "  op=%d, task_works=%d\n", req->opcode,
+					task_work_pending(req->task));
+	}
+
+	if (has_lock)
+		mutex_unlock(&ctx->uring_lock);
+
+	seq_puts(m, "CqOverflowList:\n");
+	spin_lock(&ctx->completion_lock);
+	list_for_each_entry(ocqe, &ctx->cq_overflow_list, list) {
+		struct io_uring_cqe *cqe = &ocqe->cqe;
+
+		seq_printf(m, "  user_data=%llu, res=%d, flags=%x\n",
+			   cqe->user_data, cqe->res, cqe->flags);
+
+	}
+
+	spin_unlock(&ctx->completion_lock);
+}
+int __sched mutex_trylock(struct mutex *lock)
+{
+	bool locked;
+
+	MUTEX_WARN_ON(lock->magic != lock);
+
+	locked = __mutex_trylock(lock);
+	if (locked)
+		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+
+	return locked;
+}
+static inline bool __mutex_trylock(struct mutex *lock)
+{
+	return !__mutex_trylock_common(lock, false);
+}
+static inline struct task_struct *__mutex_trylock_common(struct mutex *lock, bool handoff)
+{
+	unsigned long owner, curr = (unsigned long)current;
+
+	owner = atomic_long_read(&lock->owner);
+	for (;;) { /* must loop, can race against a flag */
+		unsigned long flags = __owner_flags(owner);
+		unsigned long task = owner & ~MUTEX_FLAGS;
+
+		if (task) {
+			if (flags & MUTEX_FLAG_PICKUP) {
+				if (task != curr)
+					break;
+				flags &= ~MUTEX_FLAG_PICKUP;
+			} else if (handoff) {
+				if (flags & MUTEX_FLAG_HANDOFF)
+					break;
+				flags |= MUTEX_FLAG_HANDOFF;
+			} else {
+				break;
+			}
+		} else {
+			MUTEX_WARN_ON(flags & (MUTEX_FLAG_HANDOFF | MUTEX_FLAG_PICKUP));
+			task = curr;
+		}
+
+		if (atomic_long_try_cmpxchg_acquire(&lock->owner, &owner, task | flags)) {
+			if (task == curr)
+				return NULL;
+			break;
+		}
+	}
+
+	return __owner_task(owner);
+}
+static ssize_t n_tty_read(struct tty_struct *tty, struct file *file, u8 *kbuf,
+			  size_t nr, void **cookie, unsigned long offset)
+{
+	struct n_tty_data *ldata = tty->disc_data;
+	u8 *kb = kbuf;
+	DEFINE_WAIT_FUNC(wait, woken_wake_function);
+	int minimum, time;
+	ssize_t retval;
+	long timeout;
+	bool packet;
+	size_t old_tail;
+
+	/*
+	 * Is this a continuation of a read started earler?
+	 *
+	 * If so, we still hold the atomic_read_lock and the
+	 * termios_rwsem, and can just continue to copy data.
+	 */
+	if (*cookie) {
+		if (ldata->icanon && !L_EXTPROC(tty)) {
+			/*
+			 * If we have filled the user buffer, see
+			 * if we should skip an EOF character before
+			 * releasing the lock and returning done.
+			 */
+			if (!nr)
+				canon_skip_eof(ldata);
+			else if (canon_copy_from_read_buf(tty, &kb, &nr))
+				return kb - kbuf;
+		} else {
+			if (copy_from_read_buf(tty, &kb, &nr))
+				return kb - kbuf;
+		}
+
+		/* No more data - release locks and stop retries */
+		n_tty_kick_worker(tty);
+		n_tty_check_unthrottle(tty);
+		up_read(&tty->termios_rwsem);
+		mutex_unlock(&ldata->atomic_read_lock);
+		*cookie = NULL;
+		return kb - kbuf;
+	}
+
+	retval = job_control(tty, file);
+	if (retval < 0)
+		return retval;
+
+	/*
+	 *	Internal serialization of reads.
+	 */
+	if (file->f_flags & O_NONBLOCK) {
+		if (!mutex_trylock(&ldata->atomic_read_lock))
+			return -EAGAIN;
+	} else {
+		if (mutex_lock_interruptible(&ldata->atomic_read_lock))
+			return -ERESTARTSYS;
+	}
+
+	down_read(&tty->termios_rwsem);
+
+	minimum = time = 0;
+	timeout = MAX_SCHEDULE_TIMEOUT;
+	if (!ldata->icanon) {
+		minimum = MIN_CHAR(tty);
+		if (minimum) {
+			time = (HZ / 10) * TIME_CHAR(tty);
+		} else {
+			timeout = (HZ / 10) * TIME_CHAR(tty);
+			minimum = 1;
+		}
+	}
+
+	packet = tty->ctrl.packet;
+	old_tail = ldata->read_tail;
+
+	add_wait_queue(&tty->read_wait, &wait);
+	while (nr) {
+		/* First test for status change. */
+		if (packet && tty->link->ctrl.pktstatus) {
+			u8 cs;
+			if (kb != kbuf)
+				break;
+			spin_lock_irq(&tty->link->ctrl.lock);
+			cs = tty->link->ctrl.pktstatus;
+			tty->link->ctrl.pktstatus = 0;
+			spin_unlock_irq(&tty->link->ctrl.lock);
+			*kb++ = cs;
+			nr--;
+			break;
+		}
+
+		if (!input_available_p(tty, 0)) {
+			up_read(&tty->termios_rwsem);
+			tty_buffer_flush_work(tty->port);
+			down_read(&tty->termios_rwsem);
+			if (!input_available_p(tty, 0)) {
+				if (test_bit(TTY_OTHER_CLOSED, &tty->flags)) {
+					retval = -EIO;
+					break;
+				}
+				if (tty_hung_up_p(file))
+					break;
+				/*
+				 * Abort readers for ttys which never actually
+				 * get hung up.  See __tty_hangup().
+				 */
+				if (test_bit(TTY_HUPPING, &tty->flags))
+					break;
+				if (!timeout)
+					break;
+				if (tty_io_nonblock(tty, file)) {
+					retval = -EAGAIN;
+					break;
+				}
+				if (signal_pending(current)) {
+					retval = -ERESTARTSYS;
+					break;
+				}
+				up_read(&tty->termios_rwsem);
+
+				timeout = wait_woken(&wait, TASK_INTERRUPTIBLE,
+						timeout);
+
+				down_read(&tty->termios_rwsem);
+				continue;
+			}
+		}
+
+		if (ldata->icanon && !L_EXTPROC(tty)) {
+			if (canon_copy_from_read_buf(tty, &kb, &nr))
+				goto more_to_be_read;
+		} else {
+			/* Deal with packet mode. */
+			if (packet && kb == kbuf) {
+				*kb++ = TIOCPKT_DATA;
+				nr--;
+			}
+
+			/*
+			 * Copy data, and if there is more to be had
+			 * and we have nothing more to wait for, then
+			 * let's mark us for retries.
+			 *
+			 * NOTE! We return here with both the termios_sem
+			 * and atomic_read_lock still held, the retries
+			 * will release them when done.
+			 */
+			if (copy_from_read_buf(tty, &kb, &nr) && kb - kbuf >= minimum) {
+more_to_be_read:
+				remove_wait_queue(&tty->read_wait, &wait);
+				*cookie = cookie;
+				return kb - kbuf;
+			}
+		}
+
+		n_tty_check_unthrottle(tty);
+
+		if (kb - kbuf >= minimum)
+			break;
+		if (time)
+			timeout = time;
+	}
+	if (old_tail != ldata->read_tail) {
+		/*
+		 * Make sure no_room is not read in n_tty_kick_worker()
+		 * before setting ldata->read_tail in copy_from_read_buf().
+		 */
+		smp_mb();
+		n_tty_kick_worker(tty);
+	}
+	up_read(&tty->termios_rwsem);
+
+	remove_wait_queue(&tty->read_wait, &wait);
+	mutex_unlock(&ldata->atomic_read_lock);
+
+	if (kb - kbuf)
+		retval = kb - kbuf;
+
+	return retval;
+}
+int __sched mutex_trylock(struct mutex *lock)
+{
+	bool locked;
+
+	MUTEX_WARN_ON(lock->magic != lock);
+
+	locked = __mutex_trylock(lock);
+	if (locked)
+		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+
+	return locked;
+}
+static inline bool __mutex_trylock(struct mutex *lock)
+{
+	return !__mutex_trylock_common(lock, false);
+}
+static inline struct task_struct *__mutex_trylock_common(struct mutex *lock, bool handoff)
+{
+	unsigned long owner, curr = (unsigned long)current;
+
+	owner = atomic_long_read(&lock->owner);
+	for (;;) { /* must loop, can race against a flag */
+		unsigned long flags = __owner_flags(owner);
+		unsigned long task = owner & ~MUTEX_FLAGS;
+
+		if (task) {
+			if (flags & MUTEX_FLAG_PICKUP) {
+				if (task != curr)
+					break;
+				flags &= ~MUTEX_FLAG_PICKUP;
+			} else if (handoff) {
+				if (flags & MUTEX_FLAG_HANDOFF)
+					break;
+				flags |= MUTEX_FLAG_HANDOFF;
+			} else {
+				break;
+			}
+		} else {
+			MUTEX_WARN_ON(flags & (MUTEX_FLAG_HANDOFF | MUTEX_FLAG_PICKUP));
+			task = curr;
+		}
+
+		if (atomic_long_try_cmpxchg_acquire(&lock->owner, &owner, task | flags)) {
+			if (task == curr)
+				return NULL;
+			break;
+		}
+	}
+
+	return __owner_task(owner);
+}
+int netfs_writepages(struct address_space *mapping,
+		     struct writeback_control *wbc)
+{
+	struct netfs_inode *ictx = netfs_inode(mapping->host);
+	struct netfs_io_request *wreq = NULL;
+	struct folio *folio;
+	int error = 0;
+
+	if (wbc->sync_mode == WB_SYNC_ALL)
+		mutex_lock(&ictx->wb_lock);
+	else if (!mutex_trylock(&ictx->wb_lock))
+		return 0;
+
+	/* Need the first folio to be able to set up the op. */
+	folio = writeback_iter(mapping, wbc, NULL, &error);
+	if (!folio)
+		goto out;
+
+	wreq = netfs_create_write_req(mapping, NULL, folio_pos(folio), NETFS_WRITEBACK);
+	if (IS_ERR(wreq)) {
+		error = PTR_ERR(wreq);
+		goto couldnt_start;
+	}
+
+	trace_netfs_write(wreq, netfs_write_trace_writeback);
+	netfs_stat(&netfs_n_wh_writepages);
+
+	do {
+		_debug("wbiter %lx %llx", folio->index, wreq->start + wreq->submitted);
+
+		/* It appears we don't have to handle cyclic writeback wrapping. */
+		WARN_ON_ONCE(wreq && folio_pos(folio) < wreq->start + wreq->submitted);
+
+		if (netfs_folio_group(folio) != NETFS_FOLIO_COPY_TO_CACHE &&
+		    unlikely(!test_bit(NETFS_RREQ_UPLOAD_TO_SERVER, &wreq->flags))) {
+			set_bit(NETFS_RREQ_UPLOAD_TO_SERVER, &wreq->flags);
+			wreq->netfs_ops->begin_writeback(wreq);
+		}
+
+		error = netfs_write_folio(wreq, wbc, folio);
+		if (error < 0)
+			break;
+	} while ((folio = writeback_iter(mapping, wbc, folio, &error)));
+
+	for (int s = 0; s < NR_IO_STREAMS; s++)
+		netfs_issue_write(wreq, &wreq->io_streams[s]);
+	smp_wmb(); /* Write lists before ALL_QUEUED. */
+	set_bit(NETFS_RREQ_ALL_QUEUED, &wreq->flags);
+
+	mutex_unlock(&ictx->wb_lock);
+
+	netfs_put_request(wreq, false, netfs_rreq_trace_put_return);
+	_leave(" = %d", error);
+	return error;
+
+couldnt_start:
+	netfs_kill_dirty_pages(mapping, wbc, folio);
+out:
+	mutex_unlock(&ictx->wb_lock);
+	_leave(" = %d", error);
+	return error;
+}
+int __sched mutex_trylock(struct mutex *lock)
+{
+	bool locked;
+
+	MUTEX_WARN_ON(lock->magic != lock);
+
+	locked = __mutex_trylock(lock);
+	if (locked)
+		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+
+	return locked;
+}
+static inline bool __mutex_trylock(struct mutex *lock)
+{
+	return !__mutex_trylock_common(lock, false);
+}
+static inline struct task_struct *__mutex_trylock_common(struct mutex *lock, bool handoff)
+{
+	unsigned long owner, curr = (unsigned long)current;
+
+	owner = atomic_long_read(&lock->owner);
+	for (;;) { /* must loop, can race against a flag */
+		unsigned long flags = __owner_flags(owner);
+		unsigned long task = owner & ~MUTEX_FLAGS;
+
+		if (task) {
+			if (flags & MUTEX_FLAG_PICKUP) {
+				if (task != curr)
+					break;
+				flags &= ~MUTEX_FLAG_PICKUP;
+			} else if (handoff) {
+				if (flags & MUTEX_FLAG_HANDOFF)
+					break;
+				flags |= MUTEX_FLAG_HANDOFF;
+			} else {
+				break;
+			}
+		} else {
+			MUTEX_WARN_ON(flags & (MUTEX_FLAG_HANDOFF | MUTEX_FLAG_PICKUP));
+			task = curr;
+		}
+
+		if (atomic_long_try_cmpxchg_acquire(&lock->owner, &owner, task | flags)) {
+			if (task == curr)
+				return NULL;
+			break;
+		}
+	}
+
+	return __owner_task(owner);
+}
+static void output_poll_execute(struct work_struct *work)
+{
+	struct delayed_work *delayed_work = to_delayed_work(work);
+	struct drm_device *dev = container_of(delayed_work, struct drm_device, mode_config.output_poll_work);
+	struct drm_connector *connector;
+	struct drm_connector_list_iter conn_iter;
+	enum drm_connector_status old_status;
+	bool repoll = false, changed;
+	u64 old_epoch_counter;
+
+	if (!dev->mode_config.poll_enabled)
+		return;
+
+	/* Pick up any changes detected by the probe functions. */
+	changed = dev->mode_config.delayed_event;
+	dev->mode_config.delayed_event = false;
+
+	if (!drm_kms_helper_poll) {
+		if (dev->mode_config.poll_running) {
+			drm_kms_helper_disable_hpd(dev);
+			dev->mode_config.poll_running = false;
+		}
+		goto out;
+	}
+
+	if (!mutex_trylock(&dev->mode_config.mutex)) {
+		repoll = true;
+		goto out;
+	}
+
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(connector, &conn_iter) {
+		/* Ignore forced connectors. */
+		if (connector->force)
+			continue;
+
+		/* Ignore HPD capable connectors and connectors where we don't
+		 * want any hotplug detection at all for polling. */
+		if (!connector->polled || connector->polled == DRM_CONNECTOR_POLL_HPD)
+			continue;
+
+		old_status = connector->status;
+		/* if we are connected and don't want to poll for disconnect
+		   skip it */
+		if (old_status == connector_status_connected &&
+		    !(connector->polled & DRM_CONNECTOR_POLL_DISCONNECT))
+			continue;
+
+		repoll = true;
+
+		old_epoch_counter = connector->epoch_counter;
+		connector->status = drm_helper_probe_detect(connector, NULL, false);
+		if (old_epoch_counter != connector->epoch_counter) {
+			const char *old, *new;
+
+			/*
+			 * The poll work sets force=false when calling detect so
+			 * that drivers can avoid to do disruptive tests (e.g.
+			 * when load detect cycles could cause flickering on
+			 * other, running displays). This bears the risk that we
+			 * flip-flop between unknown here in the poll work and
+			 * the real state when userspace forces a full detect
+			 * call after receiving a hotplug event due to this
+			 * change.
+			 *
+			 * Hence clamp an unknown detect status to the old
+			 * value.
+			 */
+			if (connector->status == connector_status_unknown) {
+				connector->status = old_status;
+				continue;
+			}
+
+			old = drm_get_connector_status_name(old_status);
+			new = drm_get_connector_status_name(connector->status);
+
+			drm_dbg_kms(dev, "[CONNECTOR:%d:%s] status updated from %s to %s\n",
+				    connector->base.id, connector->name,
+				    old, new);
+			drm_dbg_kms(dev, "[CONNECTOR:%d:%s] epoch counter %llu -> %llu\n",
+				    connector->base.id, connector->name,
+				    old_epoch_counter, connector->epoch_counter);
+
+			changed = true;
+		}
+	}
+	drm_connector_list_iter_end(&conn_iter);
+
+	mutex_unlock(&dev->mode_config.mutex);
+
+out:
+	if (changed)
+		drm_kms_helper_hotplug_event(dev);
+
+	if (repoll)
+		schedule_delayed_work(delayed_work, DRM_OUTPUT_POLL_PERIOD);
+}
+int __sched mutex_trylock(struct mutex *lock)
+{
+	bool locked;
+
+	MUTEX_WARN_ON(lock->magic != lock);
+
+	locked = __mutex_trylock(lock);
+	if (locked)
+		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+
+	return locked;
+}
+static inline bool __mutex_trylock(struct mutex *lock)
+{
+	return !__mutex_trylock_common(lock, false);
+}
+static inline struct task_struct *__mutex_trylock_common(struct mutex *lock, bool handoff)
+{
+	unsigned long owner, curr = (unsigned long)current;
+
+	owner = atomic_long_read(&lock->owner);
+	for (;;) { /* must loop, can race against a flag */
+		unsigned long flags = __owner_flags(owner);
+		unsigned long task = owner & ~MUTEX_FLAGS;
+
+		if (task) {
+			if (flags & MUTEX_FLAG_PICKUP) {
+				if (task != curr)
+					break;
+				flags &= ~MUTEX_FLAG_PICKUP;
+			} else if (handoff) {
+				if (flags & MUTEX_FLAG_HANDOFF)
+					break;
+				flags |= MUTEX_FLAG_HANDOFF;
+			} else {
+				break;
+			}
+		} else {
+			MUTEX_WARN_ON(flags & (MUTEX_FLAG_HANDOFF | MUTEX_FLAG_PICKUP));
+			task = curr;
+		}
+
+		if (atomic_long_try_cmpxchg_acquire(&lock->owner, &owner, task | flags)) {
+			if (task == curr)
+				return NULL;
+			break;
+		}
+	}
+
+	return __owner_task(owner);
+}
+static void power_supply_deferred_register_work(struct work_struct *work)
+{
+	struct power_supply *psy = container_of(work, struct power_supply,
+						deferred_register_work.work);
+
+	if (psy->dev.parent) {
+		while (!mutex_trylock(&psy->dev.parent->mutex)) {
+			if (psy->removing)
+				return;
+			msleep(10);
+		}
+	}
+
+	power_supply_changed(psy);
+
+	if (psy->dev.parent)
+		mutex_unlock(&psy->dev.parent->mutex);
+}
+int __sched mutex_trylock(struct mutex *lock)
+{
+	bool locked;
+
+	MUTEX_WARN_ON(lock->magic != lock);
+
+	locked = __mutex_trylock(lock);
+	if (locked)
+		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+
+	return locked;
+}
+static inline bool __mutex_trylock(struct mutex *lock)
+{
+	return !__mutex_trylock_common(lock, false);
+}
+static inline struct task_struct *__mutex_trylock_common(struct mutex *lock, bool handoff)
+{
+	unsigned long owner, curr = (unsigned long)current;
+
+	owner = atomic_long_read(&lock->owner);
+	for (;;) { /* must loop, can race against a flag */
+		unsigned long flags = __owner_flags(owner);
+		unsigned long task = owner & ~MUTEX_FLAGS;
+
+		if (task) {
+			if (flags & MUTEX_FLAG_PICKUP) {
+				if (task != curr)
+					break;
+				flags &= ~MUTEX_FLAG_PICKUP;
+			} else if (handoff) {
+				if (flags & MUTEX_FLAG_HANDOFF)
+					break;
+				flags |= MUTEX_FLAG_HANDOFF;
+			} else {
+				break;
+			}
+		} else {
+			MUTEX_WARN_ON(flags & (MUTEX_FLAG_HANDOFF | MUTEX_FLAG_PICKUP));
+			task = curr;
+		}
+
+		if (atomic_long_try_cmpxchg_acquire(&lock->owner, &owner, task | flags)) {
+			if (task == curr)
+				return NULL;
+			break;
+		}
+	}
+
+	return __owner_task(owner);
+}
+static int trylock_bus(struct i2c_adapter *i2c, unsigned int flags)
+{
+	WARN_ONCE(1, "This operation not supposed to run in atomic context!");
+	return false;
+}
+int __sched mutex_trylock(struct mutex *lock)
+{
+	bool locked;
+
+	MUTEX_WARN_ON(lock->magic != lock);
+
+	locked = __mutex_trylock(lock);
+	if (locked)
+		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+
+	return locked;
+}
+static inline bool __mutex_trylock(struct mutex *lock)
+{
+	return !__mutex_trylock_common(lock, false);
+}
+static inline struct task_struct *__mutex_trylock_common(struct mutex *lock, bool handoff)
+{
+	unsigned long owner, curr = (unsigned long)current;
+
+	owner = atomic_long_read(&lock->owner);
+	for (;;) { /* must loop, can race against a flag */
+		unsigned long flags = __owner_flags(owner);
+		unsigned long task = owner & ~MUTEX_FLAGS;
+
+		if (task) {
+			if (flags & MUTEX_FLAG_PICKUP) {
+				if (task != curr)
+					break;
+				flags &= ~MUTEX_FLAG_PICKUP;
+			} else if (handoff) {
+				if (flags & MUTEX_FLAG_HANDOFF)
+					break;
+				flags |= MUTEX_FLAG_HANDOFF;
+			} else {
+				break;
+			}
+		} else {
+			MUTEX_WARN_ON(flags & (MUTEX_FLAG_HANDOFF | MUTEX_FLAG_PICKUP));
+			task = curr;
+		}
+
+		if (atomic_long_try_cmpxchg_acquire(&lock->owner, &owner, task | flags)) {
+			if (task == curr)
+				return NULL;
+			break;
+		}
+	}
+
+	return __owner_task(owner);
+}

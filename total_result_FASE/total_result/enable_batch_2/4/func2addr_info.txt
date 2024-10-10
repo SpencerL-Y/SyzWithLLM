@@ -1,0 +1,199 @@
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+{
+----- addresses:
+ffffffff811af67e
+ffffffff811af670
+ffffffff811af674
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+const struct cred *old;
+----- addresses:
+ffffffff811af674
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+struct cred *new;
+----- addresses:
+ffffffff811af674
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+gid_t old_fsgid;
+----- addresses:
+ffffffff811af674
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+kgid_t kgid;
+----- addresses:
+ffffffff811af674
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+old = current_cred();
+----- addresses:
+ffffffff811af914
+ffffffff811af674
+ffffffff811af68d
+ffffffff811af6b6
+ffffffff811af91e
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+old_fsgid = from_kgid_munged(old->user_ns, old->fsgid);
+----- addresses:
+ffffffff811af6b6
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+kgid = make_kgid(old->user_ns, gid);
+----- addresses:
+ffffffff811af6fa
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+if (!gid_valid(kgid))
+----- addresses:
+ffffffff811af6fa
+ffffffff811af6ff
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+return old_fsgid;
+----- addresses:
+ffffffff811af8d0
+ffffffff811af6fa
+ffffffff811af8ac
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+new = prepare_creds();
+----- addresses:
+ffffffff811af708
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+if (!new)
+----- addresses:
+ffffffff811af715
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+if (gid_eq(kgid, old->gid)  || gid_eq(kgid, old->egid)  ||
+----- addresses:
+ffffffff811af783
+ffffffff811af78c
+ffffffff811af7bf
+ffffffff811af7c8
+ffffffff811af7fb
+ffffffff811af71e
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+gid_eq(kgid, old->sgid) || gid_eq(kgid, old->fsgid) ||
+----- addresses:
+ffffffff811af846
+ffffffff811af800
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+ns_capable_setid(old->user_ns, CAP_SETGID)) {
+----- addresses:
+ffffffff811af835
+ffffffff811af91e
+ffffffff811af80e
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+if (!gid_eq(kgid, old->fsgid)) {
+----- addresses:
+ffffffff811af84a
+ffffffff811af84f
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+new->fsgid = kgid;
+----- addresses:
+ffffffff811af90a
+ffffffff811af854
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+if (security_task_fix_setgid(new,old,LSM_SETID_FS) == 0)
+----- addresses:
+ffffffff811af89b
+ffffffff811af88b
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+goto change_okay;
+----- addresses:
+ffffffff811af8c3
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+abort_creds(new);
+----- addresses:
+ffffffff811af89f
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+commit_creds(new);
+----- addresses:
+ffffffff811af8c3
+----- funcname:
+__sys_setfsgid
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/sys.c
+----- source:
+}
+----- addresses:
+ffffffff811af8b1
+ffffffff811af8b6
+ffffffff811af8bc
+ffffffff811af8b5

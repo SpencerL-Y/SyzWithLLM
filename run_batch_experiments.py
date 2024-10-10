@@ -79,8 +79,21 @@ if __name__ == "__main__":
     print("close range: " + sys.argv[2])
     root_cwd = os.getcwd()
     
-    folder_index = 0
+    folder_index = 4
+    # skip_folder_index = [1, 6, 9, 19, 20, 21, 22, 27, 30, 33, 36, 41]
+    # specific_folder_index = [13,14,15,16,23,24,32,38]
+    skip_folder_index = []
+    specific_folder_index = []
     for functions in target_functions_list:
+        if folder_index in skip_folder_index:
+            folder_index += 1
+            continue
+        if folder_index in specific_folder_index:
+            folder_index += 1
+            continue
+        # else:
+        #     print("here")
+        #     continue
         print(str(folder_index) + " CURRENT TARGET FUNCTIONS: ")
         for func in functions:
             print(func)
@@ -93,7 +106,13 @@ if __name__ == "__main__":
         
         running_command_compenent = ["python3", "./run_experiment.py", "run", sys.argv[1], sys.argv[2]]
         # run experiment process
-        experiment_process = subprocess.run(running_command_compenent, cwd=root_cwd)
+        experiment_process = subprocess.run(running_command_compenent, cwd=root_cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(experiment_process.stdout)
+        exp_stdout = experiment_process.stdout
+        exp_stderr = experiment_process.stderr
+        print(exp_stdout)
+        print(exp_stderr)
+
         # copy experiment result
         copy_command_component = ["python3", "./run_experiment.py", "copy", str(folder_index)]
         print(" ".join(copy_command_component))

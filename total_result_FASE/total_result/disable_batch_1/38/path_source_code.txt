@@ -1,0 +1,1886 @@
+static int packet_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+{
+	struct sock *sk = sock->sk;
+	struct packet_sock *po = pkt_sk(sk);
+
+	/* Reading tx_ring.pg_vec without holding pg_vec_lock is racy.
+	 * tpacket_snd() will redo the check safely.
+	 */
+	if (data_race(po->tx_ring.pg_vec))
+		return tpacket_snd(po, msg);
+
+	return packet_snd(sock, msg, len);
+}
+static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+{
+	struct sock *sk = sock->sk;
+	DECLARE_SOCKADDR(struct sockaddr_ll *, saddr, msg->msg_name);
+	struct sk_buff *skb;
+	struct net_device *dev;
+	__be16 proto;
+	unsigned char *addr = NULL;
+	int err, reserve = 0;
+	struct sockcm_cookie sockc;
+	struct virtio_net_hdr vnet_hdr = { 0 };
+	int offset = 0;
+	struct packet_sock *po = pkt_sk(sk);
+	int vnet_hdr_sz = READ_ONCE(po->vnet_hdr_sz);
+	int hlen, tlen, linear;
+	int extra_len = 0;
+
+	/*
+	 *	Get and verify the address.
+	 */
+
+	if (likely(saddr == NULL)) {
+		dev	= packet_cached_dev_get(po);
+		proto	= READ_ONCE(po->num);
+	} else {
+		err = -EINVAL;
+		if (msg->msg_namelen < sizeof(struct sockaddr_ll))
+			goto out;
+		if (msg->msg_namelen < (saddr->sll_halen + offsetof(struct sockaddr_ll, sll_addr)))
+			goto out;
+		proto	= saddr->sll_protocol;
+		dev = dev_get_by_index(sock_net(sk), saddr->sll_ifindex);
+		if (sock->type == SOCK_DGRAM) {
+			if (dev && msg->msg_namelen < dev->addr_len +
+				   offsetof(struct sockaddr_ll, sll_addr))
+				goto out_unlock;
+			addr = saddr->sll_addr;
+		}
+	}
+
+	err = -ENXIO;
+	if (unlikely(dev == NULL))
+		goto out_unlock;
+	err = -ENETDOWN;
+	if (unlikely(!(dev->flags & IFF_UP)))
+		goto out_unlock;
+
+	sockcm_init(&sockc, sk);
+	sockc.mark = READ_ONCE(sk->sk_mark);
+	if (msg->msg_controllen) {
+		err = sock_cmsg_send(sk, msg, &sockc);
+		if (unlikely(err))
+			goto out_unlock;
+	}
+
+	if (sock->type == SOCK_RAW)
+		reserve = dev->hard_header_len;
+	if (vnet_hdr_sz) {
+		err = packet_snd_vnet_parse(msg, &len, &vnet_hdr, vnet_hdr_sz);
+		if (err)
+			goto out_unlock;
+	}
+
+	if (unlikely(sock_flag(sk, SOCK_NOFCS))) {
+		if (!netif_supports_nofcs(dev)) {
+			err = -EPROTONOSUPPORT;
+			goto out_unlock;
+		}
+		extra_len = 4; /* We're doing our own CRC */
+	}
+
+	err = -EMSGSIZE;
+	if (!vnet_hdr.gso_type &&
+	    (len > dev->mtu + reserve + VLAN_HLEN + extra_len))
+		goto out_unlock;
+
+	err = -ENOBUFS;
+	hlen = LL_RESERVED_SPACE(dev);
+	tlen = dev->needed_tailroom;
+	linear = __virtio16_to_cpu(vio_le(), vnet_hdr.hdr_len);
+	linear = max(linear, min_t(int, len, dev->hard_header_len));
+	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, linear,
+			       msg->msg_flags & MSG_DONTWAIT, &err);
+	if (skb == NULL)
+		goto out_unlock;
+
+	skb_reset_network_header(skb);
+
+	err = -EINVAL;
+	if (sock->type == SOCK_DGRAM) {
+		offset = dev_hard_header(skb, dev, ntohs(proto), addr, NULL, len);
+		if (unlikely(offset < 0))
+			goto out_free;
+	} else if (reserve) {
+		skb_reserve(skb, -reserve);
+		if (len < reserve + sizeof(struct ipv6hdr) &&
+		    dev->min_header_len != dev->hard_header_len)
+			skb_reset_network_header(skb);
+	}
+
+	/* Returns -EFAULT on error */
+	err = skb_copy_datagram_from_iter(skb, offset, &msg->msg_iter, len);
+	if (err)
+		goto out_free;
+
+	if ((sock->type == SOCK_RAW &&
+	     !dev_validate_header(dev, skb->data, len)) || !skb->len) {
+		err = -EINVAL;
+		goto out_free;
+	}
+
+	skb_setup_tx_timestamp(skb, sockc.tsflags);
+
+	if (!vnet_hdr.gso_type && (len > dev->mtu + reserve + extra_len) &&
+	    !packet_extra_vlan_len_allowed(dev, skb)) {
+		err = -EMSGSIZE;
+		goto out_free;
+	}
+
+	skb->protocol = proto;
+	skb->dev = dev;
+	skb->priority = READ_ONCE(sk->sk_priority);
+	skb->mark = sockc.mark;
+	skb->tstamp = sockc.transmit_time;
+
+	if (unlikely(extra_len == 4))
+		skb->no_fcs = 1;
+
+	packet_parse_headers(skb, sock);
+
+	if (vnet_hdr_sz) {
+		err = virtio_net_hdr_to_skb(skb, &vnet_hdr, vio_le());
+		if (err)
+			goto out_free;
+		len += vnet_hdr_sz;
+		virtio_net_hdr_set_proto(skb, &vnet_hdr);
+	}
+
+	err = packet_xmit(po, skb);
+
+	if (unlikely(err != 0)) {
+		if (err > 0)
+			err = net_xmit_errno(err);
+		if (err)
+			goto out_unlock;
+	}
+
+	dev_put(dev);
+
+	return len;
+
+out_free:
+	kfree_skb(skb);
+out_unlock:
+	dev_put(dev);
+out:
+	return err;
+}
+static struct sk_buff *packet_alloc_skb(struct sock *sk, size_t prepad,
+				        size_t reserve, size_t len,
+				        size_t linear, int noblock,
+				        int *err)
+{
+	struct sk_buff *skb;
+
+	/* Under a page?  Don't bother with paged skb. */
+	if (prepad + len < PAGE_SIZE || !linear)
+		linear = len;
+
+	if (len - linear > MAX_SKB_FRAGS * (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER))
+		linear = len - MAX_SKB_FRAGS * (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER);
+	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+				   err, PAGE_ALLOC_COSTLY_ORDER);
+	if (!skb)
+		return NULL;
+
+	skb_reserve(skb, reserve);
+	skb_put(skb, linear);
+	skb->data_len = len - linear;
+	skb->len += len - linear;
+
+	return skb;
+}
+struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+				     unsigned long data_len, int noblock,
+				     int *errcode, int max_page_order)
+{
+	struct sk_buff *skb;
+	long timeo;
+	int err;
+
+	timeo = sock_sndtimeo(sk, noblock);
+	for (;;) {
+		err = sock_error(sk);
+		if (err != 0)
+			goto failure;
+
+		err = -EPIPE;
+		if (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN)
+			goto failure;
+
+		if (sk_wmem_alloc_get(sk) < READ_ONCE(sk->sk_sndbuf))
+			break;
+
+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
+		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+		err = -EAGAIN;
+		if (!timeo)
+			goto failure;
+		if (signal_pending(current))
+			goto interrupted;
+		timeo = sock_wait_for_wmem(sk, timeo);
+	}
+	skb = alloc_skb_with_frags(header_len, data_len, max_page_order,
+				   errcode, sk->sk_allocation);
+	if (skb)
+		skb_set_owner_w(skb, sk);
+	return skb;
+
+interrupted:
+	err = sock_intr_errno(timeo);
+failure:
+	*errcode = err;
+	return NULL;
+}
+static void mld_mca_work(struct work_struct *work)
+{
+	struct ifmcaddr6 *ma = container_of(to_delayed_work(work),
+					    struct ifmcaddr6, mca_work);
+
+	mutex_lock(&ma->idev->mc_lock);
+	if (mld_in_v1_mode(ma->idev))
+		igmp6_send(&ma->mca_addr, ma->idev->dev, ICMPV6_MGM_REPORT);
+	else
+		mld_send_report(ma->idev, ma);
+	ma->mca_flags |=  MAF_LAST_REPORTER;
+	ma->mca_flags &= ~MAF_TIMER_RUNNING;
+	mutex_unlock(&ma->idev->mc_lock);
+
+	ma_put(ma);
+}
+static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
+{
+	struct net *net = dev_net(dev);
+	struct sock *sk = net->ipv6.igmp_sk;
+	struct inet6_dev *idev;
+	struct sk_buff *skb;
+	struct mld_msg *hdr;
+	const struct in6_addr *snd_addr, *saddr;
+	struct in6_addr addr_buf;
+	int hlen = LL_RESERVED_SPACE(dev);
+	int tlen = dev->needed_tailroom;
+	int err, len, payload_len, full_len;
+	u8 ra[8] = { IPPROTO_ICMPV6, 0,
+		     IPV6_TLV_ROUTERALERT, 2, 0, 0,
+		     IPV6_TLV_PADN, 0 };
+	struct flowi6 fl6;
+	struct dst_entry *dst;
+
+	if (type == ICMPV6_MGM_REDUCTION)
+		snd_addr = &in6addr_linklocal_allrouters;
+	else
+		snd_addr = addr;
+
+	len = sizeof(struct icmp6hdr) + sizeof(struct in6_addr);
+	payload_len = len + sizeof(ra);
+	full_len = sizeof(struct ipv6hdr) + payload_len;
+
+	rcu_read_lock();
+	IP6_INC_STATS(net, __in6_dev_get(dev), IPSTATS_MIB_OUTREQUESTS);
+	rcu_read_unlock();
+
+	skb = sock_alloc_send_skb(sk, hlen + tlen + full_len, 1, &err);
+
+	if (!skb) {
+		rcu_read_lock();
+		IP6_INC_STATS(net, __in6_dev_get(dev),
+			      IPSTATS_MIB_OUTDISCARDS);
+		rcu_read_unlock();
+		return;
+	}
+	skb->priority = TC_PRIO_CONTROL;
+	skb_reserve(skb, hlen);
+
+	if (ipv6_get_lladdr(dev, &addr_buf, IFA_F_TENTATIVE)) {
+		/* <draft-ietf-magma-mld-source-05.txt>:
+		 * use unspecified address as the source address
+		 * when a valid link-local address is not available.
+		 */
+		saddr = &in6addr_any;
+	} else
+		saddr = &addr_buf;
+
+	ip6_mc_hdr(sk, skb, dev, saddr, snd_addr, NEXTHDR_HOP, payload_len);
+
+	skb_put_data(skb, ra, sizeof(ra));
+
+	hdr = skb_put_zero(skb, sizeof(struct mld_msg));
+	hdr->mld_type = type;
+	hdr->mld_mca = *addr;
+
+	hdr->mld_cksum = csum_ipv6_magic(saddr, snd_addr, len,
+					 IPPROTO_ICMPV6,
+					 csum_partial(hdr, len, 0));
+
+	rcu_read_lock();
+	idev = __in6_dev_get(skb->dev);
+
+	icmpv6_flow_init(sk, &fl6, type,
+			 &ipv6_hdr(skb)->saddr, &ipv6_hdr(skb)->daddr,
+			 skb->dev->ifindex);
+	dst = icmp6_dst_alloc(skb->dev, &fl6);
+	if (IS_ERR(dst)) {
+		err = PTR_ERR(dst);
+		goto err_out;
+	}
+
+	skb_dst_set(skb, dst);
+	err = NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_OUT,
+		      net, sk, skb, NULL, skb->dev,
+		      dst_output);
+out:
+	if (!err) {
+		ICMP6MSGOUT_INC_STATS(net, idev, type);
+		ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTMSGS);
+	} else
+		IP6_INC_STATS(net, idev, IPSTATS_MIB_OUTDISCARDS);
+
+	rcu_read_unlock();
+	return;
+
+err_out:
+	kfree_skb(skb);
+	goto out;
+}
+NOT FOUNDstruct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+				     unsigned long data_len, int noblock,
+				     int *errcode, int max_page_order)
+{
+	struct sk_buff *skb;
+	long timeo;
+	int err;
+
+	timeo = sock_sndtimeo(sk, noblock);
+	for (;;) {
+		err = sock_error(sk);
+		if (err != 0)
+			goto failure;
+
+		err = -EPIPE;
+		if (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN)
+			goto failure;
+
+		if (sk_wmem_alloc_get(sk) < READ_ONCE(sk->sk_sndbuf))
+			break;
+
+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
+		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+		err = -EAGAIN;
+		if (!timeo)
+			goto failure;
+		if (signal_pending(current))
+			goto interrupted;
+		timeo = sock_wait_for_wmem(sk, timeo);
+	}
+	skb = alloc_skb_with_frags(header_len, data_len, max_page_order,
+				   errcode, sk->sk_allocation);
+	if (skb)
+		skb_set_owner_w(skb, sk);
+	return skb;
+
+interrupted:
+	err = sock_intr_errno(timeo);
+failure:
+	*errcode = err;
+	return NULL;
+}
+static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+			       size_t len)
+{
+	struct sock *sk = sock->sk;
+	struct sock *other = NULL;
+	int err, size;
+	struct sk_buff *skb;
+	int sent = 0;
+	struct scm_cookie scm;
+	bool fds_sent = false;
+	int data_len;
+
+	err = scm_send(sock, msg, &scm, false);
+	if (err < 0)
+		return err;
+
+	wait_for_unix_gc(scm.fp);
+
+	err = -EOPNOTSUPP;
+	if (msg->msg_flags & MSG_OOB) {
+#if IS_ENABLED(CONFIG_AF_UNIX_OOB)
+		if (len)
+			len--;
+		else
+#endif
+			goto out_err;
+	}
+
+	if (msg->msg_namelen) {
+		err = sk->sk_state == TCP_ESTABLISHED ? -EISCONN : -EOPNOTSUPP;
+		goto out_err;
+	} else {
+		err = -ENOTCONN;
+		other = unix_peer(sk);
+		if (!other)
+			goto out_err;
+	}
+
+	if (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN)
+		goto pipe_err;
+
+	while (sent < len) {
+		size = len - sent;
+
+		if (unlikely(msg->msg_flags & MSG_SPLICE_PAGES)) {
+			skb = sock_alloc_send_pskb(sk, 0, 0,
+						   msg->msg_flags & MSG_DONTWAIT,
+						   &err, 0);
+		} else {
+			/* Keep two messages in the pipe so it schedules better */
+			size = min_t(int, size, (sk->sk_sndbuf >> 1) - 64);
+
+			/* allow fallback to order-0 allocations */
+			size = min_t(int, size, SKB_MAX_HEAD(0) + UNIX_SKB_FRAGS_SZ);
+
+			data_len = max_t(int, 0, size - SKB_MAX_HEAD(0));
+
+			data_len = min_t(size_t, size, PAGE_ALIGN(data_len));
+
+			skb = sock_alloc_send_pskb(sk, size - data_len, data_len,
+						   msg->msg_flags & MSG_DONTWAIT, &err,
+						   get_order(UNIX_SKB_FRAGS_SZ));
+		}
+		if (!skb)
+			goto out_err;
+
+		/* Only send the fds in the first buffer */
+		err = unix_scm_to_skb(&scm, skb, !fds_sent);
+		if (err < 0) {
+			kfree_skb(skb);
+			goto out_err;
+		}
+		fds_sent = true;
+
+		if (unlikely(msg->msg_flags & MSG_SPLICE_PAGES)) {
+			err = skb_splice_from_iter(skb, &msg->msg_iter, size,
+						   sk->sk_allocation);
+			if (err < 0) {
+				kfree_skb(skb);
+				goto out_err;
+			}
+			size = err;
+			refcount_add(size, &sk->sk_wmem_alloc);
+		} else {
+			skb_put(skb, size - data_len);
+			skb->data_len = data_len;
+			skb->len = size;
+			err = skb_copy_datagram_from_iter(skb, 0, &msg->msg_iter, size);
+			if (err) {
+				kfree_skb(skb);
+				goto out_err;
+			}
+		}
+
+		unix_state_lock(other);
+
+		if (sock_flag(other, SOCK_DEAD) ||
+		    (other->sk_shutdown & RCV_SHUTDOWN))
+			goto pipe_err_free;
+
+		maybe_add_creds(skb, sock, other);
+		scm_stat_add(other, skb);
+		skb_queue_tail(&other->sk_receive_queue, skb);
+		unix_state_unlock(other);
+		other->sk_data_ready(other);
+		sent += size;
+	}
+
+#if IS_ENABLED(CONFIG_AF_UNIX_OOB)
+	if (msg->msg_flags & MSG_OOB) {
+		err = queue_oob(sock, msg, other, &scm, fds_sent);
+		if (err)
+			goto out_err;
+		sent++;
+	}
+#endif
+
+	scm_destroy(&scm);
+
+	return sent;
+
+pipe_err_free:
+	unix_state_unlock(other);
+	kfree_skb(skb);
+pipe_err:
+	if (sent == 0 && !(msg->msg_flags&MSG_NOSIGNAL))
+		send_sig(SIGPIPE, current, 0);
+	err = -EPIPE;
+out_err:
+	scm_destroy(&scm);
+	return sent ? : err;
+}
+static int queue_oob(struct socket *sock, struct msghdr *msg, struct sock *other,
+		     struct scm_cookie *scm, bool fds_sent)
+{
+	struct unix_sock *ousk = unix_sk(other);
+	struct sk_buff *skb;
+	int err = 0;
+
+	skb = sock_alloc_send_skb(sock->sk, 1, msg->msg_flags & MSG_DONTWAIT, &err);
+
+	if (!skb)
+		return err;
+
+	err = unix_scm_to_skb(scm, skb, !fds_sent);
+	if (err < 0) {
+		kfree_skb(skb);
+		return err;
+	}
+	skb_put(skb, 1);
+	err = skb_copy_datagram_from_iter(skb, 0, &msg->msg_iter, 1);
+
+	if (err) {
+		kfree_skb(skb);
+		return err;
+	}
+
+	unix_state_lock(other);
+
+	if (sock_flag(other, SOCK_DEAD) ||
+	    (other->sk_shutdown & RCV_SHUTDOWN)) {
+		unix_state_unlock(other);
+		kfree_skb(skb);
+		return -EPIPE;
+	}
+
+	maybe_add_creds(skb, sock, other);
+	skb_get(skb);
+
+	if (ousk->oob_skb)
+		consume_skb(ousk->oob_skb);
+
+	WRITE_ONCE(ousk->oob_skb, skb);
+
+	scm_stat_add(other, skb);
+	skb_queue_tail(&other->sk_receive_queue, skb);
+	sk_send_sigurg(other);
+	unix_state_unlock(other);
+	other->sk_data_ready(other);
+
+	return err;
+}
+NOT FOUNDstruct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+				     unsigned long data_len, int noblock,
+				     int *errcode, int max_page_order)
+{
+	struct sk_buff *skb;
+	long timeo;
+	int err;
+
+	timeo = sock_sndtimeo(sk, noblock);
+	for (;;) {
+		err = sock_error(sk);
+		if (err != 0)
+			goto failure;
+
+		err = -EPIPE;
+		if (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN)
+			goto failure;
+
+		if (sk_wmem_alloc_get(sk) < READ_ONCE(sk->sk_sndbuf))
+			break;
+
+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
+		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+		err = -EAGAIN;
+		if (!timeo)
+			goto failure;
+		if (signal_pending(current))
+			goto interrupted;
+		timeo = sock_wait_for_wmem(sk, timeo);
+	}
+	skb = alloc_skb_with_frags(header_len, data_len, max_page_order,
+				   errcode, sk->sk_allocation);
+	if (skb)
+		skb_set_owner_w(skb, sk);
+	return skb;
+
+interrupted:
+	err = sock_intr_errno(timeo);
+failure:
+	*errcode = err;
+	return NULL;
+}
+static int raw_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
+{
+	struct sock *sk = sock->sk;
+	struct raw_sock *ro = raw_sk(sk);
+	struct sockcm_cookie sockc;
+	struct sk_buff *skb;
+	struct net_device *dev;
+	unsigned int txmtu;
+	int ifindex;
+	int err = -EINVAL;
+
+	/* check for valid CAN frame sizes */
+	if (size < CANXL_HDR_SIZE + CANXL_MIN_DLEN || size > CANXL_MTU)
+		return -EINVAL;
+
+	if (msg->msg_name) {
+		DECLARE_SOCKADDR(struct sockaddr_can *, addr, msg->msg_name);
+
+		if (msg->msg_namelen < RAW_MIN_NAMELEN)
+			return -EINVAL;
+
+		if (addr->can_family != AF_CAN)
+			return -EINVAL;
+
+		ifindex = addr->can_ifindex;
+	} else {
+		ifindex = ro->ifindex;
+	}
+
+	dev = dev_get_by_index(sock_net(sk), ifindex);
+	if (!dev)
+		return -ENXIO;
+
+	skb = sock_alloc_send_skb(sk, size + sizeof(struct can_skb_priv),
+				  msg->msg_flags & MSG_DONTWAIT, &err);
+	if (!skb)
+		goto put_dev;
+
+	can_skb_reserve(skb);
+	can_skb_prv(skb)->ifindex = dev->ifindex;
+	can_skb_prv(skb)->skbcnt = 0;
+
+	/* fill the skb before testing for valid CAN frames */
+	err = memcpy_from_msg(skb_put(skb, size), msg, size);
+	if (err < 0)
+		goto free_skb;
+
+	err = -EINVAL;
+
+	/* check for valid CAN (CC/FD/XL) frame content */
+	txmtu = raw_check_txframe(ro, skb, dev->mtu);
+	if (!txmtu)
+		goto free_skb;
+
+	/* only CANXL: clear/forward/set VCID value */
+	if (txmtu == CANXL_MTU)
+		raw_put_canxl_vcid(ro, skb);
+
+	sockcm_init(&sockc, sk);
+	if (msg->msg_controllen) {
+		err = sock_cmsg_send(sk, msg, &sockc);
+		if (unlikely(err))
+			goto free_skb;
+	}
+
+	skb->dev = dev;
+	skb->priority = READ_ONCE(sk->sk_priority);
+	skb->mark = READ_ONCE(sk->sk_mark);
+	skb->tstamp = sockc.transmit_time;
+
+	skb_setup_tx_timestamp(skb, sockc.tsflags);
+
+	err = can_send(skb, ro->loopback);
+
+	dev_put(dev);
+
+	if (err)
+		goto send_failed;
+
+	return size;
+
+free_skb:
+	kfree_skb(skb);
+put_dev:
+	dev_put(dev);
+send_failed:
+	return err;
+}
+static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
+			   struct msghdr *msg, size_t length,
+			   struct rtable **rtp, unsigned int flags,
+			   const struct sockcm_cookie *sockc)
+{
+	struct inet_sock *inet = inet_sk(sk);
+	struct net *net = sock_net(sk);
+	struct iphdr *iph;
+	struct sk_buff *skb;
+	unsigned int iphlen;
+	int err;
+	struct rtable *rt = *rtp;
+	int hlen, tlen;
+
+	if (length > rt->dst.dev->mtu) {
+		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport,
+			       rt->dst.dev->mtu);
+		return -EMSGSIZE;
+	}
+	if (length < sizeof(struct iphdr))
+		return -EINVAL;
+
+	if (flags&MSG_PROBE)
+		goto out;
+
+	hlen = LL_RESERVED_SPACE(rt->dst.dev);
+	tlen = rt->dst.dev->needed_tailroom;
+	skb = sock_alloc_send_skb(sk,
+				  length + hlen + tlen + 15,
+				  flags & MSG_DONTWAIT, &err);
+	if (!skb)
+		goto error;
+	skb_reserve(skb, hlen);
+
+	skb->protocol = htons(ETH_P_IP);
+	skb->priority = READ_ONCE(sk->sk_priority);
+	skb->mark = sockc->mark;
+	skb->tstamp = sockc->transmit_time;
+	skb_dst_set(skb, &rt->dst);
+	*rtp = NULL;
+
+	skb_reset_network_header(skb);
+	iph = ip_hdr(skb);
+	skb_put(skb, length);
+
+	skb->ip_summed = CHECKSUM_NONE;
+
+	skb_setup_tx_timestamp(skb, sockc->tsflags);
+
+	if (flags & MSG_CONFIRM)
+		skb_set_dst_pending_confirm(skb, 1);
+
+	skb->transport_header = skb->network_header;
+	err = -EFAULT;
+	if (memcpy_from_msg(iph, msg, length))
+		goto error_free;
+
+	iphlen = iph->ihl * 4;
+
+	/*
+	 * We don't want to modify the ip header, but we do need to
+	 * be sure that it won't cause problems later along the network
+	 * stack.  Specifically we want to make sure that iph->ihl is a
+	 * sane value.  If ihl points beyond the length of the buffer passed
+	 * in, reject the frame as invalid
+	 */
+	err = -EINVAL;
+	if (iphlen > length)
+		goto error_free;
+
+	if (iphlen >= sizeof(*iph)) {
+		if (!iph->saddr)
+			iph->saddr = fl4->saddr;
+		iph->check   = 0;
+		iph->tot_len = htons(length);
+		if (!iph->id)
+			ip_select_ident(net, skb, NULL);
+
+		iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+		skb->transport_header += iphlen;
+		if (iph->protocol == IPPROTO_ICMP &&
+		    length >= iphlen + sizeof(struct icmphdr))
+			icmp_out_count(net, ((struct icmphdr *)
+				skb_transport_header(skb))->type);
+	}
+
+	err = NF_HOOK(NFPROTO_IPV4, NF_INET_LOCAL_OUT,
+		      net, sk, skb, NULL, rt->dst.dev,
+		      dst_output);
+	if (err > 0)
+		err = net_xmit_errno(err);
+	if (err)
+		goto error;
+out:
+	return 0;
+
+error_free:
+	kfree_skb(skb);
+error:
+	IP_INC_STATS(net, IPSTATS_MIB_OUTDISCARDS);
+	if (err == -ENOBUFS && !inet_test_bit(RECVERR, sk))
+		err = 0;
+	return err;
+}
+NOT FOUNDstruct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+				     unsigned long data_len, int noblock,
+				     int *errcode, int max_page_order)
+{
+	struct sk_buff *skb;
+	long timeo;
+	int err;
+
+	timeo = sock_sndtimeo(sk, noblock);
+	for (;;) {
+		err = sock_error(sk);
+		if (err != 0)
+			goto failure;
+
+		err = -EPIPE;
+		if (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN)
+			goto failure;
+
+		if (sk_wmem_alloc_get(sk) < READ_ONCE(sk->sk_sndbuf))
+			break;
+
+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
+		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+		err = -EAGAIN;
+		if (!timeo)
+			goto failure;
+		if (signal_pending(current))
+			goto interrupted;
+		timeo = sock_wait_for_wmem(sk, timeo);
+	}
+	skb = alloc_skb_with_frags(header_len, data_len, max_page_order,
+				   errcode, sk->sk_allocation);
+	if (skb)
+		skb_set_owner_w(skb, sk);
+	return skb;
+
+interrupted:
+	err = sock_intr_errno(timeo);
+failure:
+	*errcode = err;
+	return NULL;
+}
+static int rawv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+{
+	struct ipv6_txoptions *opt_to_free = NULL;
+	struct ipv6_txoptions opt_space;
+	DECLARE_SOCKADDR(struct sockaddr_in6 *, sin6, msg->msg_name);
+	struct in6_addr *daddr, *final_p, final;
+	struct inet_sock *inet = inet_sk(sk);
+	struct ipv6_pinfo *np = inet6_sk(sk);
+	struct raw6_sock *rp = raw6_sk(sk);
+	struct ipv6_txoptions *opt = NULL;
+	struct ip6_flowlabel *flowlabel = NULL;
+	struct dst_entry *dst = NULL;
+	struct raw6_frag_vec rfv;
+	struct flowi6 fl6;
+	struct ipcm6_cookie ipc6;
+	int addr_len = msg->msg_namelen;
+	int hdrincl;
+	u16 proto;
+	int err;
+
+	/* Rough check on arithmetic overflow,
+	   better check is made in ip6_append_data().
+	 */
+	if (len > INT_MAX)
+		return -EMSGSIZE;
+
+	/* Mirror BSD error message compatibility */
+	if (msg->msg_flags & MSG_OOB)
+		return -EOPNOTSUPP;
+
+	hdrincl = inet_test_bit(HDRINCL, sk);
+
+	/*
+	 *	Get and verify the address.
+	 */
+	memset(&fl6, 0, sizeof(fl6));
+
+	fl6.flowi6_mark = READ_ONCE(sk->sk_mark);
+	fl6.flowi6_uid = sk->sk_uid;
+
+	ipcm6_init(&ipc6);
+	ipc6.sockc.tsflags = READ_ONCE(sk->sk_tsflags);
+	ipc6.sockc.mark = fl6.flowi6_mark;
+
+	if (sin6) {
+		if (addr_len < SIN6_LEN_RFC2133)
+			return -EINVAL;
+
+		if (sin6->sin6_family && sin6->sin6_family != AF_INET6)
+			return -EAFNOSUPPORT;
+
+		/* port is the proto value [0..255] carried in nexthdr */
+		proto = ntohs(sin6->sin6_port);
+
+		if (!proto)
+			proto = inet->inet_num;
+		else if (proto != inet->inet_num &&
+			 inet->inet_num != IPPROTO_RAW)
+			return -EINVAL;
+
+		if (proto > 255)
+			return -EINVAL;
+
+		daddr = &sin6->sin6_addr;
+		if (inet6_test_bit(SNDFLOW, sk)) {
+			fl6.flowlabel = sin6->sin6_flowinfo&IPV6_FLOWINFO_MASK;
+			if (fl6.flowlabel&IPV6_FLOWLABEL_MASK) {
+				flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
+				if (IS_ERR(flowlabel))
+					return -EINVAL;
+			}
+		}
+
+		/*
+		 * Otherwise it will be difficult to maintain
+		 * sk->sk_dst_cache.
+		 */
+		if (sk->sk_state == TCP_ESTABLISHED &&
+		    ipv6_addr_equal(daddr, &sk->sk_v6_daddr))
+			daddr = &sk->sk_v6_daddr;
+
+		if (addr_len >= sizeof(struct sockaddr_in6) &&
+		    sin6->sin6_scope_id &&
+		    __ipv6_addr_needs_scope_id(__ipv6_addr_type(daddr)))
+			fl6.flowi6_oif = sin6->sin6_scope_id;
+	} else {
+		if (sk->sk_state != TCP_ESTABLISHED)
+			return -EDESTADDRREQ;
+
+		proto = inet->inet_num;
+		daddr = &sk->sk_v6_daddr;
+		fl6.flowlabel = np->flow_label;
+	}
+
+	if (fl6.flowi6_oif == 0)
+		fl6.flowi6_oif = sk->sk_bound_dev_if;
+
+	if (msg->msg_controllen) {
+		opt = &opt_space;
+		memset(opt, 0, sizeof(struct ipv6_txoptions));
+		opt->tot_len = sizeof(struct ipv6_txoptions);
+		ipc6.opt = opt;
+
+		err = ip6_datagram_send_ctl(sock_net(sk), sk, msg, &fl6, &ipc6);
+		if (err < 0) {
+			fl6_sock_release(flowlabel);
+			return err;
+		}
+		if ((fl6.flowlabel&IPV6_FLOWLABEL_MASK) && !flowlabel) {
+			flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
+			if (IS_ERR(flowlabel))
+				return -EINVAL;
+		}
+		if (!(opt->opt_nflen|opt->opt_flen))
+			opt = NULL;
+	}
+	if (!opt) {
+		opt = txopt_get(np);
+		opt_to_free = opt;
+	}
+	if (flowlabel)
+		opt = fl6_merge_options(&opt_space, flowlabel, opt);
+	opt = ipv6_fixup_options(&opt_space, opt);
+
+	fl6.flowi6_proto = proto;
+	fl6.flowi6_mark = ipc6.sockc.mark;
+
+	if (!hdrincl) {
+		rfv.msg = msg;
+		rfv.hlen = 0;
+		err = rawv6_probe_proto_opt(&rfv, &fl6);
+		if (err)
+			goto out;
+	}
+
+	if (!ipv6_addr_any(daddr))
+		fl6.daddr = *daddr;
+	else
+		fl6.daddr.s6_addr[15] = 0x1; /* :: means loopback (BSD'ism) */
+	if (ipv6_addr_any(&fl6.saddr) && !ipv6_addr_any(&np->saddr))
+		fl6.saddr = np->saddr;
+
+	final_p = fl6_update_dst(&fl6, opt, &final);
+
+	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+		fl6.flowi6_oif = READ_ONCE(np->mcast_oif);
+	else if (!fl6.flowi6_oif)
+		fl6.flowi6_oif = READ_ONCE(np->ucast_oif);
+	security_sk_classify_flow(sk, flowi6_to_flowi_common(&fl6));
+
+	if (hdrincl)
+		fl6.flowi6_flags |= FLOWI_FLAG_KNOWN_NH;
+
+	if (ipc6.tclass < 0)
+		ipc6.tclass = np->tclass;
+
+	fl6.flowlabel = ip6_make_flowinfo(ipc6.tclass, fl6.flowlabel);
+
+	dst = ip6_dst_lookup_flow(sock_net(sk), sk, &fl6, final_p);
+	if (IS_ERR(dst)) {
+		err = PTR_ERR(dst);
+		goto out;
+	}
+	if (ipc6.hlimit < 0)
+		ipc6.hlimit = ip6_sk_dst_hoplimit(np, &fl6, dst);
+
+	if (ipc6.dontfrag < 0)
+		ipc6.dontfrag = inet6_test_bit(DONTFRAG, sk);
+
+	if (msg->msg_flags&MSG_CONFIRM)
+		goto do_confirm;
+
+back_from_confirm:
+	if (hdrincl)
+		err = rawv6_send_hdrinc(sk, msg, len, &fl6, &dst,
+					msg->msg_flags, &ipc6.sockc);
+	else {
+		ipc6.opt = opt;
+		lock_sock(sk);
+		err = ip6_append_data(sk, raw6_getfrag, &rfv,
+			len, 0, &ipc6, &fl6, dst_rt6_info(dst),
+			msg->msg_flags);
+
+		if (err)
+			ip6_flush_pending_frames(sk);
+		else if (!(msg->msg_flags & MSG_MORE))
+			err = rawv6_push_pending_frames(sk, &fl6, rp);
+		release_sock(sk);
+	}
+done:
+	dst_release(dst);
+out:
+	fl6_sock_release(flowlabel);
+	txopt_put(opt_to_free);
+	return err < 0 ? err : len;
+do_confirm:
+	if (msg->msg_flags & MSG_PROBE)
+		dst_confirm_neigh(dst, &fl6.daddr);
+	if (!(msg->msg_flags & MSG_PROBE) || len)
+		goto back_from_confirm;
+	err = 0;
+	goto done;
+}
+static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
+			struct flowi6 *fl6, struct dst_entry **dstp,
+			unsigned int flags, const struct sockcm_cookie *sockc)
+{
+	struct net *net = sock_net(sk);
+	struct ipv6hdr *iph;
+	struct sk_buff *skb;
+	int err;
+	struct rt6_info *rt = dst_rt6_info(*dstp);
+	int hlen = LL_RESERVED_SPACE(rt->dst.dev);
+	int tlen = rt->dst.dev->needed_tailroom;
+
+	if (length > rt->dst.dev->mtu) {
+		ipv6_local_error(sk, EMSGSIZE, fl6, rt->dst.dev->mtu);
+		return -EMSGSIZE;
+	}
+	if (length < sizeof(struct ipv6hdr))
+		return -EINVAL;
+	if (flags&MSG_PROBE)
+		goto out;
+
+	skb = sock_alloc_send_skb(sk,
+				  length + hlen + tlen + 15,
+				  flags & MSG_DONTWAIT, &err);
+	if (!skb)
+		goto error;
+	skb_reserve(skb, hlen);
+
+	skb->protocol = htons(ETH_P_IPV6);
+	skb->priority = READ_ONCE(sk->sk_priority);
+	skb->mark = sockc->mark;
+	skb->tstamp = sockc->transmit_time;
+
+	skb_put(skb, length);
+	skb_reset_network_header(skb);
+	iph = ipv6_hdr(skb);
+
+	skb->ip_summed = CHECKSUM_NONE;
+
+	skb_setup_tx_timestamp(skb, sockc->tsflags);
+
+	if (flags & MSG_CONFIRM)
+		skb_set_dst_pending_confirm(skb, 1);
+
+	skb->transport_header = skb->network_header;
+	err = memcpy_from_msg(iph, msg, length);
+	if (err) {
+		err = -EFAULT;
+		kfree_skb(skb);
+		goto error;
+	}
+
+	skb_dst_set(skb, &rt->dst);
+	*dstp = NULL;
+
+	/* if egress device is enslaved to an L3 master device pass the
+	 * skb to its handler for processing
+	 */
+	skb = l3mdev_ip6_out(sk, skb);
+	if (unlikely(!skb))
+		return 0;
+
+	/* Acquire rcu_read_lock() in case we need to use rt->rt6i_idev
+	 * in the error path. Since skb has been freed, the dst could
+	 * have been queued for deletion.
+	 */
+	rcu_read_lock();
+	IP6_INC_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUTREQUESTS);
+	err = NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_OUT, net, sk, skb,
+		      NULL, rt->dst.dev, dst_output);
+	if (err > 0)
+		err = net_xmit_errno(err);
+	if (err) {
+		IP6_INC_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
+		rcu_read_unlock();
+		goto error_check;
+	}
+	rcu_read_unlock();
+out:
+	return 0;
+
+error:
+	IP6_INC_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
+error_check:
+	if (err == -ENOBUFS && !inet6_test_bit(RECVERR6, sk))
+		err = 0;
+	return err;
+}
+NOT FOUNDstruct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+				     unsigned long data_len, int noblock,
+				     int *errcode, int max_page_order)
+{
+	struct sk_buff *skb;
+	long timeo;
+	int err;
+
+	timeo = sock_sndtimeo(sk, noblock);
+	for (;;) {
+		err = sock_error(sk);
+		if (err != 0)
+			goto failure;
+
+		err = -EPIPE;
+		if (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN)
+			goto failure;
+
+		if (sk_wmem_alloc_get(sk) < READ_ONCE(sk->sk_sndbuf))
+			break;
+
+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
+		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+		err = -EAGAIN;
+		if (!timeo)
+			goto failure;
+		if (signal_pending(current))
+			goto interrupted;
+		timeo = sock_wait_for_wmem(sk, timeo);
+	}
+	skb = alloc_skb_with_frags(header_len, data_len, max_page_order,
+				   errcode, sk->sk_allocation);
+	if (skb)
+		skb_set_owner_w(skb, sk);
+	return skb;
+
+interrupted:
+	err = sock_intr_errno(timeo);
+failure:
+	*errcode = err;
+	return NULL;
+}
+static int packet_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+{
+	struct sock *sk = sock->sk;
+	struct packet_sock *po = pkt_sk(sk);
+
+	/* Reading tx_ring.pg_vec without holding pg_vec_lock is racy.
+	 * tpacket_snd() will redo the check safely.
+	 */
+	if (data_race(po->tx_ring.pg_vec))
+		return tpacket_snd(po, msg);
+
+	return packet_snd(sock, msg, len);
+}
+static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+{
+	struct sk_buff *skb = NULL;
+	struct net_device *dev;
+	struct virtio_net_hdr *vnet_hdr = NULL;
+	struct sockcm_cookie sockc;
+	__be16 proto;
+	int err, reserve = 0;
+	void *ph;
+	DECLARE_SOCKADDR(struct sockaddr_ll *, saddr, msg->msg_name);
+	bool need_wait = !(msg->msg_flags & MSG_DONTWAIT);
+	int vnet_hdr_sz = READ_ONCE(po->vnet_hdr_sz);
+	unsigned char *addr = NULL;
+	int tp_len, size_max;
+	void *data;
+	int len_sum = 0;
+	int status = TP_STATUS_AVAILABLE;
+	int hlen, tlen, copylen = 0;
+	long timeo = 0;
+
+	mutex_lock(&po->pg_vec_lock);
+
+	/* packet_sendmsg() check on tx_ring.pg_vec was lockless,
+	 * we need to confirm it under protection of pg_vec_lock.
+	 */
+	if (unlikely(!po->tx_ring.pg_vec)) {
+		err = -EBUSY;
+		goto out;
+	}
+	if (likely(saddr == NULL)) {
+		dev	= packet_cached_dev_get(po);
+		proto	= READ_ONCE(po->num);
+	} else {
+		err = -EINVAL;
+		if (msg->msg_namelen < sizeof(struct sockaddr_ll))
+			goto out;
+		if (msg->msg_namelen < (saddr->sll_halen
+					+ offsetof(struct sockaddr_ll,
+						sll_addr)))
+			goto out;
+		proto	= saddr->sll_protocol;
+		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
+		if (po->sk.sk_socket->type == SOCK_DGRAM) {
+			if (dev && msg->msg_namelen < dev->addr_len +
+				   offsetof(struct sockaddr_ll, sll_addr))
+				goto out_put;
+			addr = saddr->sll_addr;
+		}
+	}
+
+	err = -ENXIO;
+	if (unlikely(dev == NULL))
+		goto out;
+	err = -ENETDOWN;
+	if (unlikely(!(dev->flags & IFF_UP)))
+		goto out_put;
+
+	sockcm_init(&sockc, &po->sk);
+	if (msg->msg_controllen) {
+		err = sock_cmsg_send(&po->sk, msg, &sockc);
+		if (unlikely(err))
+			goto out_put;
+	}
+
+	if (po->sk.sk_socket->type == SOCK_RAW)
+		reserve = dev->hard_header_len;
+	size_max = po->tx_ring.frame_size
+		- (po->tp_hdrlen - sizeof(struct sockaddr_ll));
+
+	if ((size_max > dev->mtu + reserve + VLAN_HLEN) && !vnet_hdr_sz)
+		size_max = dev->mtu + reserve + VLAN_HLEN;
+
+	reinit_completion(&po->skb_completion);
+
+	do {
+		ph = packet_current_frame(po, &po->tx_ring,
+					  TP_STATUS_SEND_REQUEST);
+		if (unlikely(ph == NULL)) {
+			if (need_wait && skb) {
+				timeo = sock_sndtimeo(&po->sk, msg->msg_flags & MSG_DONTWAIT);
+				timeo = wait_for_completion_interruptible_timeout(&po->skb_completion, timeo);
+				if (timeo <= 0) {
+					err = !timeo ? -ETIMEDOUT : -ERESTARTSYS;
+					goto out_put;
+				}
+			}
+			/* check for additional frames */
+			continue;
+		}
+
+		skb = NULL;
+		tp_len = tpacket_parse_header(po, ph, size_max, &data);
+		if (tp_len < 0)
+			goto tpacket_error;
+
+		status = TP_STATUS_SEND_REQUEST;
+		hlen = LL_RESERVED_SPACE(dev);
+		tlen = dev->needed_tailroom;
+		if (vnet_hdr_sz) {
+			vnet_hdr = data;
+			data += vnet_hdr_sz;
+			tp_len -= vnet_hdr_sz;
+			if (tp_len < 0 ||
+			    __packet_snd_vnet_parse(vnet_hdr, tp_len)) {
+				tp_len = -EINVAL;
+				goto tpacket_error;
+			}
+			copylen = __virtio16_to_cpu(vio_le(),
+						    vnet_hdr->hdr_len);
+		}
+		copylen = max_t(int, copylen, dev->hard_header_len);
+		skb = sock_alloc_send_skb(&po->sk,
+				hlen + tlen + sizeof(struct sockaddr_ll) +
+				(copylen - dev->hard_header_len),
+				!need_wait, &err);
+
+		if (unlikely(skb == NULL)) {
+			/* we assume the socket was initially writeable ... */
+			if (likely(len_sum > 0))
+				err = len_sum;
+			goto out_status;
+		}
+		tp_len = tpacket_fill_skb(po, skb, ph, dev, data, tp_len, proto,
+					  addr, hlen, copylen, &sockc);
+		if (likely(tp_len >= 0) &&
+		    tp_len > dev->mtu + reserve &&
+		    !vnet_hdr_sz &&
+		    !packet_extra_vlan_len_allowed(dev, skb))
+			tp_len = -EMSGSIZE;
+
+		if (unlikely(tp_len < 0)) {
+tpacket_error:
+			if (packet_sock_flag(po, PACKET_SOCK_TP_LOSS)) {
+				__packet_set_status(po, ph,
+						TP_STATUS_AVAILABLE);
+				packet_increment_head(&po->tx_ring);
+				kfree_skb(skb);
+				continue;
+			} else {
+				status = TP_STATUS_WRONG_FORMAT;
+				err = tp_len;
+				goto out_status;
+			}
+		}
+
+		if (vnet_hdr_sz) {
+			if (virtio_net_hdr_to_skb(skb, vnet_hdr, vio_le())) {
+				tp_len = -EINVAL;
+				goto tpacket_error;
+			}
+			virtio_net_hdr_set_proto(skb, vnet_hdr);
+		}
+
+		skb->destructor = tpacket_destruct_skb;
+		__packet_set_status(po, ph, TP_STATUS_SENDING);
+		packet_inc_pending(&po->tx_ring);
+
+		status = TP_STATUS_SEND_REQUEST;
+		err = packet_xmit(po, skb);
+		if (unlikely(err != 0)) {
+			if (err > 0)
+				err = net_xmit_errno(err);
+			if (err && __packet_get_status(po, ph) ==
+				   TP_STATUS_AVAILABLE) {
+				/* skb was destructed already */
+				skb = NULL;
+				goto out_status;
+			}
+			/*
+			 * skb was dropped but not destructed yet;
+			 * let's treat it like congestion or err < 0
+			 */
+			err = 0;
+		}
+		packet_increment_head(&po->tx_ring);
+		len_sum += tp_len;
+	} while (likely((ph != NULL) ||
+		/* Note: packet_read_pending() might be slow if we have
+		 * to call it as it's per_cpu variable, but in fast-path
+		 * we already short-circuit the loop with the first
+		 * condition, and luckily don't have to go that path
+		 * anyway.
+		 */
+		 (need_wait && packet_read_pending(&po->tx_ring))));
+
+	err = len_sum;
+	goto out_put;
+
+out_status:
+	__packet_set_status(po, ph, status);
+	kfree_skb(skb);
+out_put:
+	dev_put(dev);
+out:
+	mutex_unlock(&po->pg_vec_lock);
+	return err;
+}
+NOT FOUNDstruct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+				     unsigned long data_len, int noblock,
+				     int *errcode, int max_page_order)
+{
+	struct sk_buff *skb;
+	long timeo;
+	int err;
+
+	timeo = sock_sndtimeo(sk, noblock);
+	for (;;) {
+		err = sock_error(sk);
+		if (err != 0)
+			goto failure;
+
+		err = -EPIPE;
+		if (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN)
+			goto failure;
+
+		if (sk_wmem_alloc_get(sk) < READ_ONCE(sk->sk_sndbuf))
+			break;
+
+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
+		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+		err = -EAGAIN;
+		if (!timeo)
+			goto failure;
+		if (signal_pending(current))
+			goto interrupted;
+		timeo = sock_wait_for_wmem(sk, timeo);
+	}
+	skb = alloc_skb_with_frags(header_len, data_len, max_page_order,
+				   errcode, sk->sk_allocation);
+	if (skb)
+		skb_set_owner_w(skb, sk);
+	return skb;
+
+interrupted:
+	err = sock_intr_errno(timeo);
+failure:
+	*errcode = err;
+	return NULL;
+}
+static int unix_seqpacket_sendmsg(struct socket *sock, struct msghdr *msg,
+				  size_t len)
+{
+	int err;
+	struct sock *sk = sock->sk;
+
+	err = sock_error(sk);
+	if (err)
+		return err;
+
+	if (sk->sk_state != TCP_ESTABLISHED)
+		return -ENOTCONN;
+
+	if (msg->msg_namelen)
+		msg->msg_namelen = 0;
+
+	return unix_dgram_sendmsg(sock, msg, len);
+}
+static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
+			      size_t len)
+{
+	DECLARE_SOCKADDR(struct sockaddr_un *, sunaddr, msg->msg_name);
+	struct sock *sk = sock->sk, *other = NULL;
+	struct unix_sock *u = unix_sk(sk);
+	struct scm_cookie scm;
+	struct sk_buff *skb;
+	int data_len = 0;
+	int sk_locked;
+	long timeo;
+	int err;
+
+	err = scm_send(sock, msg, &scm, false);
+	if (err < 0)
+		return err;
+
+	wait_for_unix_gc(scm.fp);
+
+	err = -EOPNOTSUPP;
+	if (msg->msg_flags&MSG_OOB)
+		goto out;
+
+	if (msg->msg_namelen) {
+		err = unix_validate_addr(sunaddr, msg->msg_namelen);
+		if (err)
+			goto out;
+
+		err = BPF_CGROUP_RUN_PROG_UNIX_SENDMSG_LOCK(sk,
+							    msg->msg_name,
+							    &msg->msg_namelen,
+							    NULL);
+		if (err)
+			goto out;
+	} else {
+		sunaddr = NULL;
+		err = -ENOTCONN;
+		other = unix_peer_get(sk);
+		if (!other)
+			goto out;
+	}
+
+	if ((test_bit(SOCK_PASSCRED, &sock->flags) ||
+	     test_bit(SOCK_PASSPIDFD, &sock->flags)) && !u->addr) {
+		err = unix_autobind(sk);
+		if (err)
+			goto out;
+	}
+
+	err = -EMSGSIZE;
+	if (len > sk->sk_sndbuf - 32)
+		goto out;
+
+	if (len > SKB_MAX_ALLOC) {
+		data_len = min_t(size_t,
+				 len - SKB_MAX_ALLOC,
+				 MAX_SKB_FRAGS * PAGE_SIZE);
+		data_len = PAGE_ALIGN(data_len);
+
+		BUILD_BUG_ON(SKB_MAX_ALLOC < PAGE_SIZE);
+	}
+
+	skb = sock_alloc_send_pskb(sk, len - data_len, data_len,
+				   msg->msg_flags & MSG_DONTWAIT, &err,
+				   PAGE_ALLOC_COSTLY_ORDER);
+	if (skb == NULL)
+		goto out;
+
+	err = unix_scm_to_skb(&scm, skb, true);
+	if (err < 0)
+		goto out_free;
+
+	skb_put(skb, len - data_len);
+	skb->data_len = data_len;
+	skb->len = len;
+	err = skb_copy_datagram_from_iter(skb, 0, &msg->msg_iter, len);
+	if (err)
+		goto out_free;
+
+	timeo = sock_sndtimeo(sk, msg->msg_flags & MSG_DONTWAIT);
+
+restart:
+	if (!other) {
+		err = -ECONNRESET;
+		if (sunaddr == NULL)
+			goto out_free;
+
+		other = unix_find_other(sock_net(sk), sunaddr, msg->msg_namelen,
+					sk->sk_type);
+		if (IS_ERR(other)) {
+			err = PTR_ERR(other);
+			other = NULL;
+			goto out_free;
+		}
+	}
+
+	if (sk_filter(other, skb) < 0) {
+		/* Toss the packet but do not return any error to the sender */
+		err = len;
+		goto out_free;
+	}
+
+	sk_locked = 0;
+	unix_state_lock(other);
+restart_locked:
+	err = -EPERM;
+	if (!unix_may_send(sk, other))
+		goto out_unlock;
+
+	if (unlikely(sock_flag(other, SOCK_DEAD))) {
+		/*
+		 *	Check with 1003.1g - what should
+		 *	datagram error
+		 */
+		unix_state_unlock(other);
+		sock_put(other);
+
+		if (!sk_locked)
+			unix_state_lock(sk);
+
+		err = 0;
+		if (sk->sk_type == SOCK_SEQPACKET) {
+			/* We are here only when racing with unix_release_sock()
+			 * is clearing @other. Never change state to TCP_CLOSE
+			 * unlike SOCK_DGRAM wants.
+			 */
+			unix_state_unlock(sk);
+			err = -EPIPE;
+		} else if (unix_peer(sk) == other) {
+			unix_peer(sk) = NULL;
+			unix_dgram_peer_wake_disconnect_wakeup(sk, other);
+
+			sk->sk_state = TCP_CLOSE;
+			unix_state_unlock(sk);
+
+			unix_dgram_disconnected(sk, other);
+			sock_put(other);
+			err = -ECONNREFUSED;
+		} else {
+			unix_state_unlock(sk);
+		}
+
+		other = NULL;
+		if (err)
+			goto out_free;
+		goto restart;
+	}
+
+	err = -EPIPE;
+	if (other->sk_shutdown & RCV_SHUTDOWN)
+		goto out_unlock;
+
+	if (sk->sk_type != SOCK_SEQPACKET) {
+		err = security_unix_may_send(sk->sk_socket, other->sk_socket);
+		if (err)
+			goto out_unlock;
+	}
+
+	/* other == sk && unix_peer(other) != sk if
+	 * - unix_peer(sk) == NULL, destination address bound to sk
+	 * - unix_peer(sk) == sk by time of get but disconnected before lock
+	 */
+	if (other != sk &&
+	    unlikely(unix_peer(other) != sk &&
+	    unix_recvq_full_lockless(other))) {
+		if (timeo) {
+			timeo = unix_wait_for_peer(other, timeo);
+
+			err = sock_intr_errno(timeo);
+			if (signal_pending(current))
+				goto out_free;
+
+			goto restart;
+		}
+
+		if (!sk_locked) {
+			unix_state_unlock(other);
+			unix_state_double_lock(sk, other);
+		}
+
+		if (unix_peer(sk) != other ||
+		    unix_dgram_peer_wake_me(sk, other)) {
+			err = -EAGAIN;
+			sk_locked = 1;
+			goto out_unlock;
+		}
+
+		if (!sk_locked) {
+			sk_locked = 1;
+			goto restart_locked;
+		}
+	}
+
+	if (unlikely(sk_locked))
+		unix_state_unlock(sk);
+
+	if (sock_flag(other, SOCK_RCVTSTAMP))
+		__net_timestamp(skb);
+	maybe_add_creds(skb, sock, other);
+	scm_stat_add(other, skb);
+	skb_queue_tail(&other->sk_receive_queue, skb);
+	unix_state_unlock(other);
+	other->sk_data_ready(other);
+	sock_put(other);
+	scm_destroy(&scm);
+	return len;
+
+out_unlock:
+	if (sk_locked)
+		unix_state_unlock(sk);
+	unix_state_unlock(other);
+out_free:
+	kfree_skb(skb);
+out:
+	if (other)
+		sock_put(other);
+	scm_destroy(&scm);
+	return err;
+}
+struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+				     unsigned long data_len, int noblock,
+				     int *errcode, int max_page_order)
+{
+	struct sk_buff *skb;
+	long timeo;
+	int err;
+
+	timeo = sock_sndtimeo(sk, noblock);
+	for (;;) {
+		err = sock_error(sk);
+		if (err != 0)
+			goto failure;
+
+		err = -EPIPE;
+		if (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN)
+			goto failure;
+
+		if (sk_wmem_alloc_get(sk) < READ_ONCE(sk->sk_sndbuf))
+			break;
+
+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
+		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+		err = -EAGAIN;
+		if (!timeo)
+			goto failure;
+		if (signal_pending(current))
+			goto interrupted;
+		timeo = sock_wait_for_wmem(sk, timeo);
+	}
+	skb = alloc_skb_with_frags(header_len, data_len, max_page_order,
+				   errcode, sk->sk_allocation);
+	if (skb)
+		skb_set_owner_w(skb, sk);
+	return skb;
+
+interrupted:
+	err = sock_intr_errno(timeo);
+failure:
+	*errcode = err;
+	return NULL;
+}
+static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+			       size_t len)
+{
+	struct sock *sk = sock->sk;
+	struct sock *other = NULL;
+	int err, size;
+	struct sk_buff *skb;
+	int sent = 0;
+	struct scm_cookie scm;
+	bool fds_sent = false;
+	int data_len;
+
+	err = scm_send(sock, msg, &scm, false);
+	if (err < 0)
+		return err;
+
+	wait_for_unix_gc(scm.fp);
+
+	err = -EOPNOTSUPP;
+	if (msg->msg_flags & MSG_OOB) {
+#if IS_ENABLED(CONFIG_AF_UNIX_OOB)
+		if (len)
+			len--;
+		else
+#endif
+			goto out_err;
+	}
+
+	if (msg->msg_namelen) {
+		err = sk->sk_state == TCP_ESTABLISHED ? -EISCONN : -EOPNOTSUPP;
+		goto out_err;
+	} else {
+		err = -ENOTCONN;
+		other = unix_peer(sk);
+		if (!other)
+			goto out_err;
+	}
+
+	if (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN)
+		goto pipe_err;
+
+	while (sent < len) {
+		size = len - sent;
+
+		if (unlikely(msg->msg_flags & MSG_SPLICE_PAGES)) {
+			skb = sock_alloc_send_pskb(sk, 0, 0,
+						   msg->msg_flags & MSG_DONTWAIT,
+						   &err, 0);
+		} else {
+			/* Keep two messages in the pipe so it schedules better */
+			size = min_t(int, size, (sk->sk_sndbuf >> 1) - 64);
+
+			/* allow fallback to order-0 allocations */
+			size = min_t(int, size, SKB_MAX_HEAD(0) + UNIX_SKB_FRAGS_SZ);
+
+			data_len = max_t(int, 0, size - SKB_MAX_HEAD(0));
+
+			data_len = min_t(size_t, size, PAGE_ALIGN(data_len));
+
+			skb = sock_alloc_send_pskb(sk, size - data_len, data_len,
+						   msg->msg_flags & MSG_DONTWAIT, &err,
+						   get_order(UNIX_SKB_FRAGS_SZ));
+		}
+		if (!skb)
+			goto out_err;
+
+		/* Only send the fds in the first buffer */
+		err = unix_scm_to_skb(&scm, skb, !fds_sent);
+		if (err < 0) {
+			kfree_skb(skb);
+			goto out_err;
+		}
+		fds_sent = true;
+
+		if (unlikely(msg->msg_flags & MSG_SPLICE_PAGES)) {
+			err = skb_splice_from_iter(skb, &msg->msg_iter, size,
+						   sk->sk_allocation);
+			if (err < 0) {
+				kfree_skb(skb);
+				goto out_err;
+			}
+			size = err;
+			refcount_add(size, &sk->sk_wmem_alloc);
+		} else {
+			skb_put(skb, size - data_len);
+			skb->data_len = data_len;
+			skb->len = size;
+			err = skb_copy_datagram_from_iter(skb, 0, &msg->msg_iter, size);
+			if (err) {
+				kfree_skb(skb);
+				goto out_err;
+			}
+		}
+
+		unix_state_lock(other);
+
+		if (sock_flag(other, SOCK_DEAD) ||
+		    (other->sk_shutdown & RCV_SHUTDOWN))
+			goto pipe_err_free;
+
+		maybe_add_creds(skb, sock, other);
+		scm_stat_add(other, skb);
+		skb_queue_tail(&other->sk_receive_queue, skb);
+		unix_state_unlock(other);
+		other->sk_data_ready(other);
+		sent += size;
+	}
+
+#if IS_ENABLED(CONFIG_AF_UNIX_OOB)
+	if (msg->msg_flags & MSG_OOB) {
+		err = queue_oob(sock, msg, other, &scm, fds_sent);
+		if (err)
+			goto out_err;
+		sent++;
+	}
+#endif
+
+	scm_destroy(&scm);
+
+	return sent;
+
+pipe_err_free:
+	unix_state_unlock(other);
+	kfree_skb(skb);
+pipe_err:
+	if (sent == 0 && !(msg->msg_flags&MSG_NOSIGNAL))
+		send_sig(SIGPIPE, current, 0);
+	err = -EPIPE;
+out_err:
+	scm_destroy(&scm);
+	return sent ? : err;
+}
+struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+				     unsigned long data_len, int noblock,
+				     int *errcode, int max_page_order)
+{
+	struct sk_buff *skb;
+	long timeo;
+	int err;
+
+	timeo = sock_sndtimeo(sk, noblock);
+	for (;;) {
+		err = sock_error(sk);
+		if (err != 0)
+			goto failure;
+
+		err = -EPIPE;
+		if (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN)
+			goto failure;
+
+		if (sk_wmem_alloc_get(sk) < READ_ONCE(sk->sk_sndbuf))
+			break;
+
+		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
+		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+		err = -EAGAIN;
+		if (!timeo)
+			goto failure;
+		if (signal_pending(current))
+			goto interrupted;
+		timeo = sock_wait_for_wmem(sk, timeo);
+	}
+	skb = alloc_skb_with_frags(header_len, data_len, max_page_order,
+				   errcode, sk->sk_allocation);
+	if (skb)
+		skb_set_owner_w(skb, sk);
+	return skb;
+
+interrupted:
+	err = sock_intr_errno(timeo);
+failure:
+	*errcode = err;
+	return NULL;
+}

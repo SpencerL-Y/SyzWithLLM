@@ -1,0 +1,112 @@
+void ptdump_walk_pgd_level_debugfs(struct seq_file *m, struct mm_struct *mm,
+				   bool user)
+{
+	pgd_t *pgd = mm->pgd;
+#ifdef CONFIG_MITIGATION_PAGE_TABLE_ISOLATION
+	if (user && boot_cpu_has(X86_FEATURE_PTI))
+		pgd = kernel_to_user_pgdp(pgd);
+#endif
+	ptdump_walk_pgd_level_core(m, mm, pgd, false, false);
+}
+NOT FOUNDstatic int __ref kernel_init(void *unused)
+{
+	int ret;
+
+	/*
+	 * Wait until kthreadd is all set-up.
+	 */
+	wait_for_completion(&kthreadd_done);
+
+	kernel_init_freeable();
+	/* need to finish all async __init code before freeing the memory */
+	async_synchronize_full();
+
+	system_state = SYSTEM_FREEING_INITMEM;
+	kprobe_free_init_mem();
+	ftrace_free_init_mem();
+	kgdb_free_init_mem();
+	exit_boot_config();
+	free_initmem();
+	mark_readonly();
+
+	/*
+	 * Kernel mappings are now finalized - update the userspace page-table
+	 * to finalize PTI.
+	 */
+	pti_finalize();
+
+	system_state = SYSTEM_RUNNING;
+	numa_default_policy();
+
+	rcu_end_inkernel_boot();
+
+	do_sysctl_args();
+
+	if (ramdisk_execute_command) {
+		ret = run_init_process(ramdisk_execute_command);
+		if (!ret)
+			return 0;
+		pr_err("Failed to execute %s (error %d)\n",
+		       ramdisk_execute_command, ret);
+	}
+
+	/*
+	 * We try each of these until one succeeds.
+	 *
+	 * The Bourne shell can be used instead of init if we are
+	 * trying to recover a really broken machine.
+	 */
+	if (execute_command) {
+		ret = run_init_process(execute_command);
+		if (!ret)
+			return 0;
+		panic("Requested init %s failed (error %d).",
+		      execute_command, ret);
+	}
+
+	if (CONFIG_DEFAULT_INIT[0] != '\0') {
+		ret = run_init_process(CONFIG_DEFAULT_INIT);
+		if (ret)
+			pr_err("Default init %s failed (error %d)\n",
+			       CONFIG_DEFAULT_INIT, ret);
+		else
+			return 0;
+	}
+
+	if (!try_to_run_init_process("/sbin/init") ||
+	    !try_to_run_init_process("/etc/init") ||
+	    !try_to_run_init_process("/bin/init") ||
+	    !try_to_run_init_process("/bin/sh"))
+		return 0;
+
+	panic("No working init found.  Try passing init= option to kernel. "
+	      "See Linux Documentation/admin-guide/init.rst for guidance.");
+}
+void pti_finalize(void)
+{
+	if (!boot_cpu_has(X86_FEATURE_PTI))
+		return;
+	/*
+	 * We need to clone everything (again) that maps parts of the
+	 * kernel image.
+	 */
+	pti_clone_entry_text();
+	pti_clone_kernel_text();
+
+	debug_checkwx_user();
+}
+void ptdump_walk_user_pgd_level_checkwx(void)
+{
+#ifdef CONFIG_MITIGATION_PAGE_TABLE_ISOLATION
+	pgd_t *pgd = INIT_PGD;
+
+	if (!(__supported_pte_mask & _PAGE_NX) ||
+	    !boot_cpu_has(X86_FEATURE_PTI))
+		return;
+
+	pr_info("x86/mm: Checking user space page tables\n");
+	pgd = kernel_to_user_pgdp(pgd);
+	ptdump_walk_pgd_level_core(NULL, &init_mm, pgd, true, false);
+#endif
+}
+NOT FOUND

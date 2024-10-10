@@ -1,0 +1,834 @@
+----- funcname:
+console_srcu_read_lock
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+int console_srcu_read_lock(void)
+----- addresses:
+ffffffff812b08c0
+ffffffff812b18a0
+ffffffff812b31b3
+ffffffff812b3324
+ffffffff812b2d34
+ffffffff812b2ebe
+----- funcname:
+console_srcu_read_lock
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+{
+----- addresses:
+ffffffff812aac20
+----- funcname:
+console_srcu_read_lock
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+return srcu_read_lock_nmisafe(&console_srcu);
+----- addresses:
+ffffffff812b08c0
+ffffffff812b18a0
+ffffffff812b31b3
+ffffffff812b3324
+ffffffff812b2d34
+ffffffff812aac24
+ffffffff812b2ebe
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+{
+----- addresses:
+ffffffff812b32c0
+ffffffff812b32c4
+ffffffff812b33b3
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+struct console *c;
+----- addresses:
+ffffffff812b32c4
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+struct tty_driver *driver = NULL;
+----- addresses:
+ffffffff812b32c4
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+int cookie;
+----- addresses:
+ffffffff812b32c4
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_lock();
+----- addresses:
+ffffffff812b32c4
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+cookie = console_srcu_read_lock();
+----- addresses:
+ffffffff812b3324
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+for_each_console_srcu(c) {
+----- addresses:
+ffffffff812b3333
+ffffffff812b3402
+ffffffff812b33b1
+ffffffff812b3341
+ffffffff812b3389
+ffffffff812b33a3
+ffffffff812b333d
+ffffffff812b3338
+ffffffff812b3329
+ffffffff812b33ad
+ffffffff812b33a8
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (!c->device)
+----- addresses:
+ffffffff812b3343
+ffffffff812b33f8
+ffffffff812b334d
+ffffffff812b336b
+ffffffff812b3367
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+driver = c->device(c, index);
+----- addresses:
+ffffffff812b3370
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (driver)
+----- addresses:
+ffffffff812b3384
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_srcu_read_unlock(cookie);
+----- addresses:
+ffffffff812b33b6
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_unlock();
+----- addresses:
+ffffffff812b33d8
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+return driver;
+----- addresses:
+ffffffff812b33dd
+----- funcname:
+console_device
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+}
+----- addresses:
+ffffffff812b33e4
+ffffffff812b33dd
+ffffffff812b33e6
+ffffffff812b33e8
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+{
+----- addresses:
+ffffffff812b3157
+ffffffff812b30dc
+ffffffff812b30c0
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+bool handover;
+----- addresses:
+ffffffff812b3126
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+u64 next_seq;
+----- addresses:
+ffffffff812b3126
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_may_schedule = 0;
+----- addresses:
+ffffffff812b3126
+ffffffff812b312b
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (mode == CONSOLE_REPLAY_ALL) {
+----- addresses:
+ffffffff812b3135
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+struct console *c;
+----- addresses:
+ffffffff812b3198
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+short flags;
+----- addresses:
+ffffffff812b3198
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+int cookie;
+----- addresses:
+ffffffff812b3198
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+u64 seq;
+----- addresses:
+ffffffff812b3198
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+seq = prb_first_valid_seq(prb);
+----- addresses:
+ffffffff812b3198
+ffffffff812b31b0
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+cookie = console_srcu_read_lock();
+----- addresses:
+ffffffff812b31b3
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+for_each_console_srcu(c) {
+----- addresses:
+ffffffff812b3299
+ffffffff812b3292
+ffffffff812b323a
+ffffffff812b31b8
+ffffffff812b31c7
+ffffffff812b3236
+ffffffff812b31c2
+ffffffff812b3228
+ffffffff812b322c
+ffffffff812b3231
+ffffffff812b31bf
+ffffffff812b3211
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+flags = console_srcu_read_flags(c);
+----- addresses:
+ffffffff812b323c
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (flags & CON_NBCON) {
+----- addresses:
+ffffffff812b3266
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+nbcon_seq_force(c, seq);
+----- addresses:
+ffffffff812b3270
+ffffffff812b326b
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+c->seq = seq;
+----- addresses:
+ffffffff812b31f7
+ffffffff812b3299
+ffffffff812b32a3
+ffffffff812b31f2
+ffffffff812b320d
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_srcu_read_unlock(cookie);
+----- addresses:
+ffffffff812b31c7
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_flush_all(false, &next_seq, &handover);
+----- addresses:
+ffffffff812b313a
+----- funcname:
+console_flush_on_panic
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+}
+----- addresses:
+ffffffff812b32a3
+ffffffff812b3173
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+{
+----- addresses:
+ffffffff812b2d30
+ffffffff812b2d34
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+bool found_unblank = false;
+----- addresses:
+ffffffff812b2d34
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+struct console *c;
+----- addresses:
+ffffffff812b2d34
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+int cookie;
+----- addresses:
+ffffffff812b2d34
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+cookie = console_srcu_read_lock();
+----- addresses:
+ffffffff812b2ebe
+ffffffff812b2d34
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+for_each_console_srcu(c) {
+----- addresses:
+ffffffff812b306c
+ffffffff812b2eda
+ffffffff812b309e
+ffffffff812b2dfe
+ffffffff812b2ef0
+ffffffff812b2d4b
+ffffffff812b2d5d
+ffffffff812b2ddf
+ffffffff812b2f88
+ffffffff812b2d62
+ffffffff812b2d81
+ffffffff812b2e07
+ffffffff812b3076
+ffffffff812b3094
+ffffffff812b2ed5
+ffffffff812b2ecc
+ffffffff812b2f60
+ffffffff812b2ede
+ffffffff812b2d78
+ffffffff812b2ef9
+ffffffff812b2d7d
+ffffffff812b2ec3
+ffffffff812b2d66
+ffffffff812b2ef5
+ffffffff812b2d54
+ffffffff812b2f7f
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if ((console_srcu_read_flags(c) & CON_ENABLED) && c->unblank) {
+----- addresses:
+ffffffff812b2db5
+ffffffff812b2dd4
+ffffffff812b2db9
+ffffffff812b2dbe
+ffffffff812b3076
+ffffffff812b2d87
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+found_unblank = true;
+----- addresses:
+ffffffff812b309e
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_srcu_read_unlock(cookie);
+----- addresses:
+ffffffff812b302f
+ffffffff812b2f88
+ffffffff812b2e07
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (!found_unblank)
+----- addresses:
+ffffffff812b304f
+ffffffff812b2fe5
+ffffffff812b2e31
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (oops_in_progress) {
+----- addresses:
+ffffffff812b2e39
+ffffffff812b2e3e
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (in_nmi())
+----- addresses:
+ffffffff812b2e58
+ffffffff812b2e4c
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (down_trylock_console_sem() != 0)
+----- addresses:
+ffffffff812b2e63
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_lock();
+----- addresses:
+ffffffff812b2ff0
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_locked = 1;
+----- addresses:
+ffffffff812b2e9e
+ffffffff812b2eaa
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_may_schedule = 0;
+----- addresses:
+ffffffff812b2eb4
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if ((console_srcu_read_flags(c) & CON_ENABLED) && c->unblank)
+----- addresses:
+ffffffff812b2f31
+ffffffff812b308a
+ffffffff812b2f2d
+ffffffff812b2f36
+ffffffff812b2f50
+ffffffff812b2eff
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+c->unblank();
+----- addresses:
+ffffffff812b2f55
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_unlock();
+----- addresses:
+ffffffff812b2fac
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (!oops_in_progress)
+----- addresses:
+ffffffff812b2fb1
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+pr_flush(1000, true);
+----- addresses:
+ffffffff812b2fbb
+----- funcname:
+console_unblank
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+}
+----- addresses:
+ffffffff812b2fc9
+ffffffff812b2fc7
+ffffffff812b2fe5
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+{
+----- addresses:
+ffffffff812b0e6a
+ffffffff812b07e0
+ffffffff812b0e55
+ffffffff812b0801
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+bool any_usable = false;
+----- addresses:
+ffffffff812b0856
+ffffffff812b08a8
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+struct console *con;
+----- addresses:
+ffffffff812b0856
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+bool any_progress;
+----- addresses:
+ffffffff812b0856
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+int cookie;
+----- addresses:
+ffffffff812b0856
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+*next_seq = 0;
+----- addresses:
+ffffffff812b0856
+ffffffff812b087d
+ffffffff812b085b
+ffffffff812b0ffd
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+*handover = false;
+----- addresses:
+ffffffff812b0870
+ffffffff812b0884
+ffffffff812b0ff0
+ffffffff812b08a1
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+do {
+----- addresses:
+ffffffff812b08c0
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+any_progress = false;
+----- addresses:
+ffffffff812b08c0
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+cookie = console_srcu_read_lock();
+----- addresses:
+ffffffff812b08c0
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+for_each_console_srcu(con) {
+----- addresses:
+ffffffff812b08d1
+ffffffff812b0da1
+ffffffff812b08e5
+ffffffff812b0f07
+ffffffff812b08ee
+ffffffff812b0d2f
+ffffffff812b0d53
+ffffffff812b0d4e
+ffffffff812b08fc
+ffffffff812b0efd
+ffffffff812b0d5c
+ffffffff812b08dc
+ffffffff812b0d58
+ffffffff812b08ea
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+bool progress;
+----- addresses:
+ffffffff812b0906
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (!console_is_usable(con))
+----- addresses:
+ffffffff812b0906
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+any_usable = true;
+----- addresses:
+ffffffff812b0d9f
+ffffffff812b0d9a
+ffffffff812b0da1
+ffffffff812b09c0
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+progress = console_emit_next_record(con, handover, cookie);
+----- addresses:
+ffffffff812b09c0
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (*handover)
+----- addresses:
+ffffffff812b0c91
+ffffffff812b0cb0
+ffffffff812b0cab
+ffffffff812b0f85
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+return false;
+----- addresses:
+ffffffff812b0e4d
+ffffffff812b0e50
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (con->seq > *next_seq)
+----- addresses:
+ffffffff812b0cd8
+ffffffff812b0ce7
+ffffffff812b0cd0
+ffffffff812b0cd4
+ffffffff812b0f78
+ffffffff812b0cb9
+ffffffff812b0f6a
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+*next_seq = con->seq;
+----- addresses:
+ffffffff812b0cf0
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (!progress)
+----- addresses:
+ffffffff812b0cfc
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+any_progress = true;
+----- addresses:
+ffffffff812b0de1
+ffffffff812b0dea
+ffffffff812b0def
+ffffffff812b0de6
+ffffffff812b0d25
+ffffffff812b0d09
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (other_cpu_in_panic())
+----- addresses:
+ffffffff812b0d09
+ffffffff812b0d13
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+goto abandon;
+----- addresses:
+ffffffff812b0ea1
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+if (do_cond_resched)
+----- addresses:
+ffffffff812b0d29
+ffffffff812b0d1b
+ffffffff812b0d2f
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+cond_resched();
+----- addresses:
+ffffffff812b0dd7
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+console_srcu_read_unlock(cookie);
+----- addresses:
+ffffffff812b0d62
+ffffffff812b0ea1
+ffffffff812b0e27
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+} while (any_progress);
+----- addresses:
+ffffffff812b0eea
+ffffffff812b0d8a
+----- funcname:
+console_flush_all
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/printk/printk.c
+----- source:
+}
+----- addresses:
+ffffffff812b100b
+ffffffff812b0e71
+ffffffff812b0e96

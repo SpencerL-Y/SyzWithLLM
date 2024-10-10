@@ -1,0 +1,482 @@
+SYSCALL_DEFINE0(sched_yield)
+{
+	do_sched_yield();
+	return 0;
+}
+int cn_netlink_send(struct cn_msg *msg, u32 portid, u32 __group,
+	gfp_t gfp_mask)
+{
+	return cn_netlink_send_mult(msg, msg->len, portid, __group, gfp_mask,
+				    NULL, NULL);
+}
+int cn_netlink_send_mult(struct cn_msg *msg, u16 len, u32 portid, u32 __group,
+			 gfp_t gfp_mask, netlink_filter_fn filter,
+			 void *filter_data)
+{
+	struct cn_callback_entry *__cbq;
+	unsigned int size;
+	struct sk_buff *skb;
+	struct nlmsghdr *nlh;
+	struct cn_msg *data;
+	struct cn_dev *dev = &cdev;
+	u32 group = 0;
+	int found = 0;
+
+	if (portid || __group) {
+		group = __group;
+	} else {
+		spin_lock_bh(&dev->cbdev->queue_lock);
+		list_for_each_entry(__cbq, &dev->cbdev->queue_list,
+				    callback_entry) {
+			if (cn_cb_equal(&__cbq->id.id, &msg->id)) {
+				found = 1;
+				group = __cbq->group;
+				break;
+			}
+		}
+		spin_unlock_bh(&dev->cbdev->queue_lock);
+
+		if (!found)
+			return -ENODEV;
+	}
+
+	if (!portid && !netlink_has_listeners(dev->nls, group))
+		return -ESRCH;
+
+	size = sizeof(*msg) + len;
+
+	skb = nlmsg_new(size, gfp_mask);
+	if (!skb)
+		return -ENOMEM;
+
+	nlh = nlmsg_put(skb, 0, msg->seq, NLMSG_DONE, size, 0);
+	if (!nlh) {
+		kfree_skb(skb);
+		return -EMSGSIZE;
+	}
+
+	data = nlmsg_data(nlh);
+
+	memcpy(data, msg, size);
+
+	NETLINK_CB(skb).dst_group = group;
+
+	if (group)
+		return netlink_broadcast_filtered(dev->nls, skb, portid, group,
+						  gfp_mask, filter,
+						  (void *)filter_data);
+	return netlink_unicast(dev->nls, skb, portid,
+			!gfpflags_allow_blocking(gfp_mask));
+}
+int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb,
+			       u32 portid,
+			       u32 group, gfp_t allocation,
+			       netlink_filter_fn filter,
+			       void *filter_data)
+{
+	struct net *net = sock_net(ssk);
+	struct netlink_broadcast_data info;
+	struct sock *sk;
+
+	skb = netlink_trim(skb, allocation);
+
+	info.exclude_sk = ssk;
+	info.net = net;
+	info.portid = portid;
+	info.group = group;
+	info.failure = 0;
+	info.delivery_failure = 0;
+	info.congested = 0;
+	info.delivered = 0;
+	info.allocation = allocation;
+	info.skb = skb;
+	info.skb2 = NULL;
+	info.tx_filter = filter;
+	info.tx_data = filter_data;
+
+	/* While we sleep in clone, do not allow to change socket list */
+
+	netlink_lock_table();
+
+	sk_for_each_bound(sk, &nl_table[ssk->sk_protocol].mc_list)
+		do_one_broadcast(sk, &info);
+
+	consume_skb(skb);
+
+	netlink_unlock_table();
+
+	if (info.delivery_failure) {
+		kfree_skb(info.skb2);
+		return -ENOBUFS;
+	}
+	consume_skb(info.skb2);
+
+	if (info.delivered) {
+		if (info.congested && gfpflags_allow_blocking(allocation))
+			yield();
+		return 0;
+	}
+	return -ESRCH;
+}
+SYSCALL_DEFINE0(sched_yield)
+{
+	do_sched_yield();
+	return 0;
+}
+static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+{
+	struct sock *sk = sock->sk;
+	struct netlink_sock *nlk = nlk_sk(sk);
+	DECLARE_SOCKADDR(struct sockaddr_nl *, addr, msg->msg_name);
+	u32 dst_portid;
+	u32 dst_group;
+	struct sk_buff *skb;
+	int err;
+	struct scm_cookie scm;
+	u32 netlink_skb_flags = 0;
+
+	if (msg->msg_flags & MSG_OOB)
+		return -EOPNOTSUPP;
+
+	if (len == 0) {
+		pr_warn_once("Zero length message leads to an empty skb\n");
+		return -ENODATA;
+	}
+
+	err = scm_send(sock, msg, &scm, true);
+	if (err < 0)
+		return err;
+
+	if (msg->msg_namelen) {
+		err = -EINVAL;
+		if (msg->msg_namelen < sizeof(struct sockaddr_nl))
+			goto out;
+		if (addr->nl_family != AF_NETLINK)
+			goto out;
+		dst_portid = addr->nl_pid;
+		dst_group = ffs(addr->nl_groups);
+		err =  -EPERM;
+		if ((dst_group || dst_portid) &&
+		    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
+			goto out;
+		netlink_skb_flags |= NETLINK_SKB_DST;
+	} else {
+		/* Paired with WRITE_ONCE() in netlink_connect() */
+		dst_portid = READ_ONCE(nlk->dst_portid);
+		dst_group = READ_ONCE(nlk->dst_group);
+	}
+
+	/* Paired with WRITE_ONCE() in netlink_insert() */
+	if (!READ_ONCE(nlk->bound)) {
+		err = netlink_autobind(sock);
+		if (err)
+			goto out;
+	} else {
+		/* Ensure nlk is hashed and visible. */
+		smp_rmb();
+	}
+
+	err = -EMSGSIZE;
+	if (len > sk->sk_sndbuf - 32)
+		goto out;
+	err = -ENOBUFS;
+	skb = netlink_alloc_large_skb(len, dst_group);
+	if (skb == NULL)
+		goto out;
+
+	NETLINK_CB(skb).portid	= nlk->portid;
+	NETLINK_CB(skb).dst_group = dst_group;
+	NETLINK_CB(skb).creds	= scm.creds;
+	NETLINK_CB(skb).flags	= netlink_skb_flags;
+
+	err = -EFAULT;
+	if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
+		kfree_skb(skb);
+		goto out;
+	}
+
+	err = security_netlink_send(sk, skb);
+	if (err) {
+		kfree_skb(skb);
+		goto out;
+	}
+
+	if (dst_group) {
+		refcount_inc(&skb->users);
+		netlink_broadcast(sk, skb, dst_portid, dst_group, GFP_KERNEL);
+	}
+	err = netlink_unicast(sk, skb, dst_portid, msg->msg_flags & MSG_DONTWAIT);
+
+out:
+	scm_destroy(&scm);
+	return err;
+}
+int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 portid,
+		      u32 group, gfp_t allocation)
+{
+	return netlink_broadcast_filtered(ssk, skb, portid, group, allocation,
+					  NULL, NULL);
+}
+int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb,
+			       u32 portid,
+			       u32 group, gfp_t allocation,
+			       netlink_filter_fn filter,
+			       void *filter_data)
+{
+	struct net *net = sock_net(ssk);
+	struct netlink_broadcast_data info;
+	struct sock *sk;
+
+	skb = netlink_trim(skb, allocation);
+
+	info.exclude_sk = ssk;
+	info.net = net;
+	info.portid = portid;
+	info.group = group;
+	info.failure = 0;
+	info.delivery_failure = 0;
+	info.congested = 0;
+	info.delivered = 0;
+	info.allocation = allocation;
+	info.skb = skb;
+	info.skb2 = NULL;
+	info.tx_filter = filter;
+	info.tx_data = filter_data;
+
+	/* While we sleep in clone, do not allow to change socket list */
+
+	netlink_lock_table();
+
+	sk_for_each_bound(sk, &nl_table[ssk->sk_protocol].mc_list)
+		do_one_broadcast(sk, &info);
+
+	consume_skb(skb);
+
+	netlink_unlock_table();
+
+	if (info.delivery_failure) {
+		kfree_skb(info.skb2);
+		return -ENOBUFS;
+	}
+	consume_skb(info.skb2);
+
+	if (info.delivered) {
+		if (info.congested && gfpflags_allow_blocking(allocation))
+			yield();
+		return 0;
+	}
+	return -ESRCH;
+}
+SYSCALL_DEFINE0(sched_yield)
+{
+	do_sched_yield();
+	return 0;
+}
+void nfnetlink_broadcast(struct net *net, struct sk_buff *skb, __u32 portid,
+			 __u32 group, gfp_t allocation)
+{
+	struct nfnl_net *nfnlnet = nfnl_pernet(net);
+
+	netlink_broadcast(nfnlnet->nfnl, skb, portid, group, allocation);
+}
+int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 portid,
+		      u32 group, gfp_t allocation)
+{
+	return netlink_broadcast_filtered(ssk, skb, portid, group, allocation,
+					  NULL, NULL);
+}
+int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb,
+			       u32 portid,
+			       u32 group, gfp_t allocation,
+			       netlink_filter_fn filter,
+			       void *filter_data)
+{
+	struct net *net = sock_net(ssk);
+	struct netlink_broadcast_data info;
+	struct sock *sk;
+
+	skb = netlink_trim(skb, allocation);
+
+	info.exclude_sk = ssk;
+	info.net = net;
+	info.portid = portid;
+	info.group = group;
+	info.failure = 0;
+	info.delivery_failure = 0;
+	info.congested = 0;
+	info.delivered = 0;
+	info.allocation = allocation;
+	info.skb = skb;
+	info.skb2 = NULL;
+	info.tx_filter = filter;
+	info.tx_data = filter_data;
+
+	/* While we sleep in clone, do not allow to change socket list */
+
+	netlink_lock_table();
+
+	sk_for_each_bound(sk, &nl_table[ssk->sk_protocol].mc_list)
+		do_one_broadcast(sk, &info);
+
+	consume_skb(skb);
+
+	netlink_unlock_table();
+
+	if (info.delivery_failure) {
+		kfree_skb(info.skb2);
+		return -ENOBUFS;
+	}
+	consume_skb(info.skb2);
+
+	if (info.delivered) {
+		if (info.congested && gfpflags_allow_blocking(allocation))
+			yield();
+		return 0;
+	}
+	return -ESRCH;
+}
+SYSCALL_DEFINE0(sched_yield)
+{
+	do_sched_yield();
+	return 0;
+}
+int usb_stor_bulk_transfer_sg(struct us_data* us, unsigned int pipe,
+		void *buf, unsigned int length_left, int use_sg, int *residual)
+{
+	int result;
+	unsigned int partial;
+
+	/* are we scatter-gathering? */
+	if (use_sg) {
+		/* use the usb core scatter-gather primitives */
+		result = usb_stor_bulk_transfer_sglist(us, pipe,
+				(struct scatterlist *) buf, use_sg,
+				length_left, &partial);
+		length_left -= partial;
+	} else {
+		/* no scatter-gather, just make the request */
+		result = usb_stor_bulk_transfer_buf(us, pipe, buf, 
+				length_left, &partial);
+		length_left -= partial;
+	}
+
+	/* store the residual and return the error code */
+	if (residual)
+		*residual = length_left;
+	return result;
+}
+static int usb_stor_bulk_transfer_sglist(struct us_data *us, unsigned int pipe,
+		struct scatterlist *sg, int num_sg, unsigned int length,
+		unsigned int *act_len)
+{
+	int result;
+
+	/* don't submit s-g requests during abort processing */
+	if (test_bit(US_FLIDX_ABORTING, &us->dflags))
+		goto usb_stor_xfer_error;
+
+	/* initialize the scatter-gather request block */
+	usb_stor_dbg(us, "xfer %u bytes, %d entries\n", length, num_sg);
+	result = usb_sg_init(&us->current_sg, us->pusb_dev, pipe, 0,
+			sg, num_sg, length, GFP_NOIO);
+	if (result) {
+		usb_stor_dbg(us, "usb_sg_init returned %d\n", result);
+		goto usb_stor_xfer_error;
+	}
+
+	/*
+	 * since the block has been initialized successfully, it's now
+	 * okay to cancel it
+	 */
+	set_bit(US_FLIDX_SG_ACTIVE, &us->dflags);
+
+	/* did an abort occur during the submission? */
+	if (test_bit(US_FLIDX_ABORTING, &us->dflags)) {
+
+		/* cancel the request, if it hasn't been cancelled already */
+		if (test_and_clear_bit(US_FLIDX_SG_ACTIVE, &us->dflags)) {
+			usb_stor_dbg(us, "-- cancelling sg request\n");
+			usb_sg_cancel(&us->current_sg);
+		}
+	}
+
+	/* wait for the completion of the transfer */
+	usb_sg_wait(&us->current_sg);
+	clear_bit(US_FLIDX_SG_ACTIVE, &us->dflags);
+
+	result = us->current_sg.status;
+	if (act_len)
+		*act_len = us->current_sg.bytes;
+	return interpret_urb_result(us, pipe, length, result,
+			us->current_sg.bytes);
+
+usb_stor_xfer_error:
+	if (act_len)
+		*act_len = 0;
+	return USB_STOR_XFER_ERROR;
+}
+void usb_sg_wait(struct usb_sg_request *io)
+{
+	int i;
+	int entries = io->entries;
+
+	/* queue the urbs.  */
+	spin_lock_irq(&io->lock);
+	i = 0;
+	while (i < entries && !io->status) {
+		int retval;
+
+		io->urbs[i]->dev = io->dev;
+		spin_unlock_irq(&io->lock);
+
+		retval = usb_submit_urb(io->urbs[i], GFP_NOIO);
+
+		switch (retval) {
+			/* maybe we retrying will recover */
+		case -ENXIO:	/* hc didn't queue this one */
+		case -EAGAIN:
+		case -ENOMEM:
+			retval = 0;
+			yield();
+			break;
+
+			/* no error? continue immediately.
+			 *
+			 * NOTE: to work better with UHCI (4K I/O buffer may
+			 * need 3K of TDs) it may be good to limit how many
+			 * URBs are queued at once; N milliseconds?
+			 */
+		case 0:
+			++i;
+			cpu_relax();
+			break;
+
+			/* fail any uncompleted urbs */
+		default:
+			io->urbs[i]->status = retval;
+			dev_dbg(&io->dev->dev, "%s, submit --> %d\n",
+				__func__, retval);
+			usb_sg_cancel(io);
+		}
+		spin_lock_irq(&io->lock);
+		if (retval && (io->status == 0 || io->status == -ECONNRESET))
+			io->status = retval;
+	}
+	io->count -= entries - i;
+	if (io->count == 0)
+		complete(&io->complete);
+	spin_unlock_irq(&io->lock);
+
+	/* OK, yes, this could be packaged as non-blocking.
+	 * So could the submit loop above ... but it's easier to
+	 * solve neither problem than to solve both!
+	 */
+	wait_for_completion(&io->complete);
+
+	sg_clean(io);
+}
+SYSCALL_DEFINE0(sched_yield)
+{
+	do_sched_yield();
+	return 0;
+}

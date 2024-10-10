@@ -1,0 +1,52 @@
+static void sk_filter_release_rcu(struct rcu_head *rcu)
+{
+	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
+
+	__sk_filter_release(fp);
+}
+static void __sk_filter_release(struct sk_filter *fp)
+{
+	__bpf_prog_release(fp->prog);
+	kfree(fp);
+}
+static void __bpf_prog_release(struct bpf_prog *prog)
+{
+	if (prog->type == BPF_PROG_TYPE_SOCKET_FILTER) {
+		bpf_prog_put(prog);
+	} else {
+		bpf_release_orig_filter(prog);
+		bpf_prog_free(prog);
+	}
+}
+static void reuseport_free_rcu(struct rcu_head *head)
+{
+	struct sock_reuseport *reuse;
+
+	reuse = container_of(head, struct sock_reuseport, rcu);
+	sk_reuseport_prog_free(rcu_dereference_protected(reuse->prog, 1));
+	ida_free(&reuseport_ida, reuse->reuseport_id);
+	kfree(reuse);
+}
+void sk_reuseport_prog_free(struct bpf_prog *prog)
+{
+	if (!prog)
+		return;
+
+	if (prog->type == BPF_PROG_TYPE_SK_REUSEPORT)
+		bpf_prog_put(prog);
+	else
+		bpf_prog_destroy(prog);
+}
+void bpf_prog_destroy(struct bpf_prog *fp)
+{
+	__bpf_prog_release(fp);
+}
+static void __bpf_prog_release(struct bpf_prog *prog)
+{
+	if (prog->type == BPF_PROG_TYPE_SOCKET_FILTER) {
+		bpf_prog_put(prog);
+	} else {
+		bpf_release_orig_filter(prog);
+		bpf_prog_free(prog);
+	}
+}
