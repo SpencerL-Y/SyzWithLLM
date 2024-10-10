@@ -1,0 +1,3077 @@
+static void kernfs_notify_workfn(struct work_struct *work)
+{
+	struct kernfs_node *kn;
+	struct kernfs_super_info *info;
+	struct kernfs_root *root;
+repeat:
+	/* pop one off the notify_list */
+	spin_lock_irq(&kernfs_notify_lock);
+	kn = kernfs_notify_list;
+	if (kn == KERNFS_NOTIFY_EOL) {
+		spin_unlock_irq(&kernfs_notify_lock);
+		return;
+	}
+	kernfs_notify_list = kn->attr.notify_next;
+	kn->attr.notify_next = NULL;
+	spin_unlock_irq(&kernfs_notify_lock);
+
+	root = kernfs_root(kn);
+	/* kick fsnotify */
+
+	down_read(&root->kernfs_supers_rwsem);
+	list_for_each_entry(info, &kernfs_root(kn)->supers, node) {
+		struct kernfs_node *parent;
+		struct inode *p_inode = NULL;
+		struct inode *inode;
+		struct qstr name;
+
+		/*
+		 * We want fsnotify_modify() on @kn but as the
+		 * modifications aren't originating from userland don't
+		 * have the matching @file available.  Look up the inodes
+		 * and generate the events manually.
+		 */
+		inode = ilookup(info->sb, kernfs_ino(kn));
+		if (!inode)
+			continue;
+
+		name = (struct qstr)QSTR_INIT(kn->name, strlen(kn->name));
+		parent = kernfs_get_parent(kn);
+		if (parent) {
+			p_inode = ilookup(info->sb, kernfs_ino(parent));
+			if (p_inode) {
+				fsnotify(FS_MODIFY | FS_EVENT_ON_CHILD,
+					 inode, FSNOTIFY_EVENT_INODE,
+					 p_inode, &name, inode, 0);
+				iput(p_inode);
+			}
+
+			kernfs_put(parent);
+		}
+
+		if (!p_inode)
+			fsnotify_inode(inode, FS_MODIFY);
+
+		iput(inode);
+	}
+
+	up_read(&root->kernfs_supers_rwsem);
+	kernfs_put(kn);
+	goto repeat;
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+static int ext4_acquire_dquot(struct dquot *dquot)
+{
+	int ret, err;
+	handle_t *handle;
+
+	handle = ext4_journal_start(dquot_to_inode(dquot), EXT4_HT_QUOTA,
+				    EXT4_QUOTA_INIT_BLOCKS(dquot->dq_sb));
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	ret = dquot_acquire(dquot);
+	if (ret < 0)
+		ext4_error_err(dquot->dq_sb, -ret,
+			      "Failed to acquire dquot type %d",
+			      dquot->dq_id.type);
+	err = ext4_journal_stop(handle);
+	if (!ret)
+		ret = err;
+	return ret;
+}
+void __ext4_error(struct super_block *sb, const char *function,
+		  unsigned int line, bool force_ro, int error, __u64 block,
+		  const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+
+	if (unlikely(ext4_forced_shutdown(sb)))
+		return;
+
+	trace_ext4_error(sb, function, line);
+	if (ext4_error_ratelimit(sb)) {
+		va_start(args, fmt);
+		vaf.fmt = fmt;
+		vaf.va = &args;
+		printk(KERN_CRIT
+		       "EXT4-fs error (device %s): %s:%d: comm %s: %pV\n",
+		       sb->s_id, function, line, current->comm, &vaf);
+		va_end(args);
+	}
+	fsnotify_sb_error(sb, NULL, error ? error : EFSCORRUPTED);
+
+	ext4_handle_error(sb, force_ro, error, 0, block, function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+void ext4_evict_inode(struct inode *inode)
+{
+	handle_t *handle;
+	int err;
+	/*
+	 * Credits for final inode cleanup and freeing:
+	 * sb + inode (ext4_orphan_del()), block bitmap, group descriptor
+	 * (xattr block freeing), bitmap, group descriptor (inode freeing)
+	 */
+	int extra_credits = 6;
+	struct ext4_xattr_inode_array *ea_inode_array = NULL;
+	bool freeze_protected = false;
+
+	trace_ext4_evict_inode(inode);
+
+	if (EXT4_I(inode)->i_flags & EXT4_EA_INODE_FL)
+		ext4_evict_ea_inode(inode);
+	if (inode->i_nlink) {
+		truncate_inode_pages_final(&inode->i_data);
+
+		goto no_delete;
+	}
+
+	if (is_bad_inode(inode))
+		goto no_delete;
+	dquot_initialize(inode);
+
+	if (ext4_should_order_data(inode))
+		ext4_begin_ordered_truncate(inode, 0);
+	truncate_inode_pages_final(&inode->i_data);
+
+	/*
+	 * For inodes with journalled data, transaction commit could have
+	 * dirtied the inode. And for inodes with dioread_nolock, unwritten
+	 * extents converting worker could merge extents and also have dirtied
+	 * the inode. Flush worker is ignoring it because of I_FREEING flag but
+	 * we still need to remove the inode from the writeback lists.
+	 */
+	if (!list_empty_careful(&inode->i_io_list))
+		inode_io_list_del(inode);
+
+	/*
+	 * Protect us against freezing - iput() caller didn't have to have any
+	 * protection against it. When we are in a running transaction though,
+	 * we are already protected against freezing and we cannot grab further
+	 * protection due to lock ordering constraints.
+	 */
+	if (!ext4_journal_current_handle()) {
+		sb_start_intwrite(inode->i_sb);
+		freeze_protected = true;
+	}
+
+	if (!IS_NOQUOTA(inode))
+		extra_credits += EXT4_MAXQUOTAS_DEL_BLOCKS(inode->i_sb);
+
+	/*
+	 * Block bitmap, group descriptor, and inode are accounted in both
+	 * ext4_blocks_for_truncate() and extra_credits. So subtract 3.
+	 */
+	handle = ext4_journal_start(inode, EXT4_HT_TRUNCATE,
+			 ext4_blocks_for_truncate(inode) + extra_credits - 3);
+	if (IS_ERR(handle)) {
+		ext4_std_error(inode->i_sb, PTR_ERR(handle));
+		/*
+		 * If we're going to skip the normal cleanup, we still need to
+		 * make sure that the in-core orphan linked list is properly
+		 * cleaned up.
+		 */
+		ext4_orphan_del(NULL, inode);
+		if (freeze_protected)
+			sb_end_intwrite(inode->i_sb);
+		goto no_delete;
+	}
+
+	if (IS_SYNC(inode))
+		ext4_handle_sync(handle);
+
+	/*
+	 * Set inode->i_size to 0 before calling ext4_truncate(). We need
+	 * special handling of symlinks here because i_size is used to
+	 * determine whether ext4_inode_info->i_data contains symlink data or
+	 * block mappings. Setting i_size to 0 will remove its fast symlink
+	 * status. Erase i_data so that it becomes a valid empty block map.
+	 */
+	if (ext4_inode_is_fast_symlink(inode))
+		memset(EXT4_I(inode)->i_data, 0, sizeof(EXT4_I(inode)->i_data));
+	inode->i_size = 0;
+	err = ext4_mark_inode_dirty(handle, inode);
+	if (err) {
+		ext4_warning(inode->i_sb,
+			     "couldn't mark inode dirty (err %d)", err);
+		goto stop_handle;
+	}
+	if (inode->i_blocks) {
+		err = ext4_truncate(inode);
+		if (err) {
+			ext4_error_err(inode->i_sb, -err,
+				       "couldn't truncate inode %lu (err %d)",
+				       inode->i_ino, err);
+			goto stop_handle;
+		}
+	}
+
+	/* Remove xattr references. */
+	err = ext4_xattr_delete_inode(handle, inode, &ea_inode_array,
+				      extra_credits);
+	if (err) {
+		ext4_warning(inode->i_sb, "xattr delete (err %d)", err);
+stop_handle:
+		ext4_journal_stop(handle);
+		ext4_orphan_del(NULL, inode);
+		if (freeze_protected)
+			sb_end_intwrite(inode->i_sb);
+		ext4_xattr_inode_array_free(ea_inode_array);
+		goto no_delete;
+	}
+
+	/*
+	 * Kill off the orphan record which ext4_truncate created.
+	 * AKPM: I think this can be inside the above `if'.
+	 * Note that ext4_orphan_del() has to be able to cope with the
+	 * deletion of a non-existent orphan - this is because we don't
+	 * know if ext4_truncate() actually created an orphan record.
+	 * (Well, we could do this if we need to, but heck - it works)
+	 */
+	ext4_orphan_del(handle, inode);
+	EXT4_I(inode)->i_dtime	= (__u32)ktime_get_real_seconds();
+
+	/*
+	 * One subtle ordering requirement: if anything has gone wrong
+	 * (transaction abort, IO errors, whatever), then we can still
+	 * do these next steps (the fs will already have been marked as
+	 * having errors), but we can't free the inode if the mark_dirty
+	 * fails.
+	 */
+	if (ext4_mark_inode_dirty(handle, inode))
+		/* If that failed, just do the required in-core inode clear. */
+		ext4_clear_inode(inode);
+	else
+		ext4_free_inode(handle, inode);
+	ext4_journal_stop(handle);
+	if (freeze_protected)
+		sb_end_intwrite(inode->i_sb);
+	ext4_xattr_inode_array_free(ea_inode_array);
+	return;
+no_delete:
+	/*
+	 * Check out some where else accidentally dirty the evicting inode,
+	 * which may probably cause inode use-after-free issues later.
+	 */
+	WARN_ON_ONCE(!list_empty_careful(&inode->i_io_list));
+
+	if (!list_empty(&EXT4_I(inode)->i_fc_list))
+		ext4_fc_mark_ineligible(inode->i_sb, EXT4_FC_REASON_NOMEM, NULL);
+	ext4_clear_inode(inode);	/* We must guarantee clearing of inode... */
+}
+void __ext4_error(struct super_block *sb, const char *function,
+		  unsigned int line, bool force_ro, int error, __u64 block,
+		  const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+
+	if (unlikely(ext4_forced_shutdown(sb)))
+		return;
+
+	trace_ext4_error(sb, function, line);
+	if (ext4_error_ratelimit(sb)) {
+		va_start(args, fmt);
+		vaf.fmt = fmt;
+		vaf.va = &args;
+		printk(KERN_CRIT
+		       "EXT4-fs error (device %s): %s:%d: comm %s: %pV\n",
+		       sb->s_id, function, line, current->comm, &vaf);
+		va_end(args);
+	}
+	fsnotify_sb_error(sb, NULL, error ? error : EFSCORRUPTED);
+
+	ext4_handle_error(sb, force_ro, error, 0, block, function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+static void ext4_put_super(struct super_block *sb)
+{
+	struct ext4_sb_info *sbi = EXT4_SB(sb);
+	struct ext4_super_block *es = sbi->s_es;
+	int aborted = 0;
+	int err;
+
+	/*
+	 * Unregister sysfs before destroying jbd2 journal.
+	 * Since we could still access attr_journal_task attribute via sysfs
+	 * path which could have sbi->s_journal->j_task as NULL
+	 * Unregister sysfs before flush sbi->s_sb_upd_work.
+	 * Since user may read /proc/fs/ext4/xx/mb_groups during umount, If
+	 * read metadata verify failed then will queue error work.
+	 * update_super_work will call start_this_handle may trigger
+	 * BUG_ON.
+	 */
+	ext4_unregister_sysfs(sb);
+
+	if (___ratelimit(&ext4_mount_msg_ratelimit, "EXT4-fs unmount"))
+		ext4_msg(sb, KERN_INFO, "unmounting filesystem %pU.",
+			 &sb->s_uuid);
+
+	ext4_unregister_li_request(sb);
+	ext4_quotas_off(sb, EXT4_MAXQUOTAS);
+
+	flush_work(&sbi->s_sb_upd_work);
+	destroy_workqueue(sbi->rsv_conversion_wq);
+	ext4_release_orphan_info(sb);
+
+	if (sbi->s_journal) {
+		aborted = is_journal_aborted(sbi->s_journal);
+		err = jbd2_journal_destroy(sbi->s_journal);
+		sbi->s_journal = NULL;
+		if ((err < 0) && !aborted) {
+			ext4_abort(sb, -err, "Couldn't clean up the journal");
+		}
+	}
+
+	ext4_es_unregister_shrinker(sbi);
+	timer_shutdown_sync(&sbi->s_err_report);
+	ext4_release_system_zone(sb);
+	ext4_mb_release(sb);
+	ext4_ext_release(sb);
+
+	if (!sb_rdonly(sb) && !aborted) {
+		ext4_clear_feature_journal_needs_recovery(sb);
+		ext4_clear_feature_orphan_present(sb);
+		es->s_state = cpu_to_le16(sbi->s_mount_state);
+	}
+	if (!sb_rdonly(sb))
+		ext4_commit_super(sb);
+
+	ext4_group_desc_free(sbi);
+	ext4_flex_groups_free(sbi);
+	ext4_percpu_param_destroy(sbi);
+#ifdef CONFIG_QUOTA
+	for (int i = 0; i < EXT4_MAXQUOTAS; i++)
+		kfree(get_qf_name(sb, sbi, i));
+#endif
+
+	/* Debugging code just in case the in-memory inode orphan list
+	 * isn't empty.  The on-disk one can be non-empty if we've
+	 * detected an error and taken the fs readonly, but the
+	 * in-memory list had better be clean by this point. */
+	if (!list_empty(&sbi->s_orphan))
+		dump_orphan_list(sb, sbi);
+	ASSERT(list_empty(&sbi->s_orphan));
+
+	sync_blockdev(sb->s_bdev);
+	invalidate_bdev(sb->s_bdev);
+	if (sbi->s_journal_bdev_file) {
+		/*
+		 * Invalidate the journal device's buffers.  We don't want them
+		 * floating about in memory - the physical journal device may
+		 * hotswapped, and it breaks the `ro-after' testing code.
+		 */
+		sync_blockdev(file_bdev(sbi->s_journal_bdev_file));
+		invalidate_bdev(file_bdev(sbi->s_journal_bdev_file));
+	}
+
+	ext4_xattr_destroy_cache(sbi->s_ea_inode_cache);
+	sbi->s_ea_inode_cache = NULL;
+
+	ext4_xattr_destroy_cache(sbi->s_ea_block_cache);
+	sbi->s_ea_block_cache = NULL;
+
+	ext4_stop_mmpd(sbi);
+
+	brelse(sbi->s_sbh);
+	sb->s_fs_info = NULL;
+	/*
+	 * Now that we are completely done shutting down the
+	 * superblock, we need to actually destroy the kobject.
+	 */
+	kobject_put(&sbi->s_kobj);
+	wait_for_completion(&sbi->s_kobj_unregister);
+	if (sbi->s_chksum_driver)
+		crypto_free_shash(sbi->s_chksum_driver);
+	kfree(sbi->s_blockgroup_lock);
+	fs_put_dax(sbi->s_daxdev, NULL);
+	fscrypt_free_dummy_policy(&sbi->s_dummy_enc_policy);
+#if IS_ENABLED(CONFIG_UNICODE)
+	utf8_unload(sb->s_encoding);
+#endif
+	kfree(sbi);
+}
+void __ext4_error(struct super_block *sb, const char *function,
+		  unsigned int line, bool force_ro, int error, __u64 block,
+		  const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+
+	if (unlikely(ext4_forced_shutdown(sb)))
+		return;
+
+	trace_ext4_error(sb, function, line);
+	if (ext4_error_ratelimit(sb)) {
+		va_start(args, fmt);
+		vaf.fmt = fmt;
+		vaf.va = &args;
+		printk(KERN_CRIT
+		       "EXT4-fs error (device %s): %s:%d: comm %s: %pV\n",
+		       sb->s_id, function, line, current->comm, &vaf);
+		va_end(args);
+	}
+	fsnotify_sb_error(sb, NULL, error ? error : EFSCORRUPTED);
+
+	ext4_handle_error(sb, force_ro, error, 0, block, function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+static int ext4_release_dquot(struct dquot *dquot)
+{
+	int ret, err;
+	handle_t *handle;
+
+	handle = ext4_journal_start(dquot_to_inode(dquot), EXT4_HT_QUOTA,
+				    EXT4_QUOTA_DEL_BLOCKS(dquot->dq_sb));
+	if (IS_ERR(handle)) {
+		/* Release dquot anyway to avoid endless cycle in dqput() */
+		dquot_release(dquot);
+		return PTR_ERR(handle);
+	}
+	ret = dquot_release(dquot);
+	if (ret < 0)
+		ext4_error_err(dquot->dq_sb, -ret,
+			       "Failed to release dquot type %d",
+			       dquot->dq_id.type);
+	err = ext4_journal_stop(handle);
+	if (!ret)
+		ret = err;
+	return ret;
+}
+void __ext4_error(struct super_block *sb, const char *function,
+		  unsigned int line, bool force_ro, int error, __u64 block,
+		  const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+
+	if (unlikely(ext4_forced_shutdown(sb)))
+		return;
+
+	trace_ext4_error(sb, function, line);
+	if (ext4_error_ratelimit(sb)) {
+		va_start(args, fmt);
+		vaf.fmt = fmt;
+		vaf.va = &args;
+		printk(KERN_CRIT
+		       "EXT4-fs error (device %s): %s:%d: comm %s: %pV\n",
+		       sb->s_id, function, line, current->comm, &vaf);
+		va_end(args);
+	}
+	fsnotify_sb_error(sb, NULL, error ? error : EFSCORRUPTED);
+
+	ext4_handle_error(sb, force_ro, error, 0, block, function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+static int kmmpd(void *data)
+{
+	struct super_block *sb = data;
+	struct ext4_super_block *es = EXT4_SB(sb)->s_es;
+	struct buffer_head *bh = EXT4_SB(sb)->s_mmp_bh;
+	struct mmp_struct *mmp;
+	ext4_fsblk_t mmp_block;
+	u32 seq = 0;
+	unsigned long failed_writes = 0;
+	int mmp_update_interval = le16_to_cpu(es->s_mmp_update_interval);
+	unsigned mmp_check_interval;
+	unsigned long last_update_time;
+	unsigned long diff;
+	int retval = 0;
+
+	mmp_block = le64_to_cpu(es->s_mmp_block);
+	mmp = (struct mmp_struct *)(bh->b_data);
+	mmp->mmp_time = cpu_to_le64(ktime_get_real_seconds());
+	/*
+	 * Start with the higher mmp_check_interval and reduce it if
+	 * the MMP block is being updated on time.
+	 */
+	mmp_check_interval = max(EXT4_MMP_CHECK_MULT * mmp_update_interval,
+				 EXT4_MMP_MIN_CHECK_INTERVAL);
+	mmp->mmp_check_interval = cpu_to_le16(mmp_check_interval);
+
+	memcpy(mmp->mmp_nodename, init_utsname()->nodename,
+	       sizeof(mmp->mmp_nodename));
+
+	while (!kthread_should_stop() && !ext4_forced_shutdown(sb)) {
+		if (!ext4_has_feature_mmp(sb)) {
+			ext4_warning(sb, "kmmpd being stopped since MMP feature"
+				     " has been disabled.");
+			goto wait_to_exit;
+		}
+		if (++seq > EXT4_MMP_SEQ_MAX)
+			seq = 1;
+
+		mmp->mmp_seq = cpu_to_le32(seq);
+		mmp->mmp_time = cpu_to_le64(ktime_get_real_seconds());
+		last_update_time = jiffies;
+
+		retval = write_mmp_block(sb, bh);
+		/*
+		 * Don't spew too many error messages. Print one every
+		 * (s_mmp_update_interval * 60) seconds.
+		 */
+		if (retval) {
+			if ((failed_writes % 60) == 0) {
+				ext4_error_err(sb, -retval,
+					       "Error writing to MMP block");
+			}
+			failed_writes++;
+		}
+
+		diff = jiffies - last_update_time;
+		if (diff < mmp_update_interval * HZ)
+			schedule_timeout_interruptible(mmp_update_interval *
+						       HZ - diff);
+
+		/*
+		 * We need to make sure that more than mmp_check_interval
+		 * seconds have not passed since writing. If that has happened
+		 * we need to check if the MMP block is as we left it.
+		 */
+		diff = jiffies - last_update_time;
+		if (diff > mmp_check_interval * HZ) {
+			struct buffer_head *bh_check = NULL;
+			struct mmp_struct *mmp_check;
+
+			retval = read_mmp_block(sb, &bh_check, mmp_block);
+			if (retval) {
+				ext4_error_err(sb, -retval,
+					       "error reading MMP data: %d",
+					       retval);
+				goto wait_to_exit;
+			}
+
+			mmp_check = (struct mmp_struct *)(bh_check->b_data);
+			if (mmp->mmp_seq != mmp_check->mmp_seq ||
+			    memcmp(mmp->mmp_nodename, mmp_check->mmp_nodename,
+				   sizeof(mmp->mmp_nodename))) {
+				dump_mmp_msg(sb, mmp_check,
+					     "Error while updating MMP info. "
+					     "The filesystem seems to have been"
+					     " multiply mounted.");
+				ext4_error_err(sb, EBUSY, "abort");
+				put_bh(bh_check);
+				retval = -EBUSY;
+				goto wait_to_exit;
+			}
+			put_bh(bh_check);
+		}
+
+		 /*
+		 * Adjust the mmp_check_interval depending on how much time
+		 * it took for the MMP block to be written.
+		 */
+		mmp_check_interval = max(min(EXT4_MMP_CHECK_MULT * diff / HZ,
+					     EXT4_MMP_MAX_CHECK_INTERVAL),
+					 EXT4_MMP_MIN_CHECK_INTERVAL);
+		mmp->mmp_check_interval = cpu_to_le16(mmp_check_interval);
+	}
+
+	/*
+	 * Unmount seems to be clean.
+	 */
+	mmp->mmp_seq = cpu_to_le32(EXT4_MMP_SEQ_CLEAN);
+	mmp->mmp_time = cpu_to_le64(ktime_get_real_seconds());
+
+	retval = write_mmp_block(sb, bh);
+
+wait_to_exit:
+	while (!kthread_should_stop()) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		if (!kthread_should_stop())
+			schedule();
+	}
+	set_current_state(TASK_RUNNING);
+	return retval;
+}
+void __ext4_error(struct super_block *sb, const char *function,
+		  unsigned int line, bool force_ro, int error, __u64 block,
+		  const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+
+	if (unlikely(ext4_forced_shutdown(sb)))
+		return;
+
+	trace_ext4_error(sb, function, line);
+	if (ext4_error_ratelimit(sb)) {
+		va_start(args, fmt);
+		vaf.fmt = fmt;
+		vaf.va = &args;
+		printk(KERN_CRIT
+		       "EXT4-fs error (device %s): %s:%d: comm %s: %pV\n",
+		       sb->s_id, function, line, current->comm, &vaf);
+		va_end(args);
+	}
+	fsnotify_sb_error(sb, NULL, error ? error : EFSCORRUPTED);
+
+	ext4_handle_error(sb, force_ro, error, 0, block, function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+static int ext4_readdir(struct file *file, struct dir_context *ctx)
+{
+	unsigned int offset;
+	int i;
+	struct ext4_dir_entry_2 *de;
+	int err;
+	struct inode *inode = file_inode(file);
+	struct super_block *sb = inode->i_sb;
+	struct buffer_head *bh = NULL;
+	struct fscrypt_str fstr = FSTR_INIT(NULL, 0);
+
+	err = fscrypt_prepare_readdir(inode);
+	if (err)
+		return err;
+
+	if (is_dx_dir(inode)) {
+		err = ext4_dx_readdir(file, ctx);
+		if (err != ERR_BAD_DX_DIR)
+			return err;
+
+		/* Can we just clear INDEX flag to ignore htree information? */
+		if (!ext4_has_metadata_csum(sb)) {
+			/*
+			 * We don't set the inode dirty flag since it's not
+			 * critical that it gets flushed back to the disk.
+			 */
+			ext4_clear_inode_flag(inode, EXT4_INODE_INDEX);
+		}
+	}
+
+	if (ext4_has_inline_data(inode)) {
+		int has_inline_data = 1;
+		err = ext4_read_inline_dir(file, ctx,
+					   &has_inline_data);
+		if (has_inline_data)
+			return err;
+	}
+
+	if (IS_ENCRYPTED(inode)) {
+		err = fscrypt_fname_alloc_buffer(EXT4_NAME_LEN, &fstr);
+		if (err < 0)
+			return err;
+	}
+
+	while (ctx->pos < inode->i_size) {
+		struct ext4_map_blocks map;
+
+		if (fatal_signal_pending(current)) {
+			err = -ERESTARTSYS;
+			goto errout;
+		}
+		cond_resched();
+		offset = ctx->pos & (sb->s_blocksize - 1);
+		map.m_lblk = ctx->pos >> EXT4_BLOCK_SIZE_BITS(sb);
+		map.m_len = 1;
+		err = ext4_map_blocks(NULL, inode, &map, 0);
+		if (err == 0) {
+			/* m_len should never be zero but let's avoid
+			 * an infinite loop if it somehow is */
+			if (map.m_len == 0)
+				map.m_len = 1;
+			ctx->pos += map.m_len * sb->s_blocksize;
+			continue;
+		}
+		if (err > 0) {
+			pgoff_t index = map.m_pblk >>
+					(PAGE_SHIFT - inode->i_blkbits);
+			if (!ra_has_index(&file->f_ra, index))
+				page_cache_sync_readahead(
+					sb->s_bdev->bd_inode->i_mapping,
+					&file->f_ra, file,
+					index, 1);
+			file->f_ra.prev_pos = (loff_t)index << PAGE_SHIFT;
+			bh = ext4_bread(NULL, inode, map.m_lblk, 0);
+			if (IS_ERR(bh)) {
+				err = PTR_ERR(bh);
+				bh = NULL;
+				goto errout;
+			}
+		}
+
+		if (!bh) {
+			/* corrupt size?  Maybe no more blocks to read */
+			if (ctx->pos > inode->i_blocks << 9)
+				break;
+			ctx->pos += sb->s_blocksize - offset;
+			continue;
+		}
+
+		/* Check the checksum */
+		if (!buffer_verified(bh) &&
+		    !ext4_dirblock_csum_verify(inode, bh)) {
+			EXT4_ERROR_FILE(file, 0, "directory fails checksum "
+					"at offset %llu",
+					(unsigned long long)ctx->pos);
+			ctx->pos += sb->s_blocksize - offset;
+			brelse(bh);
+			bh = NULL;
+			continue;
+		}
+		set_buffer_verified(bh);
+
+		/* If the dir block has changed since the last call to
+		 * readdir(2), then we might be pointing to an invalid
+		 * dirent right now.  Scan from the start of the block
+		 * to make sure. */
+		if (!inode_eq_iversion(inode, file->f_version)) {
+			for (i = 0; i < sb->s_blocksize && i < offset; ) {
+				de = (struct ext4_dir_entry_2 *)
+					(bh->b_data + i);
+				/* It's too expensive to do a full
+				 * dirent test each time round this
+				 * loop, but we do have to test at
+				 * least that it is non-zero.  A
+				 * failure will be detected in the
+				 * dirent test below. */
+				if (ext4_rec_len_from_disk(de->rec_len,
+					sb->s_blocksize) < ext4_dir_rec_len(1,
+									inode))
+					break;
+				i += ext4_rec_len_from_disk(de->rec_len,
+							    sb->s_blocksize);
+			}
+			offset = i;
+			ctx->pos = (ctx->pos & ~(sb->s_blocksize - 1))
+				| offset;
+			file->f_version = inode_query_iversion(inode);
+		}
+
+		while (ctx->pos < inode->i_size
+		       && offset < sb->s_blocksize) {
+			de = (struct ext4_dir_entry_2 *) (bh->b_data + offset);
+			if (ext4_check_dir_entry(inode, file, de, bh,
+						 bh->b_data, bh->b_size,
+						 offset)) {
+				/*
+				 * On error, skip to the next block
+				 */
+				ctx->pos = (ctx->pos |
+						(sb->s_blocksize - 1)) + 1;
+				break;
+			}
+			offset += ext4_rec_len_from_disk(de->rec_len,
+					sb->s_blocksize);
+			if (le32_to_cpu(de->inode)) {
+				if (!IS_ENCRYPTED(inode)) {
+					if (!dir_emit(ctx, de->name,
+					    de->name_len,
+					    le32_to_cpu(de->inode),
+					    get_dtype(sb, de->file_type)))
+						goto done;
+				} else {
+					int save_len = fstr.len;
+					struct fscrypt_str de_name =
+							FSTR_INIT(de->name,
+								de->name_len);
+
+					/* Directory is encrypted */
+					err = fscrypt_fname_disk_to_usr(inode,
+						EXT4_DIRENT_HASH(de),
+						EXT4_DIRENT_MINOR_HASH(de),
+						&de_name, &fstr);
+					de_name = fstr;
+					fstr.len = save_len;
+					if (err)
+						goto errout;
+					if (!dir_emit(ctx,
+					    de_name.name, de_name.len,
+					    le32_to_cpu(de->inode),
+					    get_dtype(sb, de->file_type)))
+						goto done;
+				}
+			}
+			ctx->pos += ext4_rec_len_from_disk(de->rec_len,
+						sb->s_blocksize);
+		}
+		if ((ctx->pos < inode->i_size) && !dir_relax_shared(inode))
+			goto done;
+		brelse(bh);
+		bh = NULL;
+	}
+done:
+	err = 0;
+errout:
+	fscrypt_fname_free_buffer(&fstr);
+	brelse(bh);
+	return err;
+}
+void __ext4_error_file(struct file *file, const char *function,
+		       unsigned int line, ext4_fsblk_t block,
+		       const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+	struct inode *inode = file_inode(file);
+	char pathname[80], *path;
+
+	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
+		return;
+
+	trace_ext4_error(inode->i_sb, function, line);
+	if (ext4_error_ratelimit(inode->i_sb)) {
+		path = file_path(file, pathname, sizeof(pathname));
+		if (IS_ERR(path))
+			path = "(unknown)";
+		va_start(args, fmt);
+		vaf.fmt = fmt;
+		vaf.va = &args;
+		if (block)
+			printk(KERN_CRIT
+			       "EXT4-fs error (device %s): %s:%d: inode #%lu: "
+			       "block %llu: comm %s: path %s: %pV\n",
+			       inode->i_sb->s_id, function, line, inode->i_ino,
+			       block, current->comm, path, &vaf);
+		else
+			printk(KERN_CRIT
+			       "EXT4-fs error (device %s): %s:%d: inode #%lu: "
+			       "comm %s: path %s: %pV\n",
+			       inode->i_sb->s_id, function, line, inode->i_ino,
+			       current->comm, path, &vaf);
+		va_end(args);
+	}
+	fsnotify_sb_error(inode->i_sb, inode, EFSCORRUPTED);
+
+	ext4_handle_error(inode->i_sb, false, EFSCORRUPTED, inode->i_ino, block,
+			  function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+static const char *ext4_encrypted_get_link(struct dentry *dentry,
+					   struct inode *inode,
+					   struct delayed_call *done)
+{
+	struct buffer_head *bh = NULL;
+	const void *caddr;
+	unsigned int max_size;
+	const char *paddr;
+
+	if (!dentry)
+		return ERR_PTR(-ECHILD);
+
+	if (ext4_inode_is_fast_symlink(inode)) {
+		caddr = EXT4_I(inode)->i_data;
+		max_size = sizeof(EXT4_I(inode)->i_data);
+	} else {
+		bh = ext4_bread(NULL, inode, 0, 0);
+		if (IS_ERR(bh))
+			return ERR_CAST(bh);
+		if (!bh) {
+			EXT4_ERROR_INODE(inode, "bad symlink.");
+			return ERR_PTR(-EFSCORRUPTED);
+		}
+		caddr = bh->b_data;
+		max_size = inode->i_sb->s_blocksize;
+	}
+
+	paddr = fscrypt_get_symlink(inode, caddr, max_size, done);
+	brelse(bh);
+	return paddr;
+}
+void __ext4_error_inode(struct inode *inode, const char *function,
+			unsigned int line, ext4_fsblk_t block, int error,
+			const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+
+	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
+		return;
+
+	trace_ext4_error(inode->i_sb, function, line);
+	if (ext4_error_ratelimit(inode->i_sb)) {
+		va_start(args, fmt);
+		vaf.fmt = fmt;
+		vaf.va = &args;
+		if (block)
+			printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
+			       "inode #%lu: block %llu: comm %s: %pV\n",
+			       inode->i_sb->s_id, function, line, inode->i_ino,
+			       block, current->comm, &vaf);
+		else
+			printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
+			       "inode #%lu: comm %s: %pV\n",
+			       inode->i_sb->s_id, function, line, inode->i_ino,
+			       current->comm, &vaf);
+		va_end(args);
+	}
+	fsnotify_sb_error(inode->i_sb, inode, error ? error : EFSCORRUPTED);
+
+	ext4_handle_error(inode->i_sb, false, error, inode->i_ino, block,
+			  function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+static const char *ext4_get_link(struct dentry *dentry, struct inode *inode,
+				 struct delayed_call *callback)
+{
+	struct buffer_head *bh;
+	char *inline_link;
+
+	/*
+	 * Create a new inlined symlink is not supported, just provide a
+	 * method to read the leftovers.
+	 */
+	if (ext4_has_inline_data(inode)) {
+		if (!dentry)
+			return ERR_PTR(-ECHILD);
+
+		inline_link = ext4_read_inline_link(inode);
+		if (!IS_ERR(inline_link))
+			set_delayed_call(callback, kfree_link, inline_link);
+		return inline_link;
+	}
+
+	if (!dentry) {
+		bh = ext4_getblk(NULL, inode, 0, EXT4_GET_BLOCKS_CACHED_NOWAIT);
+		if (IS_ERR(bh) || !bh)
+			return ERR_PTR(-ECHILD);
+		if (!ext4_buffer_uptodate(bh)) {
+			brelse(bh);
+			return ERR_PTR(-ECHILD);
+		}
+	} else {
+		bh = ext4_bread(NULL, inode, 0, 0);
+		if (IS_ERR(bh))
+			return ERR_CAST(bh);
+		if (!bh) {
+			EXT4_ERROR_INODE(inode, "bad symlink.");
+			return ERR_PTR(-EFSCORRUPTED);
+		}
+	}
+
+	set_delayed_call(callback, ext4_free_link, bh);
+	nd_terminate_link(bh->b_data, inode->i_size,
+			  inode->i_sb->s_blocksize - 1);
+	return bh->b_data;
+}
+void __ext4_error_inode(struct inode *inode, const char *function,
+			unsigned int line, ext4_fsblk_t block, int error,
+			const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+
+	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
+		return;
+
+	trace_ext4_error(inode->i_sb, function, line);
+	if (ext4_error_ratelimit(inode->i_sb)) {
+		va_start(args, fmt);
+		vaf.fmt = fmt;
+		vaf.va = &args;
+		if (block)
+			printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
+			       "inode #%lu: block %llu: comm %s: %pV\n",
+			       inode->i_sb->s_id, function, line, inode->i_ino,
+			       block, current->comm, &vaf);
+		else
+			printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
+			       "inode #%lu: comm %s: %pV\n",
+			       inode->i_sb->s_id, function, line, inode->i_ino,
+			       current->comm, &vaf);
+		va_end(args);
+	}
+	fsnotify_sb_error(inode->i_sb, inode, error ? error : EFSCORRUPTED);
+
+	ext4_handle_error(inode->i_sb, false, error, inode->i_ino, block,
+			  function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+struct dentry *ext4_get_parent(struct dentry *child)
+{
+	__u32 ino;
+	struct ext4_dir_entry_2 * de;
+	struct buffer_head *bh;
+
+	bh = ext4_find_entry(d_inode(child), &dotdot_name, &de, NULL);
+	if (IS_ERR(bh))
+		return ERR_CAST(bh);
+	if (!bh)
+		return ERR_PTR(-ENOENT);
+	ino = le32_to_cpu(de->inode);
+	brelse(bh);
+
+	if (!ext4_valid_inum(child->d_sb, ino)) {
+		EXT4_ERROR_INODE(d_inode(child),
+				 "bad parent inode number: %u", ino);
+		return ERR_PTR(-EFSCORRUPTED);
+	}
+
+	return d_obtain_alias(ext4_iget(child->d_sb, ino, EXT4_IGET_NORMAL));
+}
+void __ext4_error_inode(struct inode *inode, const char *function,
+			unsigned int line, ext4_fsblk_t block, int error,
+			const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+
+	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
+		return;
+
+	trace_ext4_error(inode->i_sb, function, line);
+	if (ext4_error_ratelimit(inode->i_sb)) {
+		va_start(args, fmt);
+		vaf.fmt = fmt;
+		vaf.va = &args;
+		if (block)
+			printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
+			       "inode #%lu: block %llu: comm %s: %pV\n",
+			       inode->i_sb->s_id, function, line, inode->i_ino,
+			       block, current->comm, &vaf);
+		else
+			printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
+			       "inode #%lu: comm %s: %pV\n",
+			       inode->i_sb->s_id, function, line, inode->i_ino,
+			       current->comm, &vaf);
+		va_end(args);
+	}
+	fsnotify_sb_error(inode->i_sb, inode, error ? error : EFSCORRUPTED);
+
+	ext4_handle_error(inode->i_sb, false, error, inode->i_ino, block,
+			  function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
+{
+	struct inode *inode;
+	struct ext4_dir_entry_2 *de;
+	struct buffer_head *bh;
+
+	if (dentry->d_name.len > EXT4_NAME_LEN)
+		return ERR_PTR(-ENAMETOOLONG);
+
+	bh = ext4_lookup_entry(dir, dentry, &de);
+	if (IS_ERR(bh))
+		return ERR_CAST(bh);
+	inode = NULL;
+	if (bh) {
+		__u32 ino = le32_to_cpu(de->inode);
+		brelse(bh);
+		if (!ext4_valid_inum(dir->i_sb, ino)) {
+			EXT4_ERROR_INODE(dir, "bad inode number: %u", ino);
+			return ERR_PTR(-EFSCORRUPTED);
+		}
+		if (unlikely(ino == dir->i_ino)) {
+			EXT4_ERROR_INODE(dir, "'%pd' linked to parent dir",
+					 dentry);
+			return ERR_PTR(-EFSCORRUPTED);
+		}
+		inode = ext4_iget(dir->i_sb, ino, EXT4_IGET_NORMAL);
+		if (inode == ERR_PTR(-ESTALE)) {
+			EXT4_ERROR_INODE(dir,
+					 "deleted inode referenced: %u",
+					 ino);
+			return ERR_PTR(-EFSCORRUPTED);
+		}
+		if (!IS_ERR(inode) && IS_ENCRYPTED(dir) &&
+		    (S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode)) &&
+		    !fscrypt_has_permitted_context(dir, inode)) {
+			ext4_warning(inode->i_sb,
+				     "Inconsistent encryption contexts: %lu/%lu",
+				     dir->i_ino, inode->i_ino);
+			iput(inode);
+			return ERR_PTR(-EPERM);
+		}
+	}
+
+#if IS_ENABLED(CONFIG_UNICODE)
+	if (!inode && IS_CASEFOLDED(dir)) {
+		/* Eventually we want to call d_add_ci(dentry, NULL)
+		 * for negative dentries in the encoding case as
+		 * well.  For now, prevent the negative dentry
+		 * from being cached.
+		 */
+		return NULL;
+	}
+#endif
+	return d_splice_alias(inode, dentry);
+}
+void __ext4_error_inode(struct inode *inode, const char *function,
+			unsigned int line, ext4_fsblk_t block, int error,
+			const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+
+	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
+		return;
+
+	trace_ext4_error(inode->i_sb, function, line);
+	if (ext4_error_ratelimit(inode->i_sb)) {
+		va_start(args, fmt);
+		vaf.fmt = fmt;
+		vaf.va = &args;
+		if (block)
+			printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
+			       "inode #%lu: block %llu: comm %s: %pV\n",
+			       inode->i_sb->s_id, function, line, inode->i_ino,
+			       block, current->comm, &vaf);
+		else
+			printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
+			       "inode #%lu: comm %s: %pV\n",
+			       inode->i_sb->s_id, function, line, inode->i_ino,
+			       current->comm, &vaf);
+		va_end(args);
+	}
+	fsnotify_sb_error(inode->i_sb, inode, error ? error : EFSCORRUPTED);
+
+	ext4_handle_error(inode->i_sb, false, error, inode->i_ino, block,
+			  function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+void ext4_evict_inode(struct inode *inode)
+{
+	handle_t *handle;
+	int err;
+	/*
+	 * Credits for final inode cleanup and freeing:
+	 * sb + inode (ext4_orphan_del()), block bitmap, group descriptor
+	 * (xattr block freeing), bitmap, group descriptor (inode freeing)
+	 */
+	int extra_credits = 6;
+	struct ext4_xattr_inode_array *ea_inode_array = NULL;
+	bool freeze_protected = false;
+
+	trace_ext4_evict_inode(inode);
+
+	if (EXT4_I(inode)->i_flags & EXT4_EA_INODE_FL)
+		ext4_evict_ea_inode(inode);
+	if (inode->i_nlink) {
+		truncate_inode_pages_final(&inode->i_data);
+
+		goto no_delete;
+	}
+
+	if (is_bad_inode(inode))
+		goto no_delete;
+	dquot_initialize(inode);
+
+	if (ext4_should_order_data(inode))
+		ext4_begin_ordered_truncate(inode, 0);
+	truncate_inode_pages_final(&inode->i_data);
+
+	/*
+	 * For inodes with journalled data, transaction commit could have
+	 * dirtied the inode. And for inodes with dioread_nolock, unwritten
+	 * extents converting worker could merge extents and also have dirtied
+	 * the inode. Flush worker is ignoring it because of I_FREEING flag but
+	 * we still need to remove the inode from the writeback lists.
+	 */
+	if (!list_empty_careful(&inode->i_io_list))
+		inode_io_list_del(inode);
+
+	/*
+	 * Protect us against freezing - iput() caller didn't have to have any
+	 * protection against it. When we are in a running transaction though,
+	 * we are already protected against freezing and we cannot grab further
+	 * protection due to lock ordering constraints.
+	 */
+	if (!ext4_journal_current_handle()) {
+		sb_start_intwrite(inode->i_sb);
+		freeze_protected = true;
+	}
+
+	if (!IS_NOQUOTA(inode))
+		extra_credits += EXT4_MAXQUOTAS_DEL_BLOCKS(inode->i_sb);
+
+	/*
+	 * Block bitmap, group descriptor, and inode are accounted in both
+	 * ext4_blocks_for_truncate() and extra_credits. So subtract 3.
+	 */
+	handle = ext4_journal_start(inode, EXT4_HT_TRUNCATE,
+			 ext4_blocks_for_truncate(inode) + extra_credits - 3);
+	if (IS_ERR(handle)) {
+		ext4_std_error(inode->i_sb, PTR_ERR(handle));
+		/*
+		 * If we're going to skip the normal cleanup, we still need to
+		 * make sure that the in-core orphan linked list is properly
+		 * cleaned up.
+		 */
+		ext4_orphan_del(NULL, inode);
+		if (freeze_protected)
+			sb_end_intwrite(inode->i_sb);
+		goto no_delete;
+	}
+
+	if (IS_SYNC(inode))
+		ext4_handle_sync(handle);
+
+	/*
+	 * Set inode->i_size to 0 before calling ext4_truncate(). We need
+	 * special handling of symlinks here because i_size is used to
+	 * determine whether ext4_inode_info->i_data contains symlink data or
+	 * block mappings. Setting i_size to 0 will remove its fast symlink
+	 * status. Erase i_data so that it becomes a valid empty block map.
+	 */
+	if (ext4_inode_is_fast_symlink(inode))
+		memset(EXT4_I(inode)->i_data, 0, sizeof(EXT4_I(inode)->i_data));
+	inode->i_size = 0;
+	err = ext4_mark_inode_dirty(handle, inode);
+	if (err) {
+		ext4_warning(inode->i_sb,
+			     "couldn't mark inode dirty (err %d)", err);
+		goto stop_handle;
+	}
+	if (inode->i_blocks) {
+		err = ext4_truncate(inode);
+		if (err) {
+			ext4_error_err(inode->i_sb, -err,
+				       "couldn't truncate inode %lu (err %d)",
+				       inode->i_ino, err);
+			goto stop_handle;
+		}
+	}
+
+	/* Remove xattr references. */
+	err = ext4_xattr_delete_inode(handle, inode, &ea_inode_array,
+				      extra_credits);
+	if (err) {
+		ext4_warning(inode->i_sb, "xattr delete (err %d)", err);
+stop_handle:
+		ext4_journal_stop(handle);
+		ext4_orphan_del(NULL, inode);
+		if (freeze_protected)
+			sb_end_intwrite(inode->i_sb);
+		ext4_xattr_inode_array_free(ea_inode_array);
+		goto no_delete;
+	}
+
+	/*
+	 * Kill off the orphan record which ext4_truncate created.
+	 * AKPM: I think this can be inside the above `if'.
+	 * Note that ext4_orphan_del() has to be able to cope with the
+	 * deletion of a non-existent orphan - this is because we don't
+	 * know if ext4_truncate() actually created an orphan record.
+	 * (Well, we could do this if we need to, but heck - it works)
+	 */
+	ext4_orphan_del(handle, inode);
+	EXT4_I(inode)->i_dtime	= (__u32)ktime_get_real_seconds();
+
+	/*
+	 * One subtle ordering requirement: if anything has gone wrong
+	 * (transaction abort, IO errors, whatever), then we can still
+	 * do these next steps (the fs will already have been marked as
+	 * having errors), but we can't free the inode if the mark_dirty
+	 * fails.
+	 */
+	if (ext4_mark_inode_dirty(handle, inode))
+		/* If that failed, just do the required in-core inode clear. */
+		ext4_clear_inode(inode);
+	else
+		ext4_free_inode(handle, inode);
+	ext4_journal_stop(handle);
+	if (freeze_protected)
+		sb_end_intwrite(inode->i_sb);
+	ext4_xattr_inode_array_free(ea_inode_array);
+	return;
+no_delete:
+	/*
+	 * Check out some where else accidentally dirty the evicting inode,
+	 * which may probably cause inode use-after-free issues later.
+	 */
+	WARN_ON_ONCE(!list_empty_careful(&inode->i_io_list));
+
+	if (!list_empty(&EXT4_I(inode)->i_fc_list))
+		ext4_fc_mark_ineligible(inode->i_sb, EXT4_FC_REASON_NOMEM, NULL);
+	ext4_clear_inode(inode);	/* We must guarantee clearing of inode... */
+}
+void __ext4_std_error(struct super_block *sb, const char *function,
+		      unsigned int line, int errno)
+{
+	char nbuf[16];
+	const char *errstr;
+
+	if (unlikely(ext4_forced_shutdown(sb)))
+		return;
+
+	/* Special case: if the error is EROFS, and we're not already
+	 * inside a transaction, then there's really no point in logging
+	 * an error. */
+	if (errno == -EROFS && journal_current_handle() == NULL && sb_rdonly(sb))
+		return;
+
+	if (ext4_error_ratelimit(sb)) {
+		errstr = ext4_decode_error(sb, errno, nbuf);
+		printk(KERN_CRIT "EXT4-fs error (device %s) in %s:%d: %s\n",
+		       sb->s_id, function, line, errstr);
+	}
+	fsnotify_sb_error(sb, NULL, errno ? errno : EFSCORRUPTED);
+
+	ext4_handle_error(sb, false, -errno, 0, 0, function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+int ext4_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+		 struct iattr *attr)
+{
+	struct inode *inode = d_inode(dentry);
+	int error, rc = 0;
+	int orphan = 0;
+	const unsigned int ia_valid = attr->ia_valid;
+	bool inc_ivers = true;
+
+	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
+		return -EIO;
+
+	if (unlikely(IS_IMMUTABLE(inode)))
+		return -EPERM;
+
+	if (unlikely(IS_APPEND(inode) &&
+		     (ia_valid & (ATTR_MODE | ATTR_UID |
+				  ATTR_GID | ATTR_TIMES_SET))))
+		return -EPERM;
+
+	error = setattr_prepare(idmap, dentry, attr);
+	if (error)
+		return error;
+
+	error = fscrypt_prepare_setattr(dentry, attr);
+	if (error)
+		return error;
+
+	error = fsverity_prepare_setattr(dentry, attr);
+	if (error)
+		return error;
+
+	if (is_quota_modification(idmap, inode, attr)) {
+		error = dquot_initialize(inode);
+		if (error)
+			return error;
+	}
+
+	if (i_uid_needs_update(idmap, attr, inode) ||
+	    i_gid_needs_update(idmap, attr, inode)) {
+		handle_t *handle;
+
+		/* (user+group)*(old+new) structure, inode write (sb,
+		 * inode block, ? - but truncate inode update has it) */
+		handle = ext4_journal_start(inode, EXT4_HT_QUOTA,
+			(EXT4_MAXQUOTAS_INIT_BLOCKS(inode->i_sb) +
+			 EXT4_MAXQUOTAS_DEL_BLOCKS(inode->i_sb)) + 3);
+		if (IS_ERR(handle)) {
+			error = PTR_ERR(handle);
+			goto err_out;
+		}
+
+		/* dquot_transfer() calls back ext4_get_inode_usage() which
+		 * counts xattr inode references.
+		 */
+		down_read(&EXT4_I(inode)->xattr_sem);
+		error = dquot_transfer(idmap, inode, attr);
+		up_read(&EXT4_I(inode)->xattr_sem);
+
+		if (error) {
+			ext4_journal_stop(handle);
+			return error;
+		}
+		/* Update corresponding info in inode so that everything is in
+		 * one transaction */
+		i_uid_update(idmap, attr, inode);
+		i_gid_update(idmap, attr, inode);
+		error = ext4_mark_inode_dirty(handle, inode);
+		ext4_journal_stop(handle);
+		if (unlikely(error)) {
+			return error;
+		}
+	}
+
+	if (attr->ia_valid & ATTR_SIZE) {
+		handle_t *handle;
+		loff_t oldsize = inode->i_size;
+		loff_t old_disksize;
+		int shrink = (attr->ia_size < inode->i_size);
+
+		if (!(ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS))) {
+			struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
+
+			if (attr->ia_size > sbi->s_bitmap_maxbytes) {
+				return -EFBIG;
+			}
+		}
+		if (!S_ISREG(inode->i_mode)) {
+			return -EINVAL;
+		}
+
+		if (attr->ia_size == inode->i_size)
+			inc_ivers = false;
+
+		if (shrink) {
+			if (ext4_should_order_data(inode)) {
+				error = ext4_begin_ordered_truncate(inode,
+							    attr->ia_size);
+				if (error)
+					goto err_out;
+			}
+			/*
+			 * Blocks are going to be removed from the inode. Wait
+			 * for dio in flight.
+			 */
+			inode_dio_wait(inode);
+		}
+
+		filemap_invalidate_lock(inode->i_mapping);
+
+		rc = ext4_break_layouts(inode);
+		if (rc) {
+			filemap_invalidate_unlock(inode->i_mapping);
+			goto err_out;
+		}
+
+		if (attr->ia_size != inode->i_size) {
+			handle = ext4_journal_start(inode, EXT4_HT_INODE, 3);
+			if (IS_ERR(handle)) {
+				error = PTR_ERR(handle);
+				goto out_mmap_sem;
+			}
+			if (ext4_handle_valid(handle) && shrink) {
+				error = ext4_orphan_add(handle, inode);
+				orphan = 1;
+			}
+			/*
+			 * Update c/mtime on truncate up, ext4_truncate() will
+			 * update c/mtime in shrink case below
+			 */
+			if (!shrink)
+				inode_set_mtime_to_ts(inode,
+						      inode_set_ctime_current(inode));
+
+			if (shrink)
+				ext4_fc_track_range(handle, inode,
+					(attr->ia_size > 0 ? attr->ia_size - 1 : 0) >>
+					inode->i_sb->s_blocksize_bits,
+					EXT_MAX_BLOCKS - 1);
+			else
+				ext4_fc_track_range(
+					handle, inode,
+					(oldsize > 0 ? oldsize - 1 : oldsize) >>
+					inode->i_sb->s_blocksize_bits,
+					(attr->ia_size > 0 ? attr->ia_size - 1 : 0) >>
+					inode->i_sb->s_blocksize_bits);
+
+			down_write(&EXT4_I(inode)->i_data_sem);
+			old_disksize = EXT4_I(inode)->i_disksize;
+			EXT4_I(inode)->i_disksize = attr->ia_size;
+			rc = ext4_mark_inode_dirty(handle, inode);
+			if (!error)
+				error = rc;
+			/*
+			 * We have to update i_size under i_data_sem together
+			 * with i_disksize to avoid races with writeback code
+			 * running ext4_wb_update_i_disksize().
+			 */
+			if (!error)
+				i_size_write(inode, attr->ia_size);
+			else
+				EXT4_I(inode)->i_disksize = old_disksize;
+			up_write(&EXT4_I(inode)->i_data_sem);
+			ext4_journal_stop(handle);
+			if (error)
+				goto out_mmap_sem;
+			if (!shrink) {
+				pagecache_isize_extended(inode, oldsize,
+							 inode->i_size);
+			} else if (ext4_should_journal_data(inode)) {
+				ext4_wait_for_tail_page_commit(inode);
+			}
+		}
+
+		/*
+		 * Truncate pagecache after we've waited for commit
+		 * in data=journal mode to make pages freeable.
+		 */
+		truncate_pagecache(inode, inode->i_size);
+		/*
+		 * Call ext4_truncate() even if i_size didn't change to
+		 * truncate possible preallocated blocks.
+		 */
+		if (attr->ia_size <= oldsize) {
+			rc = ext4_truncate(inode);
+			if (rc)
+				error = rc;
+		}
+out_mmap_sem:
+		filemap_invalidate_unlock(inode->i_mapping);
+	}
+
+	if (!error) {
+		if (inc_ivers)
+			inode_inc_iversion(inode);
+		setattr_copy(idmap, inode, attr);
+		mark_inode_dirty(inode);
+	}
+
+	/*
+	 * If the call to ext4_truncate failed to get a transaction handle at
+	 * all, we need to clean up the in-core orphan list manually.
+	 */
+	if (orphan && inode->i_nlink)
+		ext4_orphan_del(NULL, inode);
+
+	if (!error && (ia_valid & ATTR_MODE))
+		rc = posix_acl_chmod(idmap, dentry, inode->i_mode);
+
+err_out:
+	if  (error)
+		ext4_std_error(inode->i_sb, error);
+	if (!error)
+		error = rc;
+	return error;
+}
+void __ext4_std_error(struct super_block *sb, const char *function,
+		      unsigned int line, int errno)
+{
+	char nbuf[16];
+	const char *errstr;
+
+	if (unlikely(ext4_forced_shutdown(sb)))
+		return;
+
+	/* Special case: if the error is EROFS, and we're not already
+	 * inside a transaction, then there's really no point in logging
+	 * an error. */
+	if (errno == -EROFS && journal_current_handle() == NULL && sb_rdonly(sb))
+		return;
+
+	if (ext4_error_ratelimit(sb)) {
+		errstr = ext4_decode_error(sb, errno, nbuf);
+		printk(KERN_CRIT "EXT4-fs error (device %s) in %s:%d: %s\n",
+		       sb->s_id, function, line, errstr);
+	}
+	fsnotify_sb_error(sb, NULL, errno ? errno : EFSCORRUPTED);
+
+	ext4_handle_error(sb, false, -errno, 0, 0, function, line);
+}
+NOT FOUNDint fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}
+static void kernfs_notify_workfn(struct work_struct *work)
+{
+	struct kernfs_node *kn;
+	struct kernfs_super_info *info;
+	struct kernfs_root *root;
+repeat:
+	/* pop one off the notify_list */
+	spin_lock_irq(&kernfs_notify_lock);
+	kn = kernfs_notify_list;
+	if (kn == KERNFS_NOTIFY_EOL) {
+		spin_unlock_irq(&kernfs_notify_lock);
+		return;
+	}
+	kernfs_notify_list = kn->attr.notify_next;
+	kn->attr.notify_next = NULL;
+	spin_unlock_irq(&kernfs_notify_lock);
+
+	root = kernfs_root(kn);
+	/* kick fsnotify */
+
+	down_read(&root->kernfs_supers_rwsem);
+	list_for_each_entry(info, &kernfs_root(kn)->supers, node) {
+		struct kernfs_node *parent;
+		struct inode *p_inode = NULL;
+		struct inode *inode;
+		struct qstr name;
+
+		/*
+		 * We want fsnotify_modify() on @kn but as the
+		 * modifications aren't originating from userland don't
+		 * have the matching @file available.  Look up the inodes
+		 * and generate the events manually.
+		 */
+		inode = ilookup(info->sb, kernfs_ino(kn));
+		if (!inode)
+			continue;
+
+		name = (struct qstr)QSTR_INIT(kn->name, strlen(kn->name));
+		parent = kernfs_get_parent(kn);
+		if (parent) {
+			p_inode = ilookup(info->sb, kernfs_ino(parent));
+			if (p_inode) {
+				fsnotify(FS_MODIFY | FS_EVENT_ON_CHILD,
+					 inode, FSNOTIFY_EVENT_INODE,
+					 p_inode, &name, inode, 0);
+				iput(p_inode);
+			}
+
+			kernfs_put(parent);
+		}
+
+		if (!p_inode)
+			fsnotify_inode(inode, FS_MODIFY);
+
+		iput(inode);
+	}
+
+	up_read(&root->kernfs_supers_rwsem);
+	kernfs_put(kn);
+	goto repeat;
+}
+int fsnotify(__u32 mask, const void *data, int data_type, struct inode *dir,
+	     const struct qstr *file_name, struct inode *inode, u32 cookie)
+{
+	const struct path *path = fsnotify_data_path(data, data_type);
+	struct super_block *sb = fsnotify_data_sb(data, data_type);
+	struct fsnotify_sb_info *sbinfo = fsnotify_sb_info(sb);
+	struct fsnotify_iter_info iter_info = {};
+	struct mount *mnt = NULL;
+	struct inode *inode2 = NULL;
+	struct dentry *moved;
+	int inode2_type;
+	int ret = 0;
+	__u32 test_mask, marks_mask;
+
+	if (path)
+		mnt = real_mount(path->mnt);
+
+	if (!inode) {
+		/* Dirent event - report on TYPE_INODE to dir */
+		inode = dir;
+		/* For FS_RENAME, inode is old_dir and inode2 is new_dir */
+		if (mask & FS_RENAME) {
+			moved = fsnotify_data_dentry(data, data_type);
+			inode2 = moved->d_parent->d_inode;
+			inode2_type = FSNOTIFY_ITER_TYPE_INODE2;
+		}
+	} else if (mask & FS_EVENT_ON_CHILD) {
+		/*
+		 * Event on child - report on TYPE_PARENT to dir if it is
+		 * watching children and on TYPE_INODE to child.
+		 */
+		inode2 = dir;
+		inode2_type = FSNOTIFY_ITER_TYPE_PARENT;
+	}
+
+	/*
+	 * Optimization: srcu_read_lock() has a memory barrier which can
+	 * be expensive.  It protects walking the *_fsnotify_marks lists.
+	 * However, if we do not walk the lists, we do not have to do
+	 * SRCU because we have no references to any objects and do not
+	 * need SRCU to keep them "alive".
+	 */
+	if ((!sbinfo || !sbinfo->sb_marks) &&
+	    (!mnt || !mnt->mnt_fsnotify_marks) &&
+	    (!inode || !inode->i_fsnotify_marks) &&
+	    (!inode2 || !inode2->i_fsnotify_marks))
+		return 0;
+
+	marks_mask = sb->s_fsnotify_mask;
+	if (mnt)
+		marks_mask |= mnt->mnt_fsnotify_mask;
+	if (inode)
+		marks_mask |= inode->i_fsnotify_mask;
+	if (inode2)
+		marks_mask |= inode2->i_fsnotify_mask;
+
+
+	/*
+	 * If this is a modify event we may need to clear some ignore masks.
+	 * In that case, the object with ignore masks will have the FS_MODIFY
+	 * event in its mask.
+	 * Otherwise, return if none of the marks care about this type of event.
+	 */
+	test_mask = (mask & ALL_FSNOTIFY_EVENTS);
+	if (!(test_mask & marks_mask))
+		return 0;
+
+	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
+
+	if (sbinfo) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_SB] =
+			fsnotify_first_mark(&sbinfo->sb_marks);
+	}
+	if (mnt) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_VFSMOUNT] =
+			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
+	}
+	if (inode) {
+		iter_info.marks[FSNOTIFY_ITER_TYPE_INODE] =
+			fsnotify_first_mark(&inode->i_fsnotify_marks);
+	}
+	if (inode2) {
+		iter_info.marks[inode2_type] =
+			fsnotify_first_mark(&inode2->i_fsnotify_marks);
+	}
+
+	/*
+	 * We need to merge inode/vfsmount/sb mark lists so that e.g. inode mark
+	 * ignore masks are properly reflected for mount/sb mark notifications.
+	 * That's why this traversal is so complicated...
+	 */
+	while (fsnotify_iter_select_report_types(&iter_info)) {
+		ret = send_to_group(mask, data, data_type, dir, file_name,
+				    cookie, &iter_info);
+
+		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
+			goto out;
+
+		fsnotify_iter_next(&iter_info);
+	}
+	ret = 0;
+out:
+	srcu_read_unlock(&fsnotify_mark_srcu, iter_info.srcu_idx);
+
+	return ret;
+}

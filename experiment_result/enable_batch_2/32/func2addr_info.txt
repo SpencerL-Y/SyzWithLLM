@@ -1,0 +1,762 @@
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+static void vunmap_pud_range(p4d_t *p4d, unsigned long addr, unsigned long end,
+----- addresses:
+ffffffff816a5a5e
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+pud_t *pud;
+----- addresses:
+ffffffff816a5a5e
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+unsigned long next;
+----- addresses:
+ffffffff816a5a5e
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+int cleared;
+----- addresses:
+ffffffff816a5a5e
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+pud = pud_offset(p4d, addr);
+----- addresses:
+ffffffff816a5a5e
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+do {
+----- addresses:
+ffffffff816a5aa6
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+next = pud_addr_end(addr, end);
+----- addresses:
+ffffffff816a5a99
+ffffffff816a5aa6
+ffffffff816a5a9d
+ffffffff816a5ab9
+ffffffff816a5ac8
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+cleared = pud_clear_huge(pud);
+----- addresses:
+ffffffff816a5ac8
+ffffffff816a5acd
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+if (cleared || pud_bad(*pud))
+----- addresses:
+ffffffff816a5ae2
+ffffffff816a5ada
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+if (pud_none_or_clear_bad(pud))
+----- addresses:
+ffffffff816a5b0a
+----- funcname:
+vunmap_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+} while (pud++, addr = next, addr != end);
+----- addresses:
+ffffffff816a5ce7
+ffffffff816a5ce2
+ffffffff816a5ced
+----- funcname:
+vunmap_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+do {
+----- addresses:
+ffffffff816a5ba9
+----- funcname:
+vunmap_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+next = pmd_addr_end(addr, end);
+----- addresses:
+ffffffff816a5b73
+ffffffff816a5bc7
+ffffffff816a5b94
+ffffffff816a5b7f
+ffffffff816a5ba9
+ffffffff816a5b97
+ffffffff816a5bbc
+----- funcname:
+vunmap_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+cleared = pmd_clear_huge(pmd);
+----- addresses:
+ffffffff816a5bc7
+ffffffff816a5b7f
+----- funcname:
+vunmap_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+if (cleared || pmd_bad(*pmd))
+----- addresses:
+ffffffff816a5bdc
+ffffffff816a5bd4
+ffffffff816a5b8c
+----- funcname:
+vunmap_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+if (pmd_none_or_clear_bad(pmd))
+----- addresses:
+ffffffff816a5c00
+ffffffff816a5d60
+----- funcname:
+vunmap_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+vunmap_pte_range(pmd, addr, next, mask);
+----- addresses:
+ffffffff816a5d1b
+ffffffff816a5c3b
+----- funcname:
+vunmap_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+cond_resched();
+----- addresses:
+ffffffff816a5cce
+----- funcname:
+vunmap_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/vmalloc.c
+----- source:
+} while (pmd++, addr = next, addr != end);
+----- addresses:
+ffffffff816a5ba0
+ffffffff816a5ce2
+ffffffff816a5cdd
+ffffffff816a5b97
+ffffffff816a5b9c
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+copy_pud_range(struct vm_area_struct *dst_vma, struct vm_area_struct *src_vma,
+----- addresses:
+ffffffff8164f895
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+struct mm_struct *dst_mm = dst_vma->vm_mm;
+----- addresses:
+ffffffff8164f895
+ffffffff816528d0
+ffffffff816528ac
+ffffffff816528be
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+struct mm_struct *src_mm = src_vma->vm_mm;
+----- addresses:
+ffffffff8164f8ba
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+pud_t *src_pud, *dst_pud;
+----- addresses:
+ffffffff8164f8ba
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+unsigned long next;
+----- addresses:
+ffffffff8164f8ba
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+dst_pud = pud_alloc(dst_mm, dst_p4d, addr);
+----- addresses:
+ffffffff8164f8ba
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (!dst_pud)
+----- addresses:
+ffffffff8164f92c
+ffffffff8164f929
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+src_pud = pud_offset(src_p4d, addr);
+----- addresses:
+ffffffff8164f93a
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+do {
+----- addresses:
+ffffffff8164f9b8
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+next = pud_addr_end(addr, end);
+----- addresses:
+ffffffff8164f9ff
+ffffffff8164f9de
+ffffffff8164f978
+ffffffff8164f9b8
+ffffffff8164f9d2
+ffffffff8164fa0d
+ffffffff8164f96a
+ffffffff8164f962
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (pud_trans_huge(*src_pud) || pud_devmap(*src_pud)) {
+----- addresses:
+ffffffff8164fa0d
+ffffffff8164f978
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (pud_none_or_clear_bad(src_pud))
+----- addresses:
+ffffffff8164fa0d
+ffffffff8164f978
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (copy_pmd_range(dst_vma, src_vma, dst_pud, src_pud,
+----- addresses:
+ffffffff8164fa5e
+----- funcname:
+copy_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+} while (dst_pud++, src_pud++, addr = next, addr != end);
+----- addresses:
+ffffffff8164f99c
+ffffffff8164f98f
+ffffffff8164f9ae
+ffffffff8164f994
+ffffffff8164f9a5
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+copy_pmd_range(struct vm_area_struct *dst_vma, struct vm_area_struct *src_vma,
+----- addresses:
+ffffffff8164fa5e
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+struct mm_struct *dst_mm = dst_vma->vm_mm;
+----- addresses:
+ffffffff81652877
+ffffffff8164fa5e
+ffffffff81652889
+ffffffff81652865
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+struct mm_struct *src_mm = src_vma->vm_mm;
+----- addresses:
+ffffffff8164fa83
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+pmd_t *src_pmd, *dst_pmd;
+----- addresses:
+ffffffff8164fa83
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+unsigned long next;
+----- addresses:
+ffffffff8164fa83
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+dst_pmd = pmd_alloc(dst_mm, dst_pud, addr);
+----- addresses:
+ffffffff8164fa83
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (!dst_pmd)
+----- addresses:
+ffffffff8164fb0d
+ffffffff8164fb0a
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+src_pmd = pmd_offset(src_pud, addr);
+----- addresses:
+ffffffff8164fb1b
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+do {
+----- addresses:
+ffffffff8164fbaa
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+next = pmd_addr_end(addr, end);
+----- addresses:
+ffffffff8164fbaa
+ffffffff8164fbc4
+ffffffff8164fbcd
+ffffffff8164fb62
+ffffffff8164fbf9
+ffffffff8164fb7e
+ffffffff8164fb5d
+ffffffff8164fb70
+ffffffff8164fbeb
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (is_swap_pmd(*src_pmd) || pmd_trans_huge(*src_pmd)
+----- addresses:
+ffffffff8164fbf9
+ffffffff8164fb70
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (pmd_none_or_clear_bad(src_pmd))
+----- addresses:
+ffffffff8164fbf9
+ffffffff8164fb70
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (copy_pte_range(dst_vma, src_vma, dst_pmd, src_pmd,
+----- addresses:
+ffffffff8164fc48
+ffffffff8165162d
+----- funcname:
+copy_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+} while (dst_pmd++, src_pmd++, addr = next, addr != end);
+----- addresses:
+ffffffff8164fb87
+ffffffff8164fb9f
+ffffffff8164fb92
+ffffffff8164fb8c
+ffffffff8164fb96
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+static inline void free_pud_range(struct mmu_gather *tlb, p4d_t *p4d,
+----- addresses:
+ffffffff8163d720
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+pud_t *pud;
+----- addresses:
+ffffffff8163d720
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+unsigned long next;
+----- addresses:
+ffffffff8163d720
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+unsigned long start;
+----- addresses:
+ffffffff8163d720
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+start = addr;
+----- addresses:
+ffffffff8163d720
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+pud = pud_offset(p4d, addr);
+----- addresses:
+ffffffff8163d720
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+do {
+----- addresses:
+ffffffff8163d789
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+next = pud_addr_end(addr, end);
+----- addresses:
+ffffffff8163d7d6
+ffffffff8163ddd5
+ffffffff8163d752
+ffffffff8163d7a4
+ffffffff8163d76d
+ffffffff8163d7cb
+ffffffff8163ddc6
+ffffffff8163d768
+ffffffff8163d7ad
+ffffffff8163d789
+ffffffff8163ddd0
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (pud_none_or_clear_bad(pud))
+----- addresses:
+ffffffff8163d7d6
+ffffffff8163dd45
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+} while (pud++, addr = next, addr != end);
+----- addresses:
+ffffffff8163db84
+ffffffff8163db8f
+ffffffff8163db89
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+start &= P4D_MASK;
+----- addresses:
+ffffffff8163dbb6
+ffffffff8163dbac
+ffffffff8163db9f
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (start < floor)
+----- addresses:
+ffffffff8163dbb9
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (ceiling) {
+----- addresses:
+ffffffff8163dbc4
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+ceiling &= P4D_MASK;
+----- addresses:
+ffffffff8163de19
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (!ceiling)
+----- addresses:
+ffffffff8163de1e
+ffffffff8163de21
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (end - 1 > ceiling - 1)
+----- addresses:
+ffffffff8163de30
+ffffffff8163de40
+ffffffff8163de27
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+pud = pud_offset(p4d, start);
+----- addresses:
+ffffffff8163dbd7
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+p4d_clear(p4d);
+----- addresses:
+ffffffff8163dc1a
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+pud_free_tlb(tlb, pud, start);
+----- addresses:
+ffffffff8163dc44
+ffffffff8163dcbb
+ffffffff8163dcb6
+ffffffff8163dcc6
+----- funcname:
+free_pud_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+mm_dec_nr_puds(tlb->mm);
+----- addresses:
+ffffffff8163e1e3
+ffffffff8163dcc6
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+do {
+----- addresses:
+ffffffff8163d9c2
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+next = pmd_addr_end(addr, end);
+----- addresses:
+ffffffff8163d84b
+ffffffff8163da08
+ffffffff8163da21
+ffffffff8163d9dc
+ffffffff8163da2c
+ffffffff8163d85e
+ffffffff8163d9e3
+ffffffff8163d9c2
+ffffffff8163d9fd
+ffffffff8163d9f2
+ffffffff8163d839
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (pmd_none_or_clear_bad(pmd))
+----- addresses:
+ffffffff8163da08
+ffffffff8163d85e
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+free_pte_range(tlb, pmd, addr);
+----- addresses:
+ffffffff8163d8bb
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+} while (pmd++, addr = next, addr != end);
+----- addresses:
+ffffffff8163d9b6
+ffffffff8163d9ad
+ffffffff8163d9b2
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+start &= PUD_MASK;
+----- addresses:
+ffffffff8163da2c
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (start < floor)
+----- addresses:
+ffffffff8163da42
+ffffffff8163da47
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (ceiling) {
+----- addresses:
+ffffffff8163da52
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+ceiling &= PUD_MASK;
+----- addresses:
+ffffffff8163ddd5
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (!ceiling)
+----- addresses:
+ffffffff8163dde1
+ffffffff8163ddda
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+if (end - 1 > ceiling - 1)
+----- addresses:
+ffffffff8163ddf0
+ffffffff8163de00
+ffffffff8163dde7
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+pmd = pmd_offset(pud, start);
+----- addresses:
+ffffffff8163da6a
+ffffffff8163da65
+ffffffff8163e1f0
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+pud_clear(pud);
+----- addresses:
+ffffffff8163dac8
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+pmd_free_tlb(tlb, pmd, start);
+----- addresses:
+ffffffff8163db48
+ffffffff8163db3d
+ffffffff8163db38
+ffffffff8163dacf
+----- funcname:
+free_pmd_range
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/memory.c
+----- source:
+mm_dec_nr_pmds(tlb->mm);
+----- addresses:
+ffffffff8163e22f
+ffffffff8163e213
+ffffffff8163db48
+ffffffff8163e220

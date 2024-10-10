@@ -1,0 +1,216 @@
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+static long ksys_semctl(int semid, int semnum, int cmd, unsigned long arg, int version)
+----- addresses:
+ffffffff81d14816
+ffffffff81d147f0
+ffffffff81d14927
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+struct ipc_namespace *ns;
+----- addresses:
+ffffffff81d1486c
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+void __user *p = (void __user *)arg;
+----- addresses:
+ffffffff81d1486c
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+struct semid64_ds semid64;
+----- addresses:
+ffffffff81d14871
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+int err;
+----- addresses:
+ffffffff81d14871
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+if (semid < 0)
+----- addresses:
+ffffffff81d14871
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+return -EINVAL;
+----- addresses:
+ffffffff81d14a54
+ffffffff81d14a3f
+ffffffff81d14a35
+ffffffff81d14a2e
+ffffffff81d14a3a
+ffffffff81d14a4f
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+ns = current->nsproxy->ipc_ns;
+----- addresses:
+ffffffff81d14ab1
+ffffffff81d14aac
+ffffffff81d14a9e
+ffffffff81d14886
+ffffffff81d14879
+ffffffff81d148a6
+ffffffff81d14aa8
+ffffffff81d1489f
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+switch (cmd) {
+----- addresses:
+ffffffff81d148c9
+ffffffff81d14973
+ffffffff81d14a0b
+ffffffff81d149e9
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+return semctl_info(ns, semid, cmd, p);
+----- addresses:
+ffffffff81d14901
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+err = semctl_stat(ns, semid, cmd, &semid64);
+----- addresses:
+ffffffff81d149ad
+ffffffff81d1499b
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+if (err < 0)
+----- addresses:
+ffffffff81d149b7
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+return err;
+----- addresses:
+ffffffff81d14922
+ffffffff81d1491a
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+if (copy_semid_to_user(p, &semid64, version))
+----- addresses:
+ffffffff81d149d1
+ffffffff81d149c4
+ffffffff81d149e4
+ffffffff81d149bf
+ffffffff81d149d6
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+return semctl_main(ns, semid, semnum, cmd, p);
+----- addresses:
+ffffffff81d14a54
+ffffffff81d14a6f
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+int val;
+----- addresses:
+ffffffff81d14a11
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+val = arg;
+----- addresses:
+ffffffff81d14a11
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+return semctl_setval(ns, semid, semnum, val);
+----- addresses:
+ffffffff81d14a2e
+ffffffff81d14a29
+ffffffff81d14a16
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+if (copy_semid_from_user(&semid64, p, version))
+----- addresses:
+ffffffff81d14a74
+ffffffff81d14a81
+ffffffff81d14a89
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+return -EFAULT;
+----- addresses:
+ffffffff81d14a99
+ffffffff81d14a92
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+fallthrough;
+----- addresses:
+ffffffff81d149ee
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+return semctl_down(ns, semid, cmd, &semid64);
+----- addresses:
+ffffffff81d14a06
+ffffffff81d149ee
+----- funcname:
+ksys_semctl
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/ipc/sem.c
+----- source:
+}
+----- addresses:
+ffffffff81d1496a
+ffffffff81d14943
+ffffffff81d14aba

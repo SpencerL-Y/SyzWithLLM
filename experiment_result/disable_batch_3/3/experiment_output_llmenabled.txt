@@ -1,0 +1,840 @@
+2024/10/04 17:05:37 serving http on http://127.0.0.1:56741
+2024/10/04 17:05:37 serving rpc on tcp://[::]:45151
+2024/10/04 17:05:37 booting test machines...
+2024/10/04 17:05:37 wait for the connection from test machine...
+2024/10/04 17:05:48 XXX Fuzzer command: 
+/syz-fuzzer -executor=/syz-executor -name=vm-1 -arch=amd64 -manager=localhost:45151 -sandbox=none -cover=true -debug=false  -optional=slowdown=1:sandbox_arg=0:pprof_port=6060
+2024/10/04 17:05:57 machine check:
+failed to read the following files in the VM:
+/dev/raw-gadget                             : open /dev/raw-gadget: no such file or directory
+
+BinFmtMisc              : enabled
+Comparisons             : call 0 failed with errno 38
+Coverage                : enabled
+DelayKcovMmap           : enabled
+DevlinkPCI              : PCI device 0000:00:10.0 is not available.  (errno 2: No such file or directory).
+ExtraCoverage           : enabled
+Fault                   : CONFIG_FAULT_INJECTION is not enabled.  (errno 2: No such file or directory).
+KCSAN                   : write(/sys/kernel/debug/kcsan, on) failed.  (errno 2: No such file or directory).
+LRWPANEmulation         : netlink: failed to get family id for nl802154: No such file or directory.  netlink_query_family_id failed.  (errno 2: No such file or directory).
+Leak                    : failed to write(kmemleak, "scan=off").  (errno 2: No such file or directory).
+NetDevices              : enabled
+NetInjection            : tun: can't open /dev/net/tun.  (errno 2: No such file or directory).
+NicVF                   : PCI device 0000:00:11.0 is not available.  (errno 2: No such file or directory).
+SandboxAndroid          : enabled
+SandboxNamespace        : enabled
+SandboxSetuid           : enabled
+Swap                    : enabled
+USBEmulation            : failed to chmod /dev/raw-gadget.  (errno 2: No such file or directory).
+VhciInjection           : socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI) failed.  (errno 97: Address family not supported by protocol).
+WifiEmulation           : netlink_query_family_id failed.  (errno 2: No such file or directory).
+syscalls                : 2192/4499
+
+2024/10/04 17:06:05 corpus                  : 29 (0 broken, 29 seeds)
+2024/10/04 17:06:07 candidates=0 corpus=24 coverage=14163 exec total=750 (25/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:06:17 candidates=0 corpus=32 coverage=14461 exec total=1294 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:06:27 candidates=0 corpus=37 coverage=14755 exec total=1900 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:06:37 candidates=0 corpus=49 coverage=14983 exec total=2415 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:06:47 candidates=0 corpus=53 coverage=14999 exec total=2792 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:06:57 candidates=0 corpus=54 coverage=15062 exec total=3061 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:07:07 Hit times: 0
+2024/10/04 17:07:07 candidates=0 corpus=60 coverage=15086 exec total=3290 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:07:17 candidates=0 corpus=68 coverage=15122 exec total=4042 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:07:27 candidates=0 corpus=95 coverage=15234 exec total=5547 (50/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:07:37 candidates=0 corpus=142 coverage=16085 exec total=6796 (56/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:07:47 candidates=0 corpus=171 coverage=17188 exec total=7646 (58/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:07:57 candidates=0 corpus=212 coverage=17391 exec total=8754 (62/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:08:07 candidates=0 corpus=220 coverage=17688 exec total=9206 (61/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:08:17 candidates=0 corpus=227 coverage=17759 exec total=9415 (58/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:08:18 Hit times: 0
+2024/10/04 17:08:27 candidates=0 corpus=244 coverage=17857 exec total=10007 (58/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:08:37 candidates=0 corpus=255 coverage=17904 exec total=10294 (57/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:08:47 candidates=0 corpus=267 coverage=17979 exec total=10698 (56/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:08:57 candidates=0 corpus=288 coverage=18271 exec total=11371 (56/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:09:07 candidates=0 corpus=296 coverage=18673 exec total=11986 (57/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:09:17 candidates=0 corpus=323 coverage=18895 exec total=12741 (57/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:09:27 candidates=0 corpus=336 coverage=19467 exec total=13308 (57/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:09:37 candidates=0 corpus=358 coverage=19758 exec total=13893 (57/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:09:47 candidates=0 corpus=366 coverage=19896 exec total=14337 (57/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:09:57 candidates=0 corpus=378 coverage=19995 exec total=14881 (57/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:10:07 candidates=0 corpus=380 coverage=20164 exec total=15362 (56/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:10:17 candidates=0 corpus=384 coverage=20210 exec total=15416 (55/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:10:27 candidates=0 corpus=385 coverage=20210 exec total=15456 (53/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:10:37 candidates=0 corpus=388 coverage=20247 exec total=15514 (51/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:10:44 Hit times: 0
+2024/10/04 17:10:47 candidates=0 corpus=389 coverage=20248 exec total=15533 (50/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:10:57 candidates=0 corpus=389 coverage=20248 exec total=15585 (48/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:11:07 candidates=0 corpus=391 coverage=20248 exec total=15640 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:11:17 candidates=0 corpus=392 coverage=20248 exec total=15684 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:11:27 candidates=0 corpus=394 coverage=20266 exec total=15837 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:11:37 candidates=0 corpus=394 coverage=20266 exec total=15883 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:11:47 candidates=0 corpus=395 coverage=20594 exec total=15931 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:11:57 candidates=0 corpus=397 coverage=20600 exec total=15981 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:12:07 candidates=0 corpus=393 coverage=20600 exec total=16023 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:12:17 candidates=0 corpus=393 coverage=20601 exec total=16066 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:12:27 candidates=0 corpus=394 coverage=20601 exec total=16441 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:12:37 candidates=0 corpus=394 coverage=20601 exec total=17266 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:12:47 candidates=0 corpus=394 coverage=20601 exec total=18084 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:12:57 candidates=0 corpus=394 coverage=20601 exec total=18838 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:13:07 candidates=0 corpus=394 coverage=20601 exec total=19641 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:13:17 candidates=0 corpus=404 coverage=20741 exec total=20898 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:13:27 candidates=0 corpus=416 coverage=20835 exec total=22178 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:13:37 candidates=0 corpus=439 coverage=21517 exec total=23013 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:13:47 candidates=0 corpus=450 coverage=21610 exec total=23425 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:13:57 candidates=0 corpus=465 coverage=22068 exec total=23867 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:14:07 candidates=0 corpus=471 coverage=22129 exec total=24203 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:14:17 candidates=0 corpus=502 coverage=22658 exec total=24946 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:14:27 candidates=0 corpus=522 coverage=22803 exec total=25353 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:14:37 candidates=0 corpus=525 coverage=22828 exec total=25450 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:14:47 candidates=0 corpus=537 coverage=23446 exec total=25738 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:14:57 candidates=0 corpus=539 coverage=23494 exec total=25807 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:15:07 candidates=0 corpus=530 coverage=23579 exec total=25844 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:15:17 candidates=0 corpus=545 coverage=23617 exec total=26243 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:15:27 candidates=0 corpus=562 coverage=23705 exec total=26681 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:15:37 XXXXX REACH
+2024/10/04 17:15:37 XXXXX REACH
+2024/10/04 17:15:37 candidates=0 corpus=587 coverage=23913 exec total=27169 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:15:37 Hit times: 2
+2024/10/04 17:15:47 candidates=0 corpus=622 coverage=24153 exec total=27899 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:15:57 candidates=0 corpus=632 coverage=24302 exec total=28179 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:16:07 candidates=0 corpus=657 coverage=24591 exec total=29048 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:16:17 candidates=0 corpus=693 coverage=24754 exec total=29700 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:16:27 candidates=0 corpus=697 coverage=24829 exec total=29901 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:16:37 candidates=0 corpus=698 coverage=24849 exec total=29957 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:16:47 candidates=0 corpus=716 coverage=24984 exec total=30679 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:16:57 candidates=0 corpus=735 coverage=25062 exec total=31133 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:17:07 candidates=0 corpus=738 coverage=25138 exec total=31673 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:17:17 candidates=0 corpus=751 coverage=25239 exec total=32229 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:17:27 candidates=0 corpus=763 coverage=25377 exec total=32511 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:17:37 candidates=0 corpus=764 coverage=25377 exec total=32564 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:17:47 candidates=0 corpus=765 coverage=25380 exec total=32620 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:17:57 candidates=0 corpus=765 coverage=25380 exec total=32668 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:18:07 candidates=0 corpus=764 coverage=25675 exec total=32933 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:18:17 candidates=0 corpus=792 coverage=25823 exec total=33544 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:18:27 candidates=0 corpus=804 coverage=25997 exec total=33876 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:18:30 Hit times: 0
+2024/10/04 17:18:37 candidates=0 corpus=826 coverage=26453 exec total=34593 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:18:47 candidates=0 corpus=853 coverage=26798 exec total=35674 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:18:57 candidates=0 corpus=881 coverage=26933 exec total=36406 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:19:07 candidates=0 corpus=878 coverage=27178 exec total=36650 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:19:17 candidates=0 corpus=886 coverage=27229 exec total=36867 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:19:27 candidates=0 corpus=911 coverage=27764 exec total=37446 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:19:37 candidates=0 corpus=955 coverage=28173 exec total=38372 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:19:47 candidates=0 corpus=964 coverage=28257 exec total=38650 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:19:57 candidates=0 corpus=968 coverage=28306 exec total=38692 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:20:07 candidates=0 corpus=964 coverage=28348 exec total=38723 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:20:17 candidates=0 corpus=967 coverage=28348 exec total=38754 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:20:27 candidates=0 corpus=974 coverage=28912 exec total=38868 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:20:37 candidates=0 corpus=981 coverage=28976 exec total=39047 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:20:40 Hit times: 0
+2024/10/04 17:20:47 candidates=0 corpus=983 coverage=28980 exec total=39126 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:20:57 candidates=0 corpus=987 coverage=29274 exec total=39287 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:21:07 candidates=0 corpus=1012 coverage=29491 exec total=40130 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:21:17 candidates=0 corpus=1030 coverage=29605 exec total=40533 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:21:27 candidates=0 corpus=1045 coverage=29642 exec total=41037 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:21:37 candidates=0 corpus=1068 coverage=29853 exec total=41621 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:21:47 candidates=0 corpus=1080 coverage=29930 exec total=41979 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:21:57 candidates=0 corpus=1080 coverage=29930 exec total=42012 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:22:07 candidates=0 corpus=1077 coverage=29954 exec total=42171 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:22:17 candidates=0 corpus=1077 coverage=29954 exec total=42216 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:22:27 candidates=0 corpus=1082 coverage=29988 exec total=42291 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:22:37 candidates=0 corpus=1084 coverage=29988 exec total=42327 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:22:47 candidates=0 corpus=1093 coverage=30035 exec total=42523 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:22:57 candidates=0 corpus=1095 coverage=30042 exec total=42578 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:23:07 candidates=0 corpus=1099 coverage=30054 exec total=42697 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:23:17 candidates=0 corpus=1106 coverage=30088 exec total=42830 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:23:27 candidates=0 corpus=1118 coverage=30124 exec total=43154 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:23:37 candidates=0 corpus=1121 coverage=30126 exec total=43228 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:23:47 candidates=0 corpus=1137 coverage=30346 exec total=43630 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:23:57 candidates=0 corpus=1145 coverage=30370 exec total=43894 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:24:07 candidates=0 corpus=1140 coverage=30374 exec total=43971 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:24:17 candidates=0 corpus=1140 coverage=30374 exec total=43996 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:24:27 candidates=0 corpus=1143 coverage=30382 exec total=44075 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:24:37 candidates=0 corpus=1152 coverage=30474 exec total=44239 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:24:47 candidates=0 corpus=1166 coverage=30575 exec total=44718 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:24:56 XXXXX REACH
+2024/10/04 17:24:56 XXXXX REACH
+2024/10/04 17:24:56 XXXXX REACH
+2024/10/04 17:24:56 XXXXX REACH
+2024/10/04 17:24:57 candidates=0 corpus=1189 coverage=30768 exec total=45420 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:24:58 Hit times: 4
+2024/10/04 17:25:07 candidates=0 corpus=1192 coverage=30881 exec total=45782 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:25:17 candidates=0 corpus=1198 coverage=30962 exec total=45999 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:25:27 candidates=0 corpus=1228 coverage=31248 exec total=46626 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:25:37 candidates=0 corpus=1248 coverage=31403 exec total=47156 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:25:47 candidates=0 corpus=1251 coverage=31413 exec total=47247 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:25:57 candidates=0 corpus=1255 coverage=31430 exec total=47330 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:26:07 candidates=0 corpus=1241 coverage=31430 exec total=47381 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:26:17 candidates=0 corpus=1244 coverage=31437 exec total=47429 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:26:27 candidates=0 corpus=1245 coverage=31437 exec total=47472 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:26:37 candidates=0 corpus=1246 coverage=31441 exec total=47527 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:26:47 candidates=0 corpus=1248 coverage=31449 exec total=47563 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:26:57 candidates=0 corpus=1250 coverage=31454 exec total=47599 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:27:07 candidates=0 corpus=1250 coverage=31454 exec total=47633 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:27:17 candidates=0 corpus=1256 coverage=31474 exec total=47678 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:27:27 candidates=0 corpus=1257 coverage=31475 exec total=47714 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:27:37 candidates=0 corpus=1257 coverage=31475 exec total=47769 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:27:47 candidates=0 corpus=1279 coverage=31626 exec total=48183 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:27:57 candidates=0 corpus=1289 coverage=31667 exec total=48539 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:28:07 candidates=0 corpus=1297 coverage=31713 exec total=48912 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:28:17 candidates=0 corpus=1307 coverage=31832 exec total=49229 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:28:27 candidates=0 corpus=1311 coverage=31837 exec total=49418 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:28:37 candidates=0 corpus=1317 coverage=31926 exec total=49760 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:28:47 candidates=0 corpus=1333 coverage=31952 exec total=50197 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:28:57 candidates=0 corpus=1345 coverage=32101 exec total=50545 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:29:07 candidates=0 corpus=1343 coverage=32282 exec total=50925 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:29:17 candidates=0 corpus=1347 coverage=32302 exec total=51075 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:29:27 candidates=0 corpus=1352 coverage=32316 exec total=51208 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:29:37 candidates=0 corpus=1360 coverage=32388 exec total=51515 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:29:47 candidates=0 corpus=1367 coverage=32429 exec total=51887 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:29:53 XXXXX REACH
+2024/10/04 17:29:53 XXXXX REACH
+2024/10/04 17:29:54 Hit times: 2
+2024/10/04 17:29:57 candidates=0 corpus=1376 coverage=32450 exec total=52140 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:30:07 candidates=0 corpus=1380 coverage=32637 exec total=52593 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:30:17 candidates=0 corpus=1387 coverage=32655 exec total=52851 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:30:27 candidates=0 corpus=1401 coverage=32698 exec total=53270 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:30:37 candidates=0 corpus=1402 coverage=32698 exec total=53418 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:30:47 candidates=0 corpus=1402 coverage=32698 exec total=53473 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:30:57 candidates=0 corpus=1405 coverage=32705 exec total=53627 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:31:07 candidates=0 corpus=1406 coverage=32709 exec total=53715 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:31:17 candidates=0 corpus=1406 coverage=32709 exec total=53764 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:31:27 candidates=0 corpus=1414 coverage=32853 exec total=54083 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:31:37 candidates=0 corpus=1414 coverage=32853 exec total=54123 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:31:47 candidates=0 corpus=1414 coverage=32853 exec total=54182 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:31:57 candidates=0 corpus=1414 coverage=32853 exec total=54350 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:32:07 candidates=0 corpus=1407 coverage=32892 exec total=54616 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:32:17 candidates=0 corpus=1414 coverage=32922 exec total=54973 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:32:27 candidates=0 corpus=1430 coverage=32966 exec total=55577 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:32:37 candidates=0 corpus=1445 coverage=33095 exec total=55928 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:32:47 candidates=0 corpus=1465 coverage=33481 exec total=56360 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:32:57 candidates=0 corpus=1481 coverage=33565 exec total=56729 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:33:07 candidates=0 corpus=1502 coverage=33670 exec total=57502 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:33:17 candidates=0 corpus=1539 coverage=33934 exec total=58409 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:33:27 candidates=0 corpus=1547 coverage=33989 exec total=58603 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:33:37 candidates=0 corpus=1549 coverage=34042 exec total=58752 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:33:47 candidates=0 corpus=1558 coverage=34093 exec total=59161 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:33:51 XXXXX REACH
+2024/10/04 17:33:51 XXXXX REACH
+2024/10/04 17:33:51 XXXXX REACH
+2024/10/04 17:33:51 XXXXX REACH
+2024/10/04 17:33:52 XXXXX REACH
+2024/10/04 17:33:52 XXXXX REACH
+2024/10/04 17:33:52 XXXXX REACH
+2024/10/04 17:33:52 XXXXX REACH
+2024/10/04 17:33:52 XXXXX REACH
+2024/10/04 17:33:52 XXXXX REACH
+2024/10/04 17:33:52 XXXXX REACH
+2024/10/04 17:33:52 XXXXX REACH
+2024/10/04 17:33:52 XXXXX REACH
+2024/10/04 17:33:53 XXXXX REACH
+2024/10/04 17:33:53 XXXXX REACH
+2024/10/04 17:33:54 XXXXX REACH
+2024/10/04 17:33:54 XXXXX REACH
+2024/10/04 17:33:54 Hit times: 17
+2024/10/04 17:33:57 candidates=0 corpus=1563 coverage=34251 exec total=59359 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:34:07 candidates=0 corpus=1570 coverage=34393 exec total=60010 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:34:17 candidates=0 corpus=1596 coverage=34687 exec total=60776 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:34:27 candidates=0 corpus=1596 coverage=34687 exec total=60819 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:34:37 candidates=0 corpus=1606 coverage=34709 exec total=61082 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:34:47 candidates=0 corpus=1621 coverage=34798 exec total=61514 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:34:57 candidates=0 corpus=1622 coverage=34815 exec total=61555 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:35:07 candidates=0 corpus=1627 coverage=34968 exec total=62163 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:35:17 candidates=0 corpus=1630 coverage=34982 exec total=62223 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:35:27 candidates=0 corpus=1632 coverage=34992 exec total=62304 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:35:37 candidates=0 corpus=1638 coverage=35034 exec total=62451 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:35:47 candidates=0 corpus=1661 coverage=35140 exec total=63073 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:35:57 candidates=0 corpus=1663 coverage=35151 exec total=63150 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:36:07 candidates=0 corpus=1668 coverage=35152 exec total=63306 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:36:17 candidates=0 corpus=1681 coverage=35156 exec total=63782 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:36:27 candidates=0 corpus=1682 coverage=35156 exec total=63899 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:36:37 candidates=0 corpus=1689 coverage=35160 exec total=64251 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:36:47 candidates=0 corpus=1696 coverage=35167 exec total=64450 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:36:57 candidates=0 corpus=1700 coverage=35183 exec total=64591 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:37:07 candidates=0 corpus=1679 coverage=35183 exec total=64622 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:37:17 candidates=0 corpus=1681 coverage=35183 exec total=64658 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:37:27 candidates=0 corpus=1681 coverage=35183 exec total=64737 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:37:37 candidates=0 corpus=1690 coverage=35218 exec total=64897 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:37:39 XXXXX REACH
+2024/10/04 17:37:39 XXXXX REACH
+2024/10/04 17:37:44 XXXXX REACH
+2024/10/04 17:37:44 XXXXX REACH
+2024/10/04 17:37:44 XXXXX REACH
+2024/10/04 17:37:44 XXXXX REACH
+2024/10/04 17:37:44 XXXXX REACH
+2024/10/04 17:37:45 XXXXX REACH
+2024/10/04 17:37:45 XXXXX REACH
+2024/10/04 17:37:45 XXXXX REACH
+2024/10/04 17:37:45 XXXXX REACH
+2024/10/04 17:37:45 XXXXX REACH
+2024/10/04 17:37:45 Hit times: 12
+2024/10/04 17:37:47 candidates=0 corpus=1699 coverage=35239 exec total=65134 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:37:57 candidates=0 corpus=1715 coverage=35299 exec total=65494 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:38:07 candidates=0 corpus=1717 coverage=35351 exec total=65548 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:38:17 candidates=0 corpus=1717 coverage=35351 exec total=65584 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:38:27 candidates=0 corpus=1719 coverage=35369 exec total=65623 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:38:37 candidates=0 corpus=1735 coverage=35497 exec total=66050 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:38:47 candidates=0 corpus=1741 coverage=35554 exec total=66223 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:38:57 candidates=0 corpus=1746 coverage=35556 exec total=66386 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:39:07 candidates=0 corpus=1730 coverage=35588 exec total=66558 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:39:17 candidates=0 corpus=1758 coverage=35694 exec total=67459 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:39:27 candidates=0 corpus=1761 coverage=35696 exec total=67680 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:39:37 candidates=0 corpus=1762 coverage=35699 exec total=67734 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:39:47 candidates=0 corpus=1767 coverage=35749 exec total=67917 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:39:57 candidates=0 corpus=1771 coverage=35792 exec total=68021 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:40:07 candidates=0 corpus=1771 coverage=35792 exec total=68041 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:40:17 candidates=0 corpus=1773 coverage=35822 exec total=68089 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:40:27 candidates=0 corpus=1774 coverage=35853 exec total=68144 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:40:37 candidates=0 corpus=1774 coverage=35853 exec total=68180 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:40:47 candidates=0 corpus=1774 coverage=35853 exec total=68215 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:40:57 candidates=0 corpus=1775 coverage=35988 exec total=68260 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:41:07 candidates=0 corpus=1771 coverage=36060 exec total=68850 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:41:17 candidates=0 corpus=1778 coverage=36122 exec total=69441 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:41:27 candidates=0 corpus=1793 coverage=36186 exec total=70067 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:41:37 candidates=0 corpus=1809 coverage=36280 exec total=71014 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:41:47 candidates=0 corpus=1819 coverage=36333 exec total=71314 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:41:57 candidates=0 corpus=1834 coverage=36393 exec total=71791 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:41:58 XXXXX REACH
+2024/10/04 17:41:58 XXXXX REACH
+2024/10/04 17:42:00 XXXXX REACH
+2024/10/04 17:42:00 XXXXX REACH
+2024/10/04 17:42:02 Hit times: 4
+2024/10/04 17:42:07 candidates=0 corpus=1829 coverage=36471 exec total=72011 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:42:17 candidates=0 corpus=1833 coverage=36482 exec total=72134 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:42:27 candidates=0 corpus=1835 coverage=36482 exec total=72185 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:42:37 candidates=0 corpus=1836 coverage=36483 exec total=72219 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:42:47 candidates=0 corpus=1838 coverage=36499 exec total=72269 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:42:57 candidates=0 corpus=1839 coverage=36501 exec total=72286 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:43:07 candidates=0 corpus=1841 coverage=36509 exec total=72314 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:43:17 candidates=0 corpus=1841 coverage=36509 exec total=72346 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:43:27 candidates=0 corpus=1841 coverage=36509 exec total=72368 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:43:37 candidates=0 corpus=1843 coverage=36509 exec total=72394 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:43:47 candidates=0 corpus=1849 coverage=36544 exec total=72632 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:43:57 candidates=0 corpus=1868 coverage=36862 exec total=73067 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:44:07 candidates=0 corpus=1885 coverage=36993 exec total=73605 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:44:17 candidates=0 corpus=1901 coverage=37103 exec total=74007 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:44:27 candidates=0 corpus=1932 coverage=37265 exec total=74647 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:44:37 candidates=0 corpus=1958 coverage=37449 exec total=75670 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:44:47 candidates=0 corpus=1965 coverage=37593 exec total=76023 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:44:57 candidates=0 corpus=1992 coverage=37678 exec total=76747 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:45:07 candidates=0 corpus=1970 coverage=37752 exec total=77019 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:45:17 candidates=0 corpus=1980 coverage=37803 exec total=77268 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:45:27 candidates=0 corpus=1981 coverage=37805 exec total=77302 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:45:37 candidates=0 corpus=1983 coverage=37812 exec total=77338 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:45:47 candidates=0 corpus=1984 coverage=37815 exec total=77382 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:45:55 XXXXX REACH
+2024/10/04 17:45:55 XXXXX REACH
+2024/10/04 17:45:55 XXXXX REACH
+2024/10/04 17:45:57 XXXXX REACH
+2024/10/04 17:45:57 candidates=0 corpus=1990 coverage=37822 exec total=77560 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:45:57 XXXXX REACH
+2024/10/04 17:45:57 XXXXX REACH
+2024/10/04 17:45:57 XXXXX REACH
+2024/10/04 17:45:58 XXXXX REACH
+2024/10/04 17:45:58 XXXXX REACH
+2024/10/04 17:45:58 XXXXX REACH
+2024/10/04 17:45:58 XXXXX REACH
+2024/10/04 17:45:59 XXXXX REACH
+2024/10/04 17:45:59 XXXXX REACH
+2024/10/04 17:45:59 XXXXX REACH
+2024/10/04 17:45:59 XXXXX REACH
+2024/10/04 17:45:59 XXXXX REACH
+2024/10/04 17:45:59 XXXXX REACH
+2024/10/04 17:45:59 XXXXX REACH
+2024/10/04 17:45:59 Hit times: 18
+2024/10/04 17:46:07 candidates=0 corpus=2002 coverage=37867 exec total=77922 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:46:17 candidates=0 corpus=2009 coverage=37910 exec total=78117 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:46:27 candidates=0 corpus=2011 coverage=37922 exec total=78173 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:46:37 candidates=0 corpus=2033 coverage=37974 exec total=78783 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:46:47 candidates=0 corpus=2041 coverage=37989 exec total=79115 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:46:57 candidates=0 corpus=2043 coverage=37990 exec total=79175 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:47:07 candidates=0 corpus=2017 coverage=37991 exec total=79231 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:47:17 candidates=0 corpus=2018 coverage=37994 exec total=79284 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:47:27 candidates=0 corpus=2021 coverage=38163 exec total=79369 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:47:37 candidates=0 corpus=2041 coverage=38232 exec total=79968 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:47:47 candidates=0 corpus=2042 coverage=38238 exec total=80091 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:47:57 candidates=0 corpus=2049 coverage=38261 exec total=80242 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:48:07 candidates=0 corpus=2051 coverage=38267 exec total=80288 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:48:17 candidates=0 corpus=2052 coverage=38267 exec total=80329 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:48:27 candidates=0 corpus=2053 coverage=38267 exec total=80358 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:48:37 candidates=0 corpus=2053 coverage=38267 exec total=80384 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:48:47 candidates=0 corpus=2054 coverage=38274 exec total=80429 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:48:57 candidates=0 corpus=2064 coverage=38318 exec total=80694 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:49:07 candidates=0 corpus=2065 coverage=38327 exec total=80752 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:49:17 candidates=0 corpus=2082 coverage=38451 exec total=81151 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:49:27 candidates=0 corpus=2104 coverage=38548 exec total=81886 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:49:37 candidates=0 corpus=2131 coverage=38581 exec total=82681 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:49:47 candidates=0 corpus=2133 coverage=38585 exec total=82729 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:49:57 candidates=0 corpus=2134 coverage=38593 exec total=82777 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:50:07 candidates=0 corpus=2118 coverage=38645 exec total=82908 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:50:17 candidates=0 corpus=2136 coverage=38681 exec total=83390 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:50:27 candidates=0 corpus=2148 coverage=38714 exec total=83631 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:50:30 XXXXX REACH
+2024/10/04 17:50:30 XXXXX REACH
+2024/10/04 17:50:30 XXXXX REACH
+2024/10/04 17:50:30 XXXXX REACH
+2024/10/04 17:50:32 XXXXX REACH
+2024/10/04 17:50:32 XXXXX REACH
+2024/10/04 17:50:32 XXXXX REACH
+2024/10/04 17:50:32 XXXXX REACH
+2024/10/04 17:50:32 XXXXX REACH
+2024/10/04 17:50:32 XXXXX REACH
+2024/10/04 17:50:34 XXXXX REACH
+2024/10/04 17:50:34 XXXXX REACH
+2024/10/04 17:50:34 XXXXX REACH
+2024/10/04 17:50:36 Hit times: 13
+2024/10/04 17:50:37 candidates=0 corpus=2164 coverage=38789 exec total=84184 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:50:47 candidates=0 corpus=2181 coverage=38932 exec total=84952 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:50:57 candidates=0 corpus=2195 coverage=38974 exec total=85488 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:51:07 candidates=0 corpus=2185 coverage=38982 exec total=85566 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:51:17 candidates=0 corpus=2190 coverage=38998 exec total=85775 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:51:27 candidates=0 corpus=2191 coverage=39003 exec total=85827 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:51:37 candidates=0 corpus=2209 coverage=39202 exec total=86339 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:51:47 candidates=0 corpus=2221 coverage=39333 exec total=86605 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:51:57 candidates=0 corpus=2233 coverage=39379 exec total=86965 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:52:07 candidates=0 corpus=2245 coverage=39418 exec total=87327 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:52:17 candidates=0 corpus=2253 coverage=39459 exec total=87574 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:52:27 candidates=0 corpus=2253 coverage=39459 exec total=87574 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:52:37 candidates=0 corpus=2253 coverage=39459 exec total=87574 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:52:47 candidates=0 corpus=2253 coverage=39459 exec total=87581 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:52:57 candidates=0 corpus=2253 coverage=39459 exec total=87581 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:53:07 candidates=0 corpus=2234 coverage=39459 exec total=87581 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:53:17 candidates=0 corpus=2234 coverage=39459 exec total=87582 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:53:27 candidates=0 corpus=2234 coverage=39459 exec total=87586 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:53:37 candidates=0 corpus=2234 coverage=39459 exec total=87586 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:53:47 candidates=0 corpus=2234 coverage=39459 exec total=87586 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:53:57 candidates=0 corpus=2234 coverage=39459 exec total=87591 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:54:07 candidates=0 corpus=2234 coverage=39459 exec total=87591 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:54:17 candidates=0 corpus=2234 coverage=39459 exec total=87591 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:54:27 candidates=0 corpus=2234 coverage=39459 exec total=87596 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:54:37 candidates=0 corpus=2234 coverage=39459 exec total=87596 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:54:47 candidates=0 corpus=2234 coverage=39459 exec total=87596 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:54:57 candidates=0 corpus=2234 coverage=39459 exec total=87601 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:55:07 candidates=0 corpus=2234 coverage=39459 exec total=87601 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:55:17 candidates=0 corpus=2234 coverage=39459 exec total=87601 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:55:27 candidates=0 corpus=2234 coverage=39459 exec total=87606 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:55:37 candidates=0 corpus=2234 coverage=39459 exec total=87606 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:55:47 candidates=0 corpus=2234 coverage=39459 exec total=87606 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:55:57 candidates=0 corpus=2234 coverage=39459 exec total=87611 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:56:07 candidates=0 corpus=2234 coverage=39459 exec total=87611 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:56:17 candidates=0 corpus=2234 coverage=39459 exec total=87611 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:56:27 candidates=0 corpus=2234 coverage=39459 exec total=87616 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:56:37 candidates=0 corpus=2234 coverage=39459 exec total=87616 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:56:47 candidates=0 corpus=2234 coverage=39459 exec total=87616 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:56:57 candidates=0 corpus=2234 coverage=39459 exec total=87621 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:57:07 candidates=0 corpus=2234 coverage=39459 exec total=87621 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:57:17 candidates=0 corpus=2234 coverage=39459 exec total=87621 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:57:27 candidates=0 corpus=2234 coverage=39459 exec total=87640 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:57:37 candidates=0 corpus=2237 coverage=39562 exec total=88273 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:57:47 candidates=0 corpus=2238 coverage=39566 exec total=88849 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:57:57 candidates=0 corpus=2238 coverage=39566 exec total=89466 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:58:07 candidates=0 corpus=2238 coverage=39566 exec total=89988 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:58:17 candidates=0 corpus=2238 coverage=39566 exec total=90506 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:58:27 candidates=0 corpus=2238 coverage=39566 exec total=91062 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:58:37 candidates=0 corpus=2238 coverage=39566 exec total=91775 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:58:47 candidates=0 corpus=2238 coverage=39566 exec total=92325 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:58:57 candidates=0 corpus=2238 coverage=39566 exec total=93023 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:59:07 candidates=0 corpus=2238 coverage=39566 exec total=93656 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:59:17 candidates=0 corpus=2238 coverage=39566 exec total=94375 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:59:27 candidates=0 corpus=2238 coverage=39566 exec total=95087 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:59:37 candidates=0 corpus=2238 coverage=39566 exec total=95729 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:59:47 candidates=0 corpus=2238 coverage=39566 exec total=96353 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 17:59:57 candidates=0 corpus=2238 coverage=39566 exec total=96996 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:00:07 candidates=0 corpus=2238 coverage=39566 exec total=97707 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:00:17 candidates=0 corpus=2238 coverage=39566 exec total=98345 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:00:27 candidates=0 corpus=2238 coverage=39566 exec total=99060 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:00:37 candidates=0 corpus=2238 coverage=39566 exec total=99444 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:00:47 candidates=0 corpus=2238 coverage=39566 exec total=100092 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:00:57 candidates=0 corpus=2238 coverage=39566 exec total=100727 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:01:07 candidates=0 corpus=2238 coverage=39566 exec total=101370 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:01:17 candidates=0 corpus=2238 coverage=39566 exec total=101922 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:01:27 candidates=0 corpus=2238 coverage=39566 exec total=102486 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:01:37 candidates=0 corpus=2238 coverage=39566 exec total=103201 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:01:47 candidates=0 corpus=2238 coverage=39566 exec total=103925 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:01:57 candidates=0 corpus=2238 coverage=39566 exec total=104564 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:02:07 candidates=0 corpus=2238 coverage=39566 exec total=105280 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:02:17 candidates=0 corpus=2238 coverage=39566 exec total=106002 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:02:27 candidates=0 corpus=2238 coverage=39566 exec total=106655 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:02:37 candidates=0 corpus=2238 coverage=39566 exec total=107306 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:02:47 candidates=0 corpus=2238 coverage=39566 exec total=107916 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:02:57 candidates=0 corpus=2238 coverage=39566 exec total=108471 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:03:07 candidates=0 corpus=2238 coverage=39566 exec total=109017 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:03:17 candidates=0 corpus=2238 coverage=39566 exec total=109731 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:03:27 candidates=0 corpus=2238 coverage=39566 exec total=110294 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:03:37 candidates=0 corpus=2238 coverage=39566 exec total=111017 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:03:47 candidates=0 corpus=2238 coverage=39566 exec total=111655 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:03:57 candidates=0 corpus=2238 coverage=39566 exec total=112378 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:04:07 candidates=0 corpus=2238 coverage=39566 exec total=112932 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:04:17 candidates=0 corpus=2238 coverage=39566 exec total=113631 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:04:27 candidates=0 corpus=2238 coverage=39566 exec total=114190 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:04:37 candidates=0 corpus=2238 coverage=39566 exec total=114837 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:04:47 candidates=0 corpus=2238 coverage=39566 exec total=115466 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:04:57 candidates=0 corpus=2238 coverage=39566 exec total=116179 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:05:07 candidates=0 corpus=2238 coverage=39566 exec total=116734 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:05:17 candidates=0 corpus=2238 coverage=39566 exec total=117443 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:05:27 candidates=0 corpus=2238 coverage=39566 exec total=118155 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:05:37 candidates=0 corpus=2238 coverage=39566 exec total=118873 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:05:47 candidates=0 corpus=2238 coverage=39566 exec total=119579 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:05:48 vm-1: running for 1h0m0.001417232s, restarting
+2024/10/04 18:05:57 candidates=0 corpus=2238 coverage=39566 exec total=119619 (33/sec) fuzzing VMs=0 reproducing=0 
+2024/10/04 18:05:58 XXX Fuzzer command: 
+/syz-fuzzer -executor=/syz-executor -name=vm-2 -arch=amd64 -manager=localhost:45151 -sandbox=none -cover=true -debug=false  -optional=slowdown=1:sandbox_arg=0:pprof_port=6060
+2024/10/04 18:06:07 candidates=0 corpus=2242 coverage=39590 exec total=119856 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:06:17 candidates=0 corpus=2253 coverage=39732 exec total=120341 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:06:27 candidates=0 corpus=2257 coverage=39737 exec total=120524 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:06:37 candidates=0 corpus=2257 coverage=39737 exec total=120524 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:06:47 candidates=0 corpus=2257 coverage=39737 exec total=120524 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:06:57 candidates=0 corpus=2258 coverage=39737 exec total=120589 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:07:07 candidates=0 corpus=2258 coverage=39737 exec total=120589 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:07:17 candidates=0 corpus=2258 coverage=39737 exec total=120589 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:07:27 candidates=0 corpus=2268 coverage=39774 exec total=120870 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:07:37 candidates=0 corpus=2268 coverage=39774 exec total=120870 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:07:47 candidates=0 corpus=2268 coverage=39774 exec total=120870 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:07:57 candidates=0 corpus=2268 coverage=39774 exec total=120871 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:08:07 candidates=0 corpus=2268 coverage=39774 exec total=120875 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:08:17 candidates=0 corpus=2268 coverage=39774 exec total=120875 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:08:27 candidates=0 corpus=2268 coverage=39774 exec total=120875 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:08:37 candidates=0 corpus=2268 coverage=39774 exec total=120880 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:08:47 candidates=0 corpus=2268 coverage=39774 exec total=120880 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:08:57 candidates=0 corpus=2268 coverage=39774 exec total=120880 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:09:07 candidates=0 corpus=2268 coverage=39774 exec total=120885 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:09:17 candidates=0 corpus=2268 coverage=39774 exec total=120885 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:09:27 candidates=0 corpus=2268 coverage=39774 exec total=120885 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:09:37 candidates=0 corpus=2272 coverage=39792 exec total=121031 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:09:47 candidates=0 corpus=2286 coverage=39854 exec total=121409 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:09:57 candidates=0 corpus=2286 coverage=39854 exec total=121409 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:10:07 candidates=0 corpus=2286 coverage=39854 exec total=121409 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:10:17 candidates=0 corpus=2286 coverage=39854 exec total=121414 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:10:27 candidates=0 corpus=2286 coverage=39854 exec total=121414 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:10:37 candidates=0 corpus=2286 coverage=39854 exec total=121414 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:10:47 candidates=0 corpus=2287 coverage=39854 exec total=121419 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:10:57 candidates=0 corpus=2287 coverage=39854 exec total=121419 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:11:07 candidates=0 corpus=2287 coverage=39854 exec total=121419 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:11:17 candidates=0 corpus=2287 coverage=39854 exec total=121424 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:11:27 candidates=0 corpus=2287 coverage=39854 exec total=121424 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:11:37 candidates=0 corpus=2287 coverage=39854 exec total=121424 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:11:47 candidates=0 corpus=2287 coverage=39854 exec total=121453 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:11:57 candidates=0 corpus=2288 coverage=39854 exec total=122180 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:12:07 candidates=0 corpus=2289 coverage=39857 exec total=122815 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:12:17 candidates=0 corpus=2289 coverage=39871 exec total=123520 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:12:27 candidates=0 corpus=2289 coverage=39871 exec total=124176 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:12:37 candidates=0 corpus=2289 coverage=39871 exec total=124819 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:12:47 candidates=0 corpus=2289 coverage=39871 exec total=125385 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:12:57 candidates=0 corpus=2289 coverage=39871 exec total=125995 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:13:07 candidates=0 corpus=2289 coverage=39871 exec total=126710 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:13:17 candidates=0 corpus=2289 coverage=39871 exec total=127427 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:13:27 candidates=0 corpus=2289 coverage=39871 exec total=128148 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:13:37 candidates=0 corpus=2289 coverage=39871 exec total=128789 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:13:47 candidates=0 corpus=2289 coverage=39871 exec total=129499 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:13:57 candidates=0 corpus=2289 coverage=39871 exec total=130203 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:14:07 candidates=0 corpus=2289 coverage=39871 exec total=130735 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:14:17 candidates=0 corpus=2289 coverage=39871 exec total=131401 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:14:27 candidates=0 corpus=2289 coverage=39871 exec total=132034 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:14:37 candidates=0 corpus=2289 coverage=39871 exec total=132600 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:14:47 candidates=0 corpus=2289 coverage=39871 exec total=133318 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:14:57 candidates=0 corpus=2289 coverage=39871 exec total=134043 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:15:07 candidates=0 corpus=2289 coverage=39871 exec total=134766 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:15:17 candidates=0 corpus=2289 coverage=39871 exec total=135489 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:15:27 candidates=0 corpus=2289 coverage=39871 exec total=136120 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:15:37 candidates=0 corpus=2289 coverage=39871 exec total=136792 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:15:47 candidates=0 corpus=2289 coverage=39871 exec total=137486 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:15:57 candidates=0 corpus=2289 coverage=39871 exec total=138214 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:16:07 candidates=0 corpus=2289 coverage=39871 exec total=138919 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:16:17 candidates=0 corpus=2289 coverage=39871 exec total=139564 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:16:27 candidates=0 corpus=2289 coverage=39871 exec total=140202 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:16:37 candidates=0 corpus=2289 coverage=39871 exec total=140916 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:16:47 candidates=0 corpus=2289 coverage=39871 exec total=141644 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:16:57 candidates=0 corpus=2289 coverage=39871 exec total=142295 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:17:07 candidates=0 corpus=2289 coverage=39871 exec total=142941 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:17:17 candidates=0 corpus=2289 coverage=39871 exec total=143669 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:17:27 candidates=0 corpus=2289 coverage=39871 exec total=144393 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:17:37 candidates=0 corpus=2289 coverage=39871 exec total=145099 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:17:47 candidates=0 corpus=2289 coverage=39871 exec total=145638 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:17:57 candidates=0 corpus=2289 coverage=39871 exec total=146284 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:18:07 candidates=0 corpus=2289 coverage=39871 exec total=146997 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:18:17 candidates=0 corpus=2289 coverage=39871 exec total=147666 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:18:27 candidates=0 corpus=2289 coverage=39871 exec total=148359 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:18:37 candidates=0 corpus=2289 coverage=39871 exec total=149006 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:18:47 candidates=0 corpus=2289 coverage=39871 exec total=149732 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:18:57 candidates=0 corpus=2289 coverage=39871 exec total=150374 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:19:07 candidates=0 corpus=2289 coverage=39871 exec total=151074 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:19:17 candidates=0 corpus=2289 coverage=39871 exec total=151697 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:19:27 candidates=0 corpus=2289 coverage=39871 exec total=152422 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:19:37 candidates=0 corpus=2289 coverage=39871 exec total=152981 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:19:47 candidates=0 corpus=2289 coverage=39871 exec total=153619 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:19:57 candidates=0 corpus=2289 coverage=39871 exec total=154242 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:20:07 candidates=0 corpus=2289 coverage=39871 exec total=154889 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:20:17 candidates=0 corpus=2289 coverage=39871 exec total=155455 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:20:27 candidates=0 corpus=2289 coverage=39871 exec total=156179 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:20:37 candidates=0 corpus=2289 coverage=39871 exec total=156903 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:20:47 candidates=0 corpus=2289 coverage=39871 exec total=157462 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:20:57 candidates=0 corpus=2289 coverage=39871 exec total=158105 (34/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:21:07 candidates=0 corpus=2289 coverage=39871 exec total=158750 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:21:17 candidates=0 corpus=2289 coverage=39871 exec total=159462 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:21:27 candidates=0 corpus=2289 coverage=39871 exec total=160093 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:21:37 candidates=0 corpus=2289 coverage=39871 exec total=160728 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:21:47 candidates=0 corpus=2289 coverage=39871 exec total=161447 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:21:57 candidates=0 corpus=2289 coverage=39871 exec total=162002 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:22:07 candidates=0 corpus=2289 coverage=39871 exec total=162719 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:22:17 candidates=0 corpus=2289 coverage=39871 exec total=163102 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:22:27 candidates=0 corpus=2289 coverage=39871 exec total=163665 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:22:37 candidates=0 corpus=2289 coverage=39871 exec total=164232 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:22:47 candidates=0 corpus=2289 coverage=39871 exec total=164953 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:22:57 candidates=0 corpus=2289 coverage=39871 exec total=165679 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:23:07 candidates=0 corpus=2289 coverage=39871 exec total=166408 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:23:17 candidates=0 corpus=2289 coverage=39871 exec total=167106 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:23:27 candidates=0 corpus=2289 coverage=39871 exec total=167829 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:23:37 candidates=0 corpus=2289 coverage=39871 exec total=168475 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:23:47 candidates=0 corpus=2289 coverage=39871 exec total=169191 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:23:57 candidates=0 corpus=2289 coverage=39871 exec total=169906 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:24:07 candidates=0 corpus=2289 coverage=39871 exec total=170622 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:24:17 candidates=0 corpus=2289 coverage=39871 exec total=171270 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:24:27 candidates=0 corpus=2289 coverage=39871 exec total=171832 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:24:37 candidates=0 corpus=2289 coverage=39871 exec total=172370 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:24:47 candidates=0 corpus=2289 coverage=39871 exec total=173013 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:24:57 candidates=0 corpus=2289 coverage=39871 exec total=173658 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:25:07 candidates=0 corpus=2289 coverage=39871 exec total=174297 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:25:17 candidates=0 corpus=2289 coverage=39871 exec total=175019 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:25:27 candidates=0 corpus=2289 coverage=39871 exec total=175577 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:25:37 candidates=0 corpus=2289 coverage=39871 exec total=176306 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:25:47 candidates=0 corpus=2289 coverage=39871 exec total=176947 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:25:57 candidates=0 corpus=2289 coverage=39871 exec total=177580 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:26:07 candidates=0 corpus=2289 coverage=39871 exec total=178307 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:26:17 candidates=0 corpus=2289 coverage=39871 exec total=179024 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:26:27 candidates=0 corpus=2289 coverage=39871 exec total=179591 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:26:37 candidates=0 corpus=2289 coverage=39871 exec total=180315 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:26:47 candidates=0 corpus=2289 coverage=39871 exec total=181027 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:26:57 candidates=0 corpus=2289 coverage=39871 exec total=181589 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:27:07 candidates=0 corpus=2289 coverage=39871 exec total=182225 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:27:17 candidates=0 corpus=2289 coverage=39871 exec total=182936 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:27:27 candidates=0 corpus=2289 coverage=39871 exec total=183580 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:27:37 candidates=0 corpus=2289 coverage=39871 exec total=184056 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:27:47 candidates=0 corpus=2289 coverage=39871 exec total=184688 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:27:57 candidates=0 corpus=2289 coverage=39871 exec total=185323 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:28:07 candidates=0 corpus=2289 coverage=39871 exec total=185875 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:28:17 candidates=0 corpus=2289 coverage=39871 exec total=186513 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:28:27 candidates=0 corpus=2289 coverage=39871 exec total=186987 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:28:37 candidates=0 corpus=2289 coverage=39871 exec total=187708 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:28:47 candidates=0 corpus=2289 coverage=39871 exec total=188273 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:28:57 candidates=0 corpus=2289 coverage=39871 exec total=188933 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:29:07 candidates=0 corpus=2289 coverage=39871 exec total=189539 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:29:17 candidates=0 corpus=2289 coverage=39871 exec total=190268 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:29:27 candidates=0 corpus=2289 coverage=39871 exec total=190984 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:29:37 candidates=0 corpus=2289 coverage=39871 exec total=191463 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:29:47 candidates=0 corpus=2289 coverage=39871 exec total=191950 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:29:57 candidates=0 corpus=2289 coverage=39871 exec total=192616 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:30:07 candidates=0 corpus=2289 coverage=39871 exec total=193345 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:30:17 candidates=0 corpus=2289 coverage=39871 exec total=194064 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:30:27 candidates=0 corpus=2289 coverage=39871 exec total=194786 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:30:37 candidates=0 corpus=2289 coverage=39871 exec total=195325 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:30:47 candidates=0 corpus=2289 coverage=39871 exec total=195974 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:30:57 candidates=0 corpus=2289 coverage=39871 exec total=196679 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:31:07 candidates=0 corpus=2289 coverage=39871 exec total=197324 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:31:17 candidates=0 corpus=2289 coverage=39871 exec total=198040 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:31:27 candidates=0 corpus=2289 coverage=39871 exec total=198675 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:31:37 candidates=0 corpus=2289 coverage=39871 exec total=199384 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:31:47 candidates=0 corpus=2289 coverage=39871 exec total=200107 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:31:57 candidates=0 corpus=2289 coverage=39871 exec total=200730 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:32:07 candidates=0 corpus=2289 coverage=39871 exec total=201349 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:32:17 candidates=0 corpus=2289 coverage=39871 exec total=201993 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:32:27 candidates=0 corpus=2289 coverage=39871 exec total=202544 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:32:37 candidates=0 corpus=2289 coverage=39871 exec total=203179 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:32:47 candidates=0 corpus=2289 coverage=39871 exec total=203813 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:32:57 candidates=0 corpus=2289 coverage=39871 exec total=204542 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:33:07 candidates=0 corpus=2289 coverage=39871 exec total=205251 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:33:17 candidates=0 corpus=2289 coverage=39871 exec total=205985 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:33:27 candidates=0 corpus=2289 coverage=39871 exec total=206545 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:33:37 candidates=0 corpus=2289 coverage=39871 exec total=207273 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:33:47 candidates=0 corpus=2289 coverage=39871 exec total=207917 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:33:57 candidates=0 corpus=2289 coverage=39871 exec total=208644 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:34:07 candidates=0 corpus=2289 coverage=39871 exec total=209280 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:34:17 candidates=0 corpus=2289 coverage=39871 exec total=210003 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:34:27 candidates=0 corpus=2289 coverage=39871 exec total=210626 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:34:37 candidates=0 corpus=2289 coverage=39871 exec total=211186 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:34:47 candidates=0 corpus=2289 coverage=39871 exec total=211903 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:34:57 candidates=0 corpus=2289 coverage=39871 exec total=212548 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:35:07 candidates=0 corpus=2289 coverage=39871 exec total=213226 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:35:17 candidates=0 corpus=2289 coverage=39871 exec total=213940 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:35:27 candidates=0 corpus=2289 coverage=39871 exec total=214422 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:35:37 candidates=0 corpus=2289 coverage=39871 exec total=215056 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:35:47 candidates=0 corpus=2289 coverage=39871 exec total=215656 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:35:57 candidates=0 corpus=2289 coverage=39871 exec total=216251 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:36:07 candidates=0 corpus=2289 coverage=39871 exec total=216969 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:36:17 candidates=0 corpus=2289 coverage=39871 exec total=217669 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:36:27 candidates=0 corpus=2289 coverage=39871 exec total=218308 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:36:37 candidates=0 corpus=2289 coverage=39871 exec total=218955 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:36:47 candidates=0 corpus=2289 coverage=39871 exec total=219682 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:36:57 candidates=0 corpus=2289 coverage=39871 exec total=220396 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:37:07 candidates=0 corpus=2289 coverage=39871 exec total=221049 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:37:17 candidates=0 corpus=2289 coverage=39871 exec total=221579 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:37:27 candidates=0 corpus=2289 coverage=39871 exec total=222299 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:37:37 candidates=0 corpus=2289 coverage=39871 exec total=223020 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:37:47 candidates=0 corpus=2289 coverage=39871 exec total=223742 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:37:57 candidates=0 corpus=2289 coverage=39871 exec total=224370 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:38:07 candidates=0 corpus=2289 coverage=39871 exec total=225102 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:38:17 candidates=0 corpus=2289 coverage=39871 exec total=225798 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:38:27 candidates=0 corpus=2289 coverage=39871 exec total=226524 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:38:37 candidates=0 corpus=2289 coverage=39871 exec total=227159 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:38:47 candidates=0 corpus=2289 coverage=39871 exec total=227804 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:38:57 candidates=0 corpus=2289 coverage=39871 exec total=228438 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:39:07 candidates=0 corpus=2289 coverage=39871 exec total=229157 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:39:17 candidates=0 corpus=2289 coverage=39871 exec total=229865 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:39:27 candidates=0 corpus=2289 coverage=39871 exec total=230508 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:39:37 candidates=0 corpus=2289 coverage=39871 exec total=231134 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:39:47 candidates=0 corpus=2289 coverage=39871 exec total=231863 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:39:57 candidates=0 corpus=2289 coverage=39871 exec total=232484 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:40:07 candidates=0 corpus=2289 coverage=39871 exec total=233206 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:40:17 candidates=0 corpus=2289 coverage=39871 exec total=233926 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:40:27 candidates=0 corpus=2289 coverage=39871 exec total=234592 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:40:37 candidates=0 corpus=2289 coverage=39871 exec total=235290 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:40:47 candidates=0 corpus=2289 coverage=39871 exec total=235940 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:40:57 candidates=0 corpus=2289 coverage=39871 exec total=236483 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:41:07 candidates=0 corpus=2289 coverage=39871 exec total=237046 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:41:17 candidates=0 corpus=2289 coverage=39871 exec total=237694 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:41:27 candidates=0 corpus=2289 coverage=39871 exec total=238333 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:41:37 candidates=0 corpus=2289 coverage=39871 exec total=239029 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:41:47 candidates=0 corpus=2289 coverage=39871 exec total=239746 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:41:57 candidates=0 corpus=2289 coverage=39871 exec total=240449 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:42:07 candidates=0 corpus=2289 coverage=39871 exec total=241100 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:42:17 candidates=0 corpus=2289 coverage=39871 exec total=241710 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:42:27 candidates=0 corpus=2289 coverage=39871 exec total=242426 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:42:37 candidates=0 corpus=2289 coverage=39871 exec total=242990 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:42:47 candidates=0 corpus=2289 coverage=39871 exec total=243715 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:42:57 candidates=0 corpus=2289 coverage=39871 exec total=244434 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:43:07 candidates=0 corpus=2289 coverage=39871 exec total=245056 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:43:17 candidates=0 corpus=2289 coverage=39871 exec total=245772 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:43:27 candidates=0 corpus=2289 coverage=39871 exec total=246272 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:43:37 candidates=0 corpus=2289 coverage=39871 exec total=246858 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:43:47 candidates=0 corpus=2289 coverage=39871 exec total=247590 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:43:57 candidates=0 corpus=2289 coverage=39871 exec total=248232 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:44:07 candidates=0 corpus=2289 coverage=39871 exec total=248944 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:44:17 candidates=0 corpus=2289 coverage=39871 exec total=249642 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:44:27 candidates=0 corpus=2289 coverage=39871 exec total=250193 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:44:37 candidates=0 corpus=2289 coverage=39871 exec total=250802 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:44:47 candidates=0 corpus=2289 coverage=39871 exec total=251444 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:44:57 candidates=0 corpus=2289 coverage=39871 exec total=251920 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:45:07 candidates=0 corpus=2289 coverage=39871 exec total=252488 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:45:17 candidates=0 corpus=2289 coverage=39871 exec total=253114 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:45:27 candidates=0 corpus=2289 coverage=39871 exec total=253748 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:45:37 candidates=0 corpus=2289 coverage=39871 exec total=254469 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:45:47 candidates=0 corpus=2289 coverage=39871 exec total=255157 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:45:57 candidates=0 corpus=2289 coverage=39871 exec total=255886 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:46:07 candidates=0 corpus=2289 coverage=39871 exec total=256601 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:46:17 candidates=0 corpus=2289 coverage=39871 exec total=257306 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:46:27 candidates=0 corpus=2289 coverage=39871 exec total=257890 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:46:37 candidates=0 corpus=2289 coverage=39871 exec total=258585 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:46:47 candidates=0 corpus=2289 coverage=39871 exec total=259207 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:46:57 candidates=0 corpus=2289 coverage=39871 exec total=259778 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:47:07 candidates=0 corpus=2289 coverage=39871 exec total=260372 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:47:17 candidates=0 corpus=2289 coverage=39871 exec total=261044 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:47:27 candidates=0 corpus=2289 coverage=39871 exec total=261606 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:47:37 candidates=0 corpus=2289 coverage=39871 exec total=262323 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:47:47 candidates=0 corpus=2289 coverage=39871 exec total=262968 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:47:57 candidates=0 corpus=2289 coverage=39871 exec total=263693 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:48:07 candidates=0 corpus=2289 coverage=39871 exec total=264333 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:48:17 candidates=0 corpus=2289 coverage=39871 exec total=265053 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:48:27 candidates=0 corpus=2289 coverage=39871 exec total=265757 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:48:37 candidates=0 corpus=2289 coverage=39871 exec total=266434 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:48:47 candidates=0 corpus=2289 coverage=39871 exec total=267037 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:48:57 candidates=0 corpus=2289 coverage=39871 exec total=267652 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:49:07 candidates=0 corpus=2289 coverage=39871 exec total=268278 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:49:17 candidates=0 corpus=2289 coverage=39871 exec total=269004 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:49:27 candidates=0 corpus=2289 coverage=39871 exec total=269653 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:49:37 candidates=0 corpus=2289 coverage=39871 exec total=270360 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:49:47 candidates=0 corpus=2289 coverage=39871 exec total=271077 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:49:57 candidates=0 corpus=2289 coverage=39871 exec total=271717 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:50:07 candidates=0 corpus=2289 coverage=39871 exec total=272444 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:50:17 candidates=0 corpus=2289 coverage=39871 exec total=273166 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:50:27 candidates=0 corpus=2289 coverage=39871 exec total=273882 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:50:37 candidates=0 corpus=2289 coverage=39871 exec total=274523 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:50:47 candidates=0 corpus=2289 coverage=39871 exec total=275244 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:50:57 candidates=0 corpus=2289 coverage=39871 exec total=275974 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:51:07 candidates=0 corpus=2289 coverage=39871 exec total=276699 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:51:17 candidates=0 corpus=2289 coverage=39871 exec total=277258 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:51:27 candidates=0 corpus=2289 coverage=39871 exec total=277811 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:51:37 candidates=0 corpus=2289 coverage=39871 exec total=278515 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:51:47 candidates=0 corpus=2289 coverage=39871 exec total=279137 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:51:57 candidates=0 corpus=2289 coverage=39871 exec total=279620 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:52:07 candidates=0 corpus=2289 coverage=39871 exec total=280269 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:52:17 candidates=0 corpus=2289 coverage=39871 exec total=280984 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:52:27 candidates=0 corpus=2289 coverage=39871 exec total=281554 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:52:37 candidates=0 corpus=2289 coverage=39871 exec total=282263 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:52:47 candidates=0 corpus=2289 coverage=39871 exec total=282916 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:52:57 candidates=0 corpus=2289 coverage=39871 exec total=283477 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:53:07 candidates=0 corpus=2289 coverage=39871 exec total=284195 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:53:17 candidates=0 corpus=2289 coverage=39871 exec total=284916 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:53:27 candidates=0 corpus=2289 coverage=39871 exec total=285648 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:53:37 candidates=0 corpus=2289 coverage=39871 exec total=286289 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:53:47 candidates=0 corpus=2289 coverage=39871 exec total=287014 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:53:57 candidates=0 corpus=2289 coverage=39871 exec total=287729 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:54:07 candidates=0 corpus=2289 coverage=39871 exec total=288296 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:54:17 candidates=0 corpus=2289 coverage=39871 exec total=289011 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:54:27 candidates=0 corpus=2289 coverage=39871 exec total=289707 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:54:37 candidates=0 corpus=2289 coverage=39871 exec total=290398 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:54:47 candidates=0 corpus=2289 coverage=39871 exec total=291026 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:54:57 candidates=0 corpus=2289 coverage=39871 exec total=291750 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:55:07 candidates=0 corpus=2289 coverage=39871 exec total=292438 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:55:17 candidates=0 corpus=2289 coverage=39871 exec total=293063 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:55:27 candidates=0 corpus=2289 coverage=39871 exec total=293781 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:55:37 candidates=0 corpus=2289 coverage=39871 exec total=294342 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:55:47 candidates=0 corpus=2289 coverage=39871 exec total=294990 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:55:57 candidates=0 corpus=2289 coverage=39871 exec total=295715 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:56:07 candidates=0 corpus=2289 coverage=39871 exec total=296354 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:56:17 candidates=0 corpus=2289 coverage=39871 exec total=297007 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:56:27 candidates=0 corpus=2289 coverage=39871 exec total=297703 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:56:37 candidates=0 corpus=2289 coverage=39871 exec total=298418 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:56:47 candidates=0 corpus=2289 coverage=39871 exec total=299131 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:56:57 candidates=0 corpus=2289 coverage=39871 exec total=299823 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:57:07 candidates=0 corpus=2289 coverage=39871 exec total=300533 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:57:17 candidates=0 corpus=2289 coverage=39871 exec total=301102 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:57:27 candidates=0 corpus=2289 coverage=39871 exec total=301814 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:57:37 candidates=0 corpus=2289 coverage=39871 exec total=302340 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:57:47 candidates=0 corpus=2289 coverage=39871 exec total=302921 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:57:57 candidates=0 corpus=2289 coverage=39871 exec total=303643 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:58:07 candidates=0 corpus=2289 coverage=39871 exec total=304288 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:58:17 candidates=0 corpus=2289 coverage=39871 exec total=305014 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:58:27 candidates=0 corpus=2289 coverage=39871 exec total=305718 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:58:37 candidates=0 corpus=2289 coverage=39871 exec total=306358 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:58:47 candidates=0 corpus=2289 coverage=39871 exec total=306977 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:58:57 candidates=0 corpus=2289 coverage=39871 exec total=307627 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:59:07 candidates=0 corpus=2289 coverage=39871 exec total=308273 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:59:17 candidates=0 corpus=2289 coverage=39871 exec total=308913 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:59:27 candidates=0 corpus=2289 coverage=39871 exec total=309550 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:59:37 candidates=0 corpus=2289 coverage=39871 exec total=310237 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:59:47 candidates=0 corpus=2289 coverage=39871 exec total=310909 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 18:59:57 candidates=0 corpus=2289 coverage=39871 exec total=311470 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:00:07 candidates=0 corpus=2289 coverage=39871 exec total=312032 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:00:17 candidates=0 corpus=2289 coverage=39871 exec total=312751 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:00:27 candidates=0 corpus=2289 coverage=39871 exec total=313478 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:00:37 candidates=0 corpus=2289 coverage=39871 exec total=314115 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:00:47 candidates=0 corpus=2289 coverage=39871 exec total=314744 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:00:57 candidates=0 corpus=2289 coverage=39871 exec total=315228 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:01:07 candidates=0 corpus=2289 coverage=39871 exec total=315913 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:01:17 candidates=0 corpus=2289 coverage=39871 exec total=316622 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:01:27 candidates=0 corpus=2289 coverage=39871 exec total=317245 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:01:37 candidates=0 corpus=2289 coverage=39871 exec total=317960 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:01:47 candidates=0 corpus=2289 coverage=39871 exec total=318665 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:01:57 candidates=0 corpus=2289 coverage=39871 exec total=319390 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:02:07 candidates=0 corpus=2289 coverage=39871 exec total=320006 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:02:17 candidates=0 corpus=2289 coverage=39871 exec total=320631 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:02:27 candidates=0 corpus=2289 coverage=39871 exec total=321356 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:02:37 candidates=0 corpus=2289 coverage=39871 exec total=321894 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:02:47 candidates=0 corpus=2289 coverage=39871 exec total=322371 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:02:57 candidates=0 corpus=2289 coverage=39871 exec total=323014 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:03:07 candidates=0 corpus=2289 coverage=39871 exec total=323634 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:03:17 candidates=0 corpus=2289 coverage=39871 exec total=324108 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:03:27 candidates=0 corpus=2289 coverage=39871 exec total=324749 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:03:37 candidates=0 corpus=2289 coverage=39871 exec total=325461 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:03:47 candidates=0 corpus=2289 coverage=39871 exec total=326114 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:03:57 candidates=0 corpus=2289 coverage=39871 exec total=326753 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:04:07 candidates=0 corpus=2289 coverage=39871 exec total=327477 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:04:17 candidates=0 corpus=2289 coverage=39871 exec total=328125 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:04:27 candidates=0 corpus=2289 coverage=39871 exec total=328754 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:04:37 candidates=0 corpus=2289 coverage=39871 exec total=329395 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:04:47 candidates=0 corpus=2289 coverage=39871 exec total=329962 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:04:57 candidates=0 corpus=2289 coverage=39871 exec total=330684 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:05:07 candidates=0 corpus=2289 coverage=39871 exec total=331403 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:05:17 candidates=0 corpus=2289 coverage=39871 exec total=332026 (46/sec) fuzzing VMs=1 reproducing=0 
+2024/10/04 19:05:27 candidates=0 corpus=2289 coverage=39871 exec total=332748 (46/sec) fuzzing VMs=1 reproducing=0 
+SIGINT: shutting down...
+2024/10/04 19:05:37 vm-2: running for 59m38.326609673s, restarting

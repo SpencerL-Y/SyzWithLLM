@@ -1,0 +1,498 @@
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+{
+----- addresses:
+ffffffff81e66424
+ffffffff81e66435
+ffffffff81e66420
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+struct block_device *bdev = bio->bi_bdev;
+----- addresses:
+ffffffff81e66424
+ffffffff81e66463
+ffffffff81e66439
+ffffffff81e6643e
+ffffffff81e6702e
+ffffffff81e66431
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+struct request_queue *q = bdev_get_queue(bdev);
+----- addresses:
+ffffffff81e66467
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+blk_status_t status = BLK_STS_IOERR;
+----- addresses:
+ffffffff81e664c2
+ffffffff81e66fbf
+ffffffff81e66484
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+might_sleep();
+----- addresses:
+ffffffff81e66484
+ffffffff81e66489
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if ((bio->bi_opf & REQ_NOWAIT) && !bdev_nowait(bdev))
+----- addresses:
+ffffffff81e664aa
+ffffffff81e66d7f
+ffffffff81e66489
+ffffffff81e6647c
+ffffffff81e66638
+ffffffff81e66d8c
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (should_fail_bio(bio))
+----- addresses:
+ffffffff81e664be
+ffffffff81e664b4
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+bio_check_ro(bio);
+----- addresses:
+ffffffff81e66515
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (!bio_flagged(bio, BIO_REMAPPED)) {
+----- addresses:
+ffffffff81e66525
+ffffffff81e66560
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (unlikely(bio_check_eod(bio)))
+----- addresses:
+ffffffff81e6689a
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (bdev->bd_partno && unlikely(blk_partition_remap(bio)))
+----- addresses:
+ffffffff81e66970
+ffffffff81e66bb1
+ffffffff81e66966
+ffffffff81e66b6c
+ffffffff81e6692b
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (op_is_flush(bio->bi_opf)) {
+----- addresses:
+ffffffff81e66569
+ffffffff81e6705f
+ffffffff81e66593
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (WARN_ON_ONCE(bio_op(bio) != REQ_OP_WRITE &&
+----- addresses:
+ffffffff81e665cf
+ffffffff81e665cd
+ffffffff81e66726
+ffffffff81e665d5
+ffffffff81e665a0
+ffffffff81e665ac
+ffffffff81e665c7
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (!test_bit(QUEUE_FLAG_WC, &q->queue_flags)) {
+----- addresses:
+ffffffff81e6675b
+ffffffff81e6664d
+ffffffff81e66726
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+bio->bi_opf &= ~(REQ_PREFLUSH | REQ_FUA);
+----- addresses:
+ffffffff81e66766
+ffffffff81e66794
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (!bio_sectors(bio)) {
+----- addresses:
+ffffffff81e6679b
+ffffffff81e66790
+ffffffff81e667c0
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+status = BLK_STS_OK;
+----- addresses:
+ffffffff81e667cb
+ffffffff81e667c9
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (!test_bit(QUEUE_FLAG_POLL, &q->queue_flags))
+----- addresses:
+ffffffff81e66656
+ffffffff81e66687
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+bio_clear_polled(bio);
+----- addresses:
+ffffffff81e6668e
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+switch (bio_op(bio)) {
+----- addresses:
+ffffffff81e666cc
+ffffffff81e666c3
+ffffffff81e66841
+ffffffff81e667d0
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (!bdev_max_discard_sectors(bdev))
+----- addresses:
+ffffffff81e6682e
+ffffffff81e667d9
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (!bdev_max_secure_erase_sectors(bdev))
+----- addresses:
+ffffffff81e66ec5
+ffffffff81e66e79
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (!q->limits.max_write_zeroes_sectors)
+----- addresses:
+ffffffff81e6684a
+ffffffff81e66895
+ffffffff81e66881
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (blk_throtl_bio(bio))
+----- addresses:
+ffffffff81e666e8
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+submit_bio_noacct_nocheck(bio);
+----- addresses:
+ffffffff81e666e8
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+return;
+----- addresses:
+ffffffff81e666f5
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+status = BLK_STS_NOTSUPP;
+----- addresses:
+ffffffff81e66643
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+bio->bi_status = status;
+----- addresses:
+ffffffff81e664c7
+ffffffff81e67048
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+bio_endio(bio);
+----- addresses:
+ffffffff81e664fa
+----- funcname:
+submit_bio_noacct
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+}
+----- addresses:
+ffffffff81e66502
+ffffffff81e66510
+ffffffff81e66508
+ffffffff81e6650c
+----- funcname:
+__submit_bio_noacct_mq
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+static void __submit_bio_noacct_mq(struct bio *bio)
+----- addresses:
+ffffffff81e65cb4
+----- funcname:
+__submit_bio_noacct_mq
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+struct bio_list bio_list[2] = { };
+----- addresses:
+ffffffff81e65ced
+ffffffff81e65cfd
+ffffffff81e65cd2
+ffffffff81e65cb4
+----- funcname:
+__submit_bio_noacct_mq
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+struct blk_plug plug;
+----- addresses:
+ffffffff81e65d09
+----- funcname:
+__submit_bio_noacct_mq
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+current->bio_list = bio_list;
+----- addresses:
+ffffffff81e65ccb
+ffffffff81e65d09
+ffffffff81e65d13
+ffffffff81e65cb9
+ffffffff81e662ee
+ffffffff81e662f8
+ffffffff81e65cea
+ffffffff81e65cf9
+----- funcname:
+__submit_bio_noacct_mq
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+blk_start_plug(&plug);
+----- addresses:
+ffffffff81e65d22
+----- funcname:
+__submit_bio_noacct_mq
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+do {
+----- addresses:
+ffffffff81e65db8
+----- funcname:
+__submit_bio_noacct_mq
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+__submit_bio(bio);
+----- addresses:
+ffffffff81e65db8
+----- funcname:
+__submit_bio_noacct_mq
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+} while ((bio = bio_list_pop(&bio_list[0])));
+----- addresses:
+ffffffff81e65dc5
+----- funcname:
+__submit_bio_noacct_mq
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+blk_finish_plug(&plug);
+----- addresses:
+ffffffff81e66086
+----- funcname:
+__submit_bio_noacct_mq
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+current->bio_list = NULL;
+----- addresses:
+ffffffff81e660c3
+ffffffff81e660f2
+ffffffff81e660da
+ffffffff81e660c8
+ffffffff81e66365
+ffffffff81e6635b
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+{
+----- addresses:
+ffffffff81e654e9
+ffffffff81e654c0
+ffffffff81e657a7
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+blk_cgroup_bio_start(bio);
+----- addresses:
+ffffffff81e65548
+ffffffff81e65543
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+blkcg_bio_issue_init(bio);
+----- addresses:
+ffffffff81e65550
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (!bio_flagged(bio, BIO_TRACE_COMPLETION)) {
+----- addresses:
+ffffffff81e656aa
+ffffffff81e6567a
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+trace_block_bio_queue(bio);
+----- addresses:
+ffffffff81e6582f
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+bio_set_flag(bio, BIO_TRACE_COMPLETION);
+----- addresses:
+ffffffff81e65839
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+if (current->bio_list)
+----- addresses:
+ffffffff81e656b8
+ffffffff81e656ca
+ffffffff81e656b3
+ffffffff81e66384
+ffffffff81e656e2
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+bio_list_add(&current->bio_list[0], bio);
+----- addresses:
+ffffffff81e66326
+ffffffff81e65722
+ffffffff81e65707
+ffffffff81e656f0
+ffffffff81e656f5
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+else if (!bio->bi_bdev->bd_has_submit_bio)
+----- addresses:
+ffffffff81e6589b
+ffffffff81e658aa
+ffffffff81e662ac
+ffffffff81e658cb
+ffffffff81e658a5
+ffffffff81e6639b
+ffffffff81e65876
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+__submit_bio_noacct_mq(bio);
+----- addresses:
+ffffffff81e65cb4
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+__submit_bio_noacct(bio);
+----- addresses:
+ffffffff81e658d5
+----- funcname:
+submit_bio_noacct_nocheck
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/block/blk-core.c
+----- source:
+}
+----- addresses:
+ffffffff81e657cb
+ffffffff81e66372
+ffffffff81e657a2

@@ -1,0 +1,471 @@
+void put_pages_list(struct list_head *pages)
+{
+	struct folio_batch fbatch;
+	struct folio *folio, *next;
+
+	folio_batch_init(&fbatch);
+	list_for_each_entry_safe(folio, next, pages, lru) {
+		if (!folio_put_testzero(folio))
+			continue;
+		if (folio_test_hugetlb(folio)) {
+			free_huge_folio(folio);
+			continue;
+		}
+		/* LRU flag must be clear because it's passed using the lru */
+		if (folio_batch_add(&fbatch, folio) > 0)
+			continue;
+		free_unref_folios(&fbatch);
+	}
+
+	if (fbatch.nr)
+		free_unref_folios(&fbatch);
+	INIT_LIST_HEAD(pages);
+}
+void free_huge_folio(struct folio *folio)
+{
+	/*
+	 * Can't pass hstate in here because it is called from the
+	 * generic mm code.
+	 */
+	struct hstate *h = folio_hstate(folio);
+	int nid = folio_nid(folio);
+	struct hugepage_subpool *spool = hugetlb_folio_subpool(folio);
+	bool restore_reserve;
+	unsigned long flags;
+
+	VM_BUG_ON_FOLIO(folio_ref_count(folio), folio);
+	VM_BUG_ON_FOLIO(folio_mapcount(folio), folio);
+
+	hugetlb_set_folio_subpool(folio, NULL);
+	if (folio_test_anon(folio))
+		__ClearPageAnonExclusive(&folio->page);
+	folio->mapping = NULL;
+	restore_reserve = folio_test_hugetlb_restore_reserve(folio);
+	folio_clear_hugetlb_restore_reserve(folio);
+
+	/*
+	 * If HPageRestoreReserve was set on page, page allocation consumed a
+	 * reservation.  If the page was associated with a subpool, there
+	 * would have been a page reserved in the subpool before allocation
+	 * via hugepage_subpool_get_pages().  Since we are 'restoring' the
+	 * reservation, do not call hugepage_subpool_put_pages() as this will
+	 * remove the reserved page from the subpool.
+	 */
+	if (!restore_reserve) {
+		/*
+		 * A return code of zero implies that the subpool will be
+		 * under its minimum size if the reservation is not restored
+		 * after page is free.  Therefore, force restore_reserve
+		 * operation.
+		 */
+		if (hugepage_subpool_put_pages(spool, 1) == 0)
+			restore_reserve = true;
+	}
+
+	spin_lock_irqsave(&hugetlb_lock, flags);
+	folio_clear_hugetlb_migratable(folio);
+	hugetlb_cgroup_uncharge_folio(hstate_index(h),
+				     pages_per_huge_page(h), folio);
+	hugetlb_cgroup_uncharge_folio_rsvd(hstate_index(h),
+					  pages_per_huge_page(h), folio);
+	mem_cgroup_uncharge(folio);
+	if (restore_reserve)
+		h->resv_huge_pages++;
+
+	if (folio_test_hugetlb_temporary(folio)) {
+		remove_hugetlb_folio(h, folio, false);
+		spin_unlock_irqrestore(&hugetlb_lock, flags);
+		update_and_free_hugetlb_folio(h, folio, true);
+	} else if (h->surplus_huge_pages_node[nid]) {
+		/* remove the page from active list */
+		remove_hugetlb_folio(h, folio, true);
+		spin_unlock_irqrestore(&hugetlb_lock, flags);
+		update_and_free_hugetlb_folio(h, folio, true);
+	} else {
+		arch_clear_hugetlb_flags(folio);
+		enqueue_hugetlb_folio(h, folio);
+		spin_unlock_irqrestore(&hugetlb_lock, flags);
+	}
+}
+void hugetlb_cgroup_uncharge_folio(int idx, unsigned long nr_pages,
+				  struct folio *folio)
+{
+	__hugetlb_cgroup_uncharge_folio(idx, nr_pages, folio, false);
+}
+static long hugetlbfs_fallocate(struct file *file, int mode, loff_t offset,
+				loff_t len)
+{
+	struct inode *inode = file_inode(file);
+	struct hugetlbfs_inode_info *info = HUGETLBFS_I(inode);
+	struct address_space *mapping = inode->i_mapping;
+	struct hstate *h = hstate_inode(inode);
+	struct vm_area_struct pseudo_vma;
+	struct mm_struct *mm = current->mm;
+	loff_t hpage_size = huge_page_size(h);
+	unsigned long hpage_shift = huge_page_shift(h);
+	pgoff_t start, index, end;
+	int error;
+	u32 hash;
+
+	if (mode & ~(FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE))
+		return -EOPNOTSUPP;
+
+	if (mode & FALLOC_FL_PUNCH_HOLE)
+		return hugetlbfs_punch_hole(inode, offset, len);
+
+	/*
+	 * Default preallocate case.
+	 * For this range, start is rounded down and end is rounded up
+	 * as well as being converted to page offsets.
+	 */
+	start = offset >> hpage_shift;
+	end = (offset + len + hpage_size - 1) >> hpage_shift;
+
+	inode_lock(inode);
+
+	/* We need to check rlimit even when FALLOC_FL_KEEP_SIZE */
+	error = inode_newsize_ok(inode, offset + len);
+	if (error)
+		goto out;
+
+	if ((info->seals & F_SEAL_GROW) && offset + len > inode->i_size) {
+		error = -EPERM;
+		goto out;
+	}
+
+	/*
+	 * Initialize a pseudo vma as this is required by the huge page
+	 * allocation routines.
+	 */
+	vma_init(&pseudo_vma, mm);
+	vm_flags_init(&pseudo_vma, VM_HUGETLB | VM_MAYSHARE | VM_SHARED);
+	pseudo_vma.vm_file = file;
+
+	for (index = start; index < end; index++) {
+		/*
+		 * This is supposed to be the vaddr where the page is being
+		 * faulted in, but we have no vaddr here.
+		 */
+		struct folio *folio;
+		unsigned long addr;
+
+		cond_resched();
+
+		/*
+		 * fallocate(2) manpage permits EINTR; we may have been
+		 * interrupted because we are using up too much memory.
+		 */
+		if (signal_pending(current)) {
+			error = -EINTR;
+			break;
+		}
+
+		/* addr is the offset within the file (zero based) */
+		addr = index * hpage_size;
+
+		/* mutex taken here, fault path and hole punch */
+		hash = hugetlb_fault_mutex_hash(mapping, index);
+		mutex_lock(&hugetlb_fault_mutex_table[hash]);
+
+		/* See if already present in mapping to avoid alloc/free */
+		folio = filemap_get_folio(mapping, index << huge_page_order(h));
+		if (!IS_ERR(folio)) {
+			folio_put(folio);
+			mutex_unlock(&hugetlb_fault_mutex_table[hash]);
+			continue;
+		}
+
+		/*
+		 * Allocate folio without setting the avoid_reserve argument.
+		 * There certainly are no reserves associated with the
+		 * pseudo_vma.  However, there could be shared mappings with
+		 * reserves for the file at the inode level.  If we fallocate
+		 * folios in these areas, we need to consume the reserves
+		 * to keep reservation accounting consistent.
+		 */
+		folio = alloc_hugetlb_folio(&pseudo_vma, addr, 0);
+		if (IS_ERR(folio)) {
+			mutex_unlock(&hugetlb_fault_mutex_table[hash]);
+			error = PTR_ERR(folio);
+			goto out;
+		}
+		clear_huge_page(&folio->page, addr, pages_per_huge_page(h));
+		__folio_mark_uptodate(folio);
+		error = hugetlb_add_to_page_cache(folio, mapping, index);
+		if (unlikely(error)) {
+			restore_reserve_on_error(h, &pseudo_vma, addr, folio);
+			folio_put(folio);
+			mutex_unlock(&hugetlb_fault_mutex_table[hash]);
+			goto out;
+		}
+
+		mutex_unlock(&hugetlb_fault_mutex_table[hash]);
+
+		folio_set_hugetlb_migratable(folio);
+		/*
+		 * folio_unlock because locked by hugetlb_add_to_page_cache()
+		 * folio_put() due to reference from alloc_hugetlb_folio()
+		 */
+		folio_unlock(folio);
+		folio_put(folio);
+	}
+
+	if (!(mode & FALLOC_FL_KEEP_SIZE) && offset + len > inode->i_size)
+		i_size_write(inode, offset + len);
+	inode_set_ctime_current(inode);
+out:
+	inode_unlock(inode);
+	return error;
+}
+struct folio *alloc_hugetlb_folio(struct vm_area_struct *vma,
+				    unsigned long addr, int avoid_reserve)
+{
+	struct hugepage_subpool *spool = subpool_vma(vma);
+	struct hstate *h = hstate_vma(vma);
+	struct folio *folio;
+	long map_chg, map_commit, nr_pages = pages_per_huge_page(h);
+	long gbl_chg;
+	int memcg_charge_ret, ret, idx;
+	struct hugetlb_cgroup *h_cg = NULL;
+	struct mem_cgroup *memcg;
+	bool deferred_reserve;
+	gfp_t gfp = htlb_alloc_mask(h) | __GFP_RETRY_MAYFAIL;
+
+	memcg = get_mem_cgroup_from_current();
+	memcg_charge_ret = mem_cgroup_hugetlb_try_charge(memcg, gfp, nr_pages);
+	if (memcg_charge_ret == -ENOMEM) {
+		mem_cgroup_put(memcg);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	idx = hstate_index(h);
+	/*
+	 * Examine the region/reserve map to determine if the process
+	 * has a reservation for the page to be allocated.  A return
+	 * code of zero indicates a reservation exists (no change).
+	 */
+	map_chg = gbl_chg = vma_needs_reservation(h, vma, addr);
+	if (map_chg < 0) {
+		if (!memcg_charge_ret)
+			mem_cgroup_cancel_charge(memcg, nr_pages);
+		mem_cgroup_put(memcg);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	/*
+	 * Processes that did not create the mapping will have no
+	 * reserves as indicated by the region/reserve map. Check
+	 * that the allocation will not exceed the subpool limit.
+	 * Allocations for MAP_NORESERVE mappings also need to be
+	 * checked against any subpool limit.
+	 */
+	if (map_chg || avoid_reserve) {
+		gbl_chg = hugepage_subpool_get_pages(spool, 1);
+		if (gbl_chg < 0)
+			goto out_end_reservation;
+
+		/*
+		 * Even though there was no reservation in the region/reserve
+		 * map, there could be reservations associated with the
+		 * subpool that can be used.  This would be indicated if the
+		 * return value of hugepage_subpool_get_pages() is zero.
+		 * However, if avoid_reserve is specified we still avoid even
+		 * the subpool reservations.
+		 */
+		if (avoid_reserve)
+			gbl_chg = 1;
+	}
+
+	/* If this allocation is not consuming a reservation, charge it now.
+	 */
+	deferred_reserve = map_chg || avoid_reserve;
+	if (deferred_reserve) {
+		ret = hugetlb_cgroup_charge_cgroup_rsvd(
+			idx, pages_per_huge_page(h), &h_cg);
+		if (ret)
+			goto out_subpool_put;
+	}
+
+	ret = hugetlb_cgroup_charge_cgroup(idx, pages_per_huge_page(h), &h_cg);
+	if (ret)
+		goto out_uncharge_cgroup_reservation;
+
+	spin_lock_irq(&hugetlb_lock);
+	/*
+	 * glb_chg is passed to indicate whether or not a page must be taken
+	 * from the global free pool (global change).  gbl_chg == 0 indicates
+	 * a reservation exists for the allocation.
+	 */
+	folio = dequeue_hugetlb_folio_vma(h, vma, addr, avoid_reserve, gbl_chg);
+	if (!folio) {
+		spin_unlock_irq(&hugetlb_lock);
+		folio = alloc_buddy_hugetlb_folio_with_mpol(h, vma, addr);
+		if (!folio)
+			goto out_uncharge_cgroup;
+		spin_lock_irq(&hugetlb_lock);
+		if (!avoid_reserve && vma_has_reserves(vma, gbl_chg)) {
+			folio_set_hugetlb_restore_reserve(folio);
+			h->resv_huge_pages--;
+		}
+		list_add(&folio->lru, &h->hugepage_activelist);
+		folio_ref_unfreeze(folio, 1);
+		/* Fall through */
+	}
+
+	hugetlb_cgroup_commit_charge(idx, pages_per_huge_page(h), h_cg, folio);
+	/* If allocation is not consuming a reservation, also store the
+	 * hugetlb_cgroup pointer on the page.
+	 */
+	if (deferred_reserve) {
+		hugetlb_cgroup_commit_charge_rsvd(idx, pages_per_huge_page(h),
+						  h_cg, folio);
+	}
+
+	spin_unlock_irq(&hugetlb_lock);
+
+	hugetlb_set_folio_subpool(folio, spool);
+
+	map_commit = vma_commit_reservation(h, vma, addr);
+	if (unlikely(map_chg > map_commit)) {
+		/*
+		 * The page was added to the reservation map between
+		 * vma_needs_reservation and vma_commit_reservation.
+		 * This indicates a race with hugetlb_reserve_pages.
+		 * Adjust for the subpool count incremented above AND
+		 * in hugetlb_reserve_pages for the same page.  Also,
+		 * the reservation count added in hugetlb_reserve_pages
+		 * no longer applies.
+		 */
+		long rsv_adjust;
+
+		rsv_adjust = hugepage_subpool_put_pages(spool, 1);
+		hugetlb_acct_memory(h, -rsv_adjust);
+		if (deferred_reserve) {
+			spin_lock_irq(&hugetlb_lock);
+			hugetlb_cgroup_uncharge_folio_rsvd(hstate_index(h),
+					pages_per_huge_page(h), folio);
+			spin_unlock_irq(&hugetlb_lock);
+		}
+	}
+
+	if (!memcg_charge_ret)
+		mem_cgroup_commit_charge(folio, memcg);
+	mem_cgroup_put(memcg);
+
+	return folio;
+
+out_uncharge_cgroup:
+	hugetlb_cgroup_uncharge_cgroup(idx, pages_per_huge_page(h), h_cg);
+out_uncharge_cgroup_reservation:
+	if (deferred_reserve)
+		hugetlb_cgroup_uncharge_cgroup_rsvd(idx, pages_per_huge_page(h),
+						    h_cg);
+out_subpool_put:
+	if (map_chg || avoid_reserve)
+		hugepage_subpool_put_pages(spool, 1);
+out_end_reservation:
+	vma_end_reservation(h, vma, addr);
+	if (!memcg_charge_ret)
+		mem_cgroup_cancel_charge(memcg, nr_pages);
+	mem_cgroup_put(memcg);
+	return ERR_PTR(-ENOSPC);
+}
+void hugetlb_cgroup_uncharge_folio_rsvd(int idx, unsigned long nr_pages,
+				       struct folio *folio)
+{
+	__hugetlb_cgroup_uncharge_folio(idx, nr_pages, folio, true);
+}
+void put_pages_list(struct list_head *pages)
+{
+	struct folio_batch fbatch;
+	struct folio *folio, *next;
+
+	folio_batch_init(&fbatch);
+	list_for_each_entry_safe(folio, next, pages, lru) {
+		if (!folio_put_testzero(folio))
+			continue;
+		if (folio_test_hugetlb(folio)) {
+			free_huge_folio(folio);
+			continue;
+		}
+		/* LRU flag must be clear because it's passed using the lru */
+		if (folio_batch_add(&fbatch, folio) > 0)
+			continue;
+		free_unref_folios(&fbatch);
+	}
+
+	if (fbatch.nr)
+		free_unref_folios(&fbatch);
+	INIT_LIST_HEAD(pages);
+}
+void free_huge_folio(struct folio *folio)
+{
+	/*
+	 * Can't pass hstate in here because it is called from the
+	 * generic mm code.
+	 */
+	struct hstate *h = folio_hstate(folio);
+	int nid = folio_nid(folio);
+	struct hugepage_subpool *spool = hugetlb_folio_subpool(folio);
+	bool restore_reserve;
+	unsigned long flags;
+
+	VM_BUG_ON_FOLIO(folio_ref_count(folio), folio);
+	VM_BUG_ON_FOLIO(folio_mapcount(folio), folio);
+
+	hugetlb_set_folio_subpool(folio, NULL);
+	if (folio_test_anon(folio))
+		__ClearPageAnonExclusive(&folio->page);
+	folio->mapping = NULL;
+	restore_reserve = folio_test_hugetlb_restore_reserve(folio);
+	folio_clear_hugetlb_restore_reserve(folio);
+
+	/*
+	 * If HPageRestoreReserve was set on page, page allocation consumed a
+	 * reservation.  If the page was associated with a subpool, there
+	 * would have been a page reserved in the subpool before allocation
+	 * via hugepage_subpool_get_pages().  Since we are 'restoring' the
+	 * reservation, do not call hugepage_subpool_put_pages() as this will
+	 * remove the reserved page from the subpool.
+	 */
+	if (!restore_reserve) {
+		/*
+		 * A return code of zero implies that the subpool will be
+		 * under its minimum size if the reservation is not restored
+		 * after page is free.  Therefore, force restore_reserve
+		 * operation.
+		 */
+		if (hugepage_subpool_put_pages(spool, 1) == 0)
+			restore_reserve = true;
+	}
+
+	spin_lock_irqsave(&hugetlb_lock, flags);
+	folio_clear_hugetlb_migratable(folio);
+	hugetlb_cgroup_uncharge_folio(hstate_index(h),
+				     pages_per_huge_page(h), folio);
+	hugetlb_cgroup_uncharge_folio_rsvd(hstate_index(h),
+					  pages_per_huge_page(h), folio);
+	mem_cgroup_uncharge(folio);
+	if (restore_reserve)
+		h->resv_huge_pages++;
+
+	if (folio_test_hugetlb_temporary(folio)) {
+		remove_hugetlb_folio(h, folio, false);
+		spin_unlock_irqrestore(&hugetlb_lock, flags);
+		update_and_free_hugetlb_folio(h, folio, true);
+	} else if (h->surplus_huge_pages_node[nid]) {
+		/* remove the page from active list */
+		remove_hugetlb_folio(h, folio, true);
+		spin_unlock_irqrestore(&hugetlb_lock, flags);
+		update_and_free_hugetlb_folio(h, folio, true);
+	} else {
+		arch_clear_hugetlb_flags(folio);
+		enqueue_hugetlb_folio(h, folio);
+		spin_unlock_irqrestore(&hugetlb_lock, flags);
+	}
+}
+void hugetlb_cgroup_uncharge_folio_rsvd(int idx, unsigned long nr_pages,
+				       struct folio *folio)
+{
+	__hugetlb_cgroup_uncharge_folio(idx, nr_pages, folio, true);
+}

@@ -1,0 +1,2632 @@
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+static unsigned long mremap_to(unsigned long addr, unsigned long old_len,
+----- addresses:
+ffffffff816812b0
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+struct mm_struct *mm = current->mm;
+----- addresses:
+ffffffff816812b5
+ffffffff816812b0
+ffffffff81681b67
+ffffffff81681b5d
+ffffffff816812c7
+ffffffff816812e0
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+struct vm_area_struct *vma;
+----- addresses:
+ffffffff816812ed
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+unsigned long ret = -EINVAL;
+----- addresses:
+ffffffff816812ed
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+unsigned long map_flags = 0;
+----- addresses:
+ffffffff816812ed
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (offset_in_page(new_addr))
+----- addresses:
+ffffffff816812ed
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (new_len > TASK_SIZE || new_addr > TASK_SIZE - new_len)
+----- addresses:
+ffffffff81681487
+ffffffff816814cb
+ffffffff81681b53
+ffffffff81681393
+ffffffff81681475
+ffffffff816814c8
+ffffffff816814c3
+ffffffff81681417
+ffffffff816814ba
+ffffffff81681c0d
+ffffffff81681465
+ffffffff81681335
+ffffffff816812fc
+ffffffff816814be
+ffffffff81681357
+ffffffff81681c17
+ffffffff81681345
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (addr + old_len > new_addr && new_addr + new_len > addr)
+----- addresses:
+ffffffff816814d4
+ffffffff816814e0
+ffffffff816814e5
+ffffffff816814ee
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if ((mm->map_count + 2) >= sysctl_max_map_count - 3)
+----- addresses:
+ffffffff81681529
+ffffffff81681cb2
+ffffffff81681573
+ffffffff81681546
+ffffffff81681ca8
+ffffffff81681533
+ffffffff816814f7
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (flags & MREMAP_FIXED) {
+----- addresses:
+ffffffff81681581
+ffffffff8168157c
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+ret = do_munmap(mm, new_addr, new_len, uf_unmap_early);
+----- addresses:
+ffffffff816819ed
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (ret)
+----- addresses:
+ffffffff816815c8
+ffffffff816815c6
+ffffffff81681a0c
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (old_len > new_len) {
+----- addresses:
+ffffffff81681592
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+ret = do_munmap(mm, addr+new_len, old_len - new_len, uf_unmap);
+----- addresses:
+ffffffff816815a4
+ffffffff816815c6
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vma = vma_to_resize(addr, old_len, new_len, flags);
+----- addresses:
+ffffffff816815d1
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (IS_ERR(vma)) {
+----- addresses:
+ffffffff816815ea
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (flags & MREMAP_DONTUNMAP &&
+----- addresses:
+ffffffff8168161b
+ffffffff81681626
+ffffffff816813fc
+ffffffff816815f6
+ffffffff816813f4
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+!may_expand_vm(mm, vma->vm_flags, old_len >> PAGE_SHIFT)) {
+----- addresses:
+ffffffff816815fb
+ffffffff81681c77
+ffffffff816815f6
+ffffffff81681c6d
+ffffffff816813d9
+ffffffff81681621
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (flags & MREMAP_FIXED)
+----- addresses:
+ffffffff8168162c
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (vma->vm_flags & VM_MAYSHARE)
+----- addresses:
+ffffffff81681643
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+map_flags |= MAP_SHARED;
+----- addresses:
+ffffffff81681650
+ffffffff81681655
+ffffffff8168165e
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+ret = get_unmapped_area(vma->vm_file, new_addr, new_len, vma->vm_pgoff +
+----- addresses:
+ffffffff81681690
+ffffffff816816bc
+ffffffff81681bfe
+ffffffff816816ad
+ffffffff816816cd
+ffffffff81681663
+ffffffff81681b71
+ffffffff81681b85
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+((addr - vma->vm_start) >> PAGE_SHIFT),
+----- addresses:
+ffffffff816816b5
+ffffffff81681695
+ffffffff81681bea
+ffffffff81681bdd
+ffffffff8168168d
+ffffffff816816c9
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (IS_ERR_VALUE(ret))
+----- addresses:
+ffffffff816816fb
+ffffffff816816f6
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (!(flags & MREMAP_FIXED))
+----- addresses:
+ffffffff81681707
+ffffffff8168170c
+ffffffff8168171d
+----- funcname:
+mremap_to
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+ret = move_vma(vma, addr, old_len, new_len, new_addr, locked, flags, uf,
+----- addresses:
+ffffffff8168171d
+ffffffff81681727
+ffffffff81681722
+ffffffff8168173c
+ffffffff81681741
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+static __latent_entropy int dup_mmap(struct mm_struct *mm,
+----- addresses:
+ffffffff81154917
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+struct vm_area_struct *mpnt, *tmp;
+----- addresses:
+ffffffff81154917
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+int retval;
+----- addresses:
+ffffffff81154917
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+unsigned long charge = 0;
+----- addresses:
+ffffffff81154917
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+LIST_HEAD(uf);
+----- addresses:
+ffffffff81154925
+ffffffff81154917
+ffffffff8115493d
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+VMA_ITERATOR(vmi, mm, 0);
+----- addresses:
+ffffffff8115492d
+ffffffff8115494d
+ffffffff8115491c
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+uprobe_start_dup_mmap();
+----- addresses:
+ffffffff8115495d
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (mmap_write_lock_killable(oldmm)) {
+----- addresses:
+ffffffff8115498a
+ffffffff81154962
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+flush_cache_dup_mm(oldmm);
+----- addresses:
+ffffffff81154997
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+uprobe_dup_mmap(oldmm, mm);
+----- addresses:
+ffffffff81154997
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mmap_write_lock_nested(mm, SINGLE_DEPTH_NESTING);
+----- addresses:
+ffffffff811549a8
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+dup_mm_exe_file(mm, oldmm);
+----- addresses:
+ffffffff811549cb
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mm->total_vm = oldmm->total_vm;
+----- addresses:
+ffffffff81154ab2
+ffffffff81154b13
+ffffffff81155eae
+ffffffff81155ebd
+ffffffff81155ea4
+ffffffff81154ae8
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mm->data_vm = oldmm->data_vm;
+----- addresses:
+ffffffff81154b40
+ffffffff81154b6d
+ffffffff81155e59
+ffffffff81154b1a
+ffffffff81154b51
+ffffffff81155e63
+ffffffff81154b4a
+ffffffff81154b0f
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mm->exec_vm = oldmm->exec_vm;
+----- addresses:
+ffffffff81154bc7
+ffffffff81155e6d
+ffffffff81155e77
+ffffffff81154b9a
+ffffffff81154b74
+ffffffff81154b69
+ffffffff81154ba4
+ffffffff81154bab
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mm->stack_vm = oldmm->stack_vm;
+----- addresses:
+ffffffff81155e8b
+ffffffff81154bce
+ffffffff81154bc3
+ffffffff81155e81
+ffffffff81154bf4
+ffffffff81154c05
+ffffffff81154bfe
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+retval = ksm_fork(mm, oldmm);
+----- addresses:
+ffffffff81154c24
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (retval)
+----- addresses:
+ffffffff81154fee
+ffffffff81154ee3
+ffffffff81154fc3
+ffffffff81154c24
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+khugepaged_fork(mm, oldmm);
+----- addresses:
+ffffffff81154c24
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+retval = __mt_dup(&oldmm->mm_mt, &mm->mm_mt, GFP_KERNEL);
+----- addresses:
+ffffffff81154c24
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (unlikely(retval))
+----- addresses:
+ffffffff81154c3b
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mt_clear_in_rcu(vmi.mas.tree);
+----- addresses:
+ffffffff81154c43
+ffffffff81154c48
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+for_each_vma(vmi, mpnt) {
+----- addresses:
+ffffffff81154ce5
+ffffffff81154cfe
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+struct file *file;
+----- addresses:
+ffffffff81154d07
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+vma_start_write(mpnt);
+----- addresses:
+ffffffff81154d07
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (mpnt->vm_flags & VM_DONTCOPY) {
+----- addresses:
+ffffffff81154e33
+ffffffff81155e3f
+ffffffff81154e4f
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+retval = vma_iter_clear_gfp(&vmi, mpnt->vm_start,
+----- addresses:
+ffffffff81155f84
+ffffffff81154e8e
+ffffffff81154e96
+ffffffff81155ef0
+ffffffff81154e5b
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+vm_stat_account(mm, mpnt->vm_flags, -vma_pages(mpnt));
+----- addresses:
+ffffffff81154ee3
+ffffffff81154f23
+ffffffff81155f21
+ffffffff81154f20
+ffffffff81154f1c
+ffffffff81154f2e
+ffffffff81154f15
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+continue;
+----- addresses:
+ffffffff81154f3b
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+charge = 0;
+----- addresses:
+ffffffff81154f40
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (fatal_signal_pending(current)) {
+----- addresses:
+ffffffff81154f40
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+retval = -EINTR;
+----- addresses:
+ffffffff81155a67
+ffffffff81155a74
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (mpnt->vm_flags & VM_ACCOUNT) {
+----- addresses:
+ffffffff81155ee3
+ffffffff81154f89
+ffffffff81154f72
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+unsigned long len = vma_pages(mpnt);
+----- addresses:
+ffffffff81155758
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (security_vm_enough_memory_mm(oldmm, len)) /* sic */
+----- addresses:
+ffffffff811557af
+ffffffff81155797
+ffffffff811557b5
+ffffffff8115578f
+ffffffff8115579f
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+tmp = vm_area_dup(mpnt);
+----- addresses:
+ffffffff81154f9a
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (!tmp)
+----- addresses:
+ffffffff81154faa
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+retval = vma_dup_policy(mpnt, tmp);
+----- addresses:
+ffffffff81154fb3
+ffffffff81154fb8
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+tmp->vm_mm = mm;
+----- addresses:
+ffffffff81154fd0
+ffffffff81155ec7
+ffffffff81154fea
+ffffffff81154fcb
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+retval = dup_userfaultfd(tmp, &uf);
+----- addresses:
+ffffffff81154fee
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (tmp->vm_flags & VM_WIPEONFORK) {
+----- addresses:
+ffffffff81154fee
+ffffffff81155ed4
+ffffffff81154fe6
+ffffffff81155002
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+tmp->anon_vma = NULL;
+----- addresses:
+ffffffff8115500d
+ffffffff8115503f
+ffffffff811560f6
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+} else if (anon_vma_fork(tmp, mpnt))
+----- addresses:
+ffffffff81155900
+ffffffff81155910
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+goto fail_nomem_anon_vma_fork;
+----- addresses:
+ffffffff81155d49
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+vm_flags_clear(tmp, VM_LOCKED_MASK);
+----- addresses:
+ffffffff81155044
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (is_vm_hugetlb_page(tmp))
+----- addresses:
+ffffffff81155187
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+hugetlb_dup_vma_private(tmp);
+----- addresses:
+ffffffff81155942
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+vma_iter_bulk_store(&vmi, tmp);
+----- addresses:
+ffffffff81155192
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mm->map_count++;
+----- addresses:
+ffffffff8115520b
+ffffffff811551e8
+ffffffff811559ed
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (tmp->vm_ops && tmp->vm_ops->open)
+----- addresses:
+ffffffff81155fa8
+ffffffff81155fb2
+ffffffff81155213
+ffffffff811560c5
+ffffffff81155229
+ffffffff8115522e
+ffffffff81155207
+ffffffff81155248
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+tmp->vm_ops->open(tmp);
+----- addresses:
+ffffffff8115524d
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+file = tmp->vm_file;
+----- addresses:
+ffffffff81155fbc
+ffffffff8115525a
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (file) {
+----- addresses:
+ffffffff8115527f
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+struct address_space *mapping = file->f_mapping;
+----- addresses:
+ffffffff81156044
+ffffffff8115604e
+ffffffff811552af
+ffffffff81155288
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+get_file(file);
+----- addresses:
+ffffffff811552b6
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+i_mmap_lock_write(mapping);
+----- addresses:
+ffffffff811552cf
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (vma_is_shared_maywrite(tmp))
+----- addresses:
+ffffffff811552fe
+ffffffff811552e3
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mapping_allow_writable(mapping);
+----- addresses:
+ffffffff81155a79
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+flush_dcache_mmap_lock(mapping);
+----- addresses:
+ffffffff81155308
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+vma_interval_tree_insert_after(tmp, mpnt,
+----- addresses:
+ffffffff81155308
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+flush_dcache_mmap_unlock(mapping);
+----- addresses:
+ffffffff8115531c
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+i_mmap_unlock_write(mapping);
+----- addresses:
+ffffffff8115531c
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (!(tmp->vm_flags & VM_WIPEONFORK))
+----- addresses:
+ffffffff81155ea4
+ffffffff8115533d
+ffffffff81155324
+ffffffff81155e95
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+retval = copy_page_range(tmp, mpnt);
+----- addresses:
+ffffffff81155348
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (retval) {
+----- addresses:
+ffffffff81155358
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mpnt = vma_next(&vmi);
+----- addresses:
+ffffffff8115536a
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+goto loop_out;
+----- addresses:
+ffffffff81155389
+ffffffff81155802
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+retval = arch_dup_mmap(oldmm, mm);
+----- addresses:
+ffffffff81155afc
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+vma_iter_free(&vmi);
+----- addresses:
+ffffffff81155c13
+ffffffff81155a19
+ffffffff81155389
+ffffffff81155802
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+if (!retval) {
+----- addresses:
+ffffffff8115580c
+ffffffff8115538e
+ffffffff81155a28
+ffffffff81155c18
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mt_set_in_rcu(vmi.mas.tree);
+----- addresses:
+ffffffff81155c20
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+} else if (mpnt) {
+----- addresses:
+ffffffff8115580c
+ffffffff8115538e
+ffffffff81155a28
+ffffffff81155396
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mas_set_range(&vmi.mas, mpnt->vm_start, mpnt->vm_end - 1);
+----- addresses:
+ffffffff8115602a
+ffffffff811553df
+ffffffff81156037
+ffffffff8115539b
+ffffffff811553bb
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mas_store(&vmi.mas, XA_ZERO_ENTRY);
+----- addresses:
+ffffffff81155414
+ffffffff811553e3
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mmap_write_unlock(mm);
+----- addresses:
+ffffffff81155419
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+flush_tlb_mm(oldmm);
+----- addresses:
+ffffffff811554aa
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mmap_write_unlock(oldmm);
+----- addresses:
+ffffffff811554c4
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+uprobe_end_dup_mmap();
+----- addresses:
+ffffffff81155d2b
+ffffffff81155566
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+return retval;
+----- addresses:
+ffffffff81155d3c
+ffffffff8115556b
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+mpol_put(vma_policy(tmp));
+----- addresses:
+ffffffff81155d70
+ffffffff81155d49
+ffffffff81155d41
+ffffffff81156117
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+vm_area_free(tmp);
+----- addresses:
+ffffffff81155d04
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+retval = -ENOMEM;
+----- addresses:
+ffffffff811557b5
+ffffffff811557f1
+----- funcname:
+dup_mmap
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/kernel/fork.c
+----- source:
+vm_unacct_memory(charge);
+----- addresses:
+ffffffff81155cdc
+ffffffff81155ce2
+ffffffff811557b5
+ffffffff81155cec
+ffffffff81155ce7
+----- funcname:
+shmem_unacct_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+static inline void shmem_unacct_blocks(unsigned long flags, long pages)
+----- addresses:
+ffffffff815e3341
+ffffffff815e2ad5
+----- funcname:
+shmem_unacct_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+if (flags & VM_NORESERVE)
+----- addresses:
+ffffffff815e2adb
+ffffffff815e3341
+ffffffff815e2ad5
+----- funcname:
+shmem_unacct_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+vm_unacct_memory(pages * VM_ACCT(PAGE_SIZE));
+----- addresses:
+ffffffff815e2ae8
+ffffffff815e334b
+----- funcname:
+security_vm_enough_memory_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c
+----- source:
+{
+----- addresses:
+ffffffff81d52cb4
+ffffffff81d52cb0
+----- funcname:
+security_vm_enough_memory_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c
+----- source:
+struct security_hook_list *hp;
+----- addresses:
+ffffffff81d52cb4
+----- funcname:
+security_vm_enough_memory_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c
+----- source:
+int cap_sys_admin = 1;
+----- addresses:
+ffffffff81d52d27
+ffffffff81d52cb4
+----- funcname:
+security_vm_enough_memory_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c
+----- source:
+int rc;
+----- addresses:
+ffffffff81d52cb4
+----- funcname:
+security_vm_enough_memory_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c
+----- source:
+hlist_for_each_entry(hp, &security_hook_heads.vm_enough_memory, list) {
+----- addresses:
+ffffffff81d52cb4
+ffffffff81d52cd1
+ffffffff81d52cdf
+ffffffff81d52cd8
+ffffffff81d52cf4
+ffffffff81d52d4f
+ffffffff81d52ccc
+ffffffff81d52cf9
+ffffffff81d52cf1
+ffffffff81d52ce4
+----- funcname:
+security_vm_enough_memory_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c
+----- source:
+rc = hp->hook.vm_enough_memory(mm, pages);
+----- addresses:
+ffffffff81d52d48
+ffffffff81d52cf9
+ffffffff81d52d0f
+----- funcname:
+security_vm_enough_memory_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c
+----- source:
+if (rc <= 0) {
+----- addresses:
+ffffffff81d52d1e
+----- funcname:
+security_vm_enough_memory_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c
+----- source:
+cap_sys_admin = 0;
+----- addresses:
+ffffffff81d52d22
+----- funcname:
+security_vm_enough_memory_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c
+----- source:
+return __vm_enough_memory(mm, pages, cap_sys_admin);
+----- addresses:
+ffffffff81d52d2d
+ffffffff81d52d43
+ffffffff81d52d3a
+ffffffff81d52d36
+----- funcname:
+security_vm_enough_memory_mm
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c
+----- source:
+}
+----- addresses:
+ffffffff81d52d41
+ffffffff81d52d39
+ffffffff81d52d35
+ffffffff81d52d3d
+ffffffff81d52d3f
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+{
+----- addresses:
+ffffffff8167afff
+ffffffff8167b3df
+ffffffff8167afbb
+ffffffff8167af90
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+struct mm_struct *mm = vma->vm_mm;
+----- addresses:
+ffffffff8167b739
+ffffffff8167b03f
+ffffffff8167b019
+ffffffff8167b01e
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+unsigned long oldflags = vma->vm_flags;
+----- addresses:
+ffffffff8167b734
+ffffffff8167b72f
+ffffffff8167b044
+ffffffff8167b052
+ffffffff8167b05f
+ffffffff8167b038
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+long nrpages = (end - start) >> PAGE_SHIFT;
+----- addresses:
+ffffffff8167b066
+ffffffff8167b063
+ffffffff8167b05c
+ffffffff8167b06f
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+unsigned int mm_cp_flags = 0;
+----- addresses:
+ffffffff8167b073
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+unsigned long charged = 0;
+----- addresses:
+ffffffff8167b0d3
+ffffffff8167b073
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+int error;
+----- addresses:
+ffffffff8167b073
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if (newflags == oldflags) {
+----- addresses:
+ffffffff8167b073
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+*pprev = vma;
+----- addresses:
+ffffffff8167b801
+ffffffff8167b151
+ffffffff8167b7b2
+ffffffff8167b17b
+ffffffff8167b5a9
+ffffffff8167b5ae
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+return 0;
+----- addresses:
+ffffffff8167b3d7
+ffffffff8167b3d5
+ffffffff8167b5cc
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if (arch_has_pfn_modify_check() &&
+----- addresses:
+ffffffff8167b07c
+ffffffff8167b42b
+ffffffff8167b0a7
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+(vma->vm_flags & (VM_PFNMAP|VM_MIXEDMAP)) &&
+----- addresses:
+ffffffff8167b426
+ffffffff8167b43d
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+(newflags & VM_ACCESS_FLAGS) == 0) {
+----- addresses:
+ffffffff8167b438
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+pgprot_t new_pgprot = vm_get_page_prot(newflags);
+----- addresses:
+ffffffff8167b45e
+ffffffff8167b447
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+error = walk_page_range(current->mm, start, end,
+----- addresses:
+ffffffff8167b483
+ffffffff8167b454
+ffffffff8167b847
+ffffffff8167b838
+ffffffff8167b83d
+ffffffff8167b46b
+ffffffff8167b463
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if (error)
+----- addresses:
+ffffffff8167b4ae
+ffffffff8167b4a1
+ffffffff8167b4b3
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+return error;
+----- addresses:
+ffffffff8167b703
+ffffffff8167b710
+ffffffff8167b708
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if (newflags & VM_WRITE) {
+----- addresses:
+ffffffff8167b0b7
+ffffffff8167b0b2
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if (!may_expand_vm(mm, newflags, nrpages) &&
+----- addresses:
+ffffffff8167b562
+ffffffff8167b637
+ffffffff8167b54b
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+may_expand_vm(mm, oldflags, nrpages))
+----- addresses:
+ffffffff8167b620
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+return -ENOMEM;
+----- addresses:
+ffffffff8167b63f
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if (!(oldflags & (VM_ACCOUNT|VM_WRITE|VM_HUGETLB|
+----- addresses:
+ffffffff8167b56f
+ffffffff8167b56a
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+charged = nrpages;
+----- addresses:
+ffffffff8167b57c
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if (security_vm_enough_memory_mm(mm, charged))
+----- addresses:
+ffffffff8167b590
+ffffffff8167b57c
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+newflags |= VM_ACCOUNT;
+----- addresses:
+ffffffff8167b598
+ffffffff8167b5a4
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+} else if ((oldflags & VM_ACCOUNT) && vma_is_anonymous(vma) &&
+----- addresses:
+ffffffff8167b0c1
+ffffffff8167b4d7
+ffffffff8167b506
+ffffffff8167b0c6
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+!vma->anon_vma) {
+----- addresses:
+ffffffff8167b847
+ffffffff8167b4e2
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+newflags &= ~VM_ACCOUNT;
+----- addresses:
+ffffffff8167b511
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+vma = vma_modify_flags(vmi, *pprev, vma, start, end, newflags);
+----- addresses:
+ffffffff8167b76d
+ffffffff8167b103
+ffffffff8167b0dc
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if (IS_ERR(vma)) {
+----- addresses:
+ffffffff8167b142
+ffffffff8167b143
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+error = PTR_ERR(vma);
+----- addresses:
+ffffffff8167b691
+ffffffff8167b680
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+goto fail;
+----- addresses:
+ffffffff8167b693
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+vma_start_write(vma);
+----- addresses:
+ffffffff8167b17e
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+vm_flags_reset(vma, newflags);
+----- addresses:
+ffffffff8167b307
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if (vma_wants_manual_pte_write_upgrade(vma))
+----- addresses:
+ffffffff8167b32f
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+vma_set_page_prot(vma);
+----- addresses:
+ffffffff8167b347
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+change_protection(tlb, vma, start, end, mm_cp_flags);
+----- addresses:
+ffffffff8167b354
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if ((oldflags & VM_ACCOUNT) && !(newflags & VM_ACCOUNT))
+----- addresses:
+ffffffff8167b372
+ffffffff8167b37b
+ffffffff8167b36b
+ffffffff8167b380
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+vm_unacct_memory(nrpages);
+----- addresses:
+ffffffff8167b5d3
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+if ((oldflags & (VM_WRITE | VM_SHARED | VM_LOCKED)) == VM_LOCKED &&
+----- addresses:
+ffffffff8167b527
+ffffffff8167b38d
+ffffffff8167b39a
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+(newflags & VM_WRITE)) {
+----- addresses:
+ffffffff8167b522
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+populate_vma_page_range(vma, start, end, NULL);
+----- addresses:
+ffffffff8167b531
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+vm_stat_account(mm, oldflags, -nrpages);
+----- addresses:
+ffffffff8167b3a6
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+vm_stat_account(mm, newflags, nrpages);
+----- addresses:
+ffffffff8167b3be
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+perf_event_mmap(vma);
+----- addresses:
+ffffffff8167b3cd
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+vm_unacct_memory(charged);
+----- addresses:
+ffffffff8167b693
+----- funcname:
+mprotect_fixup
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mprotect.c
+----- source:
+}
+----- addresses:
+ffffffff8167b421
+ffffffff8167b41d
+ffffffff8167b3f6
+ffffffff8167b41f
+ffffffff8167b743
+----- funcname:
+shmem_unacct_size
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+static inline void shmem_unacct_size(unsigned long flags, loff_t size)
+----- addresses:
+ffffffff815ec959
+ffffffff815ecdb1
+ffffffff815e5431
+ffffffff815e541e
+----- funcname:
+shmem_unacct_size
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+if (!(flags & VM_NORESERVE))
+----- addresses:
+ffffffff815e542b
+ffffffff815e5423
+ffffffff815ec959
+ffffffff815e541e
+ffffffff815ec96a
+ffffffff815ec95e
+----- funcname:
+shmem_unacct_size
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+vm_unacct_memory(VM_ACCT(size));
+----- addresses:
+ffffffff815ecdbb
+ffffffff815e5431
+ffffffff815e5454
+ffffffff815ecdd4
+ffffffff815e5447
+ffffffff815ecdb1
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+{
+----- addresses:
+ffffffff815f2bed
+ffffffff815f2be0
+ffffffff815f2be4
+ffffffff815f2bfb
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+long allowed;
+----- addresses:
+ffffffff815f2be4
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+unsigned long bytes_failed;
+----- addresses:
+ffffffff815f2be4
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+vm_acct_memory(pages);
+----- addresses:
+ffffffff815f2be4
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+if (sysctl_overcommit_memory == OVERCOMMIT_ALWAYS)
+----- addresses:
+ffffffff815f2c4a
+ffffffff815f2c44
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+return 0;
+----- addresses:
+ffffffff815f2d2c
+ffffffff815f2d29
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+if (sysctl_overcommit_memory == OVERCOMMIT_GUESS) {
+----- addresses:
+ffffffff815f2c53
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+if (pages > totalram_pages() + total_swap_pages)
+----- addresses:
+ffffffff815f2d45
+ffffffff815f2d7a
+ffffffff815f2da7
+ffffffff815f2f13
+ffffffff815f2d88
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+allowed = vm_commit_limit();
+----- addresses:
+ffffffff815f2c60
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+if (!cap_sys_admin)
+----- addresses:
+ffffffff815f2cb2
+ffffffff815f2ca9
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+allowed -= sysctl_admin_reserve_kbytes >> (PAGE_SHIFT - 10);
+----- addresses:
+ffffffff815f2e22
+ffffffff815f2e32
+ffffffff815f2e35
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+if (mm) {
+----- addresses:
+ffffffff815f2cba
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+long reserve = sysctl_user_reserve_kbytes >> (PAGE_SHIFT - 10);
+----- addresses:
+ffffffff815f2ccc
+ffffffff815f2cbf
+ffffffff815f2ce4
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+allowed -= min_t(long, mm->total_vm / 32, reserve);
+----- addresses:
+ffffffff815f2d05
+ffffffff815f2d08
+ffffffff815f2cc4
+ffffffff815f2d0b
+ffffffff815f2f46
+ffffffff815f2cf2
+ffffffff815f2f50
+ffffffff815f2cd3
+ffffffff815f2cfe
+ffffffff815f2ce8
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+if (percpu_counter_read_positive(&vm_committed_as) < allowed)
+----- addresses:
+ffffffff815f2d0b
+ffffffff815f2d20
+ffffffff815f2d17
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+bytes_failed = pages << PAGE_SHIFT;
+----- addresses:
+ffffffff815f2db0
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+pr_warn_ratelimited("%s: pid: %d, comm: %s, bytes: %lu not enough memory for the allocation\n",
+----- addresses:
+ffffffff815f2f65
+ffffffff815f2ebb
+ffffffff815f2ecd
+ffffffff815f2eb6
+ffffffff815f2db0
+ffffffff815f2f13
+ffffffff815f2f73
+ffffffff815f2edb
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+vm_unacct_memory(pages);
+----- addresses:
+ffffffff815f2dd0
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+return -ENOMEM;
+----- addresses:
+ffffffff815f2e12
+----- funcname:
+__vm_enough_memory
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/util.c
+----- source:
+}
+----- addresses:
+ffffffff815f2d31
+ffffffff815f2d3a
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+static unsigned long move_vma(struct vm_area_struct *vma,
+----- addresses:
+ffffffff8167f461
+ffffffff8167f4d9
+ffffffff8167f440
+ffffffff8167fff3
+ffffffff8167f4b1
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+long to_account = new_len - old_len;
+----- addresses:
+ffffffff8167f5cc
+ffffffff8167f5b9
+ffffffff8167f4e1
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+struct mm_struct *mm = vma->vm_mm;
+----- addresses:
+ffffffff8167f4e1
+ffffffff816807be
+ffffffff8167f4ee
+ffffffff8167f4e6
+ffffffff8167f507
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+struct vm_area_struct *new_vma;
+----- addresses:
+ffffffff8167f50b
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+unsigned long vm_flags = vma->vm_flags;
+----- addresses:
+ffffffff8167f526
+ffffffff8167f503
+ffffffff8167f534
+ffffffff816807b4
+ffffffff8167f50b
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+unsigned long new_pgoff;
+----- addresses:
+ffffffff8167f539
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+unsigned long moved_len;
+----- addresses:
+ffffffff8167f539
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+unsigned long account_start = 0;
+----- addresses:
+ffffffff8167fa64
+ffffffff8167f539
+ffffffff816800a7
+ffffffff81680309
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+unsigned long account_end = 0;
+----- addresses:
+ffffffff8167fa5b
+ffffffff81680496
+ffffffff8167f539
+ffffffff8168009e
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+unsigned long hiwater_vm;
+----- addresses:
+ffffffff8167f539
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+int err = 0;
+----- addresses:
+ffffffff8167f539
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+bool need_rmap_locks;
+----- addresses:
+ffffffff8167f539
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+struct vma_iterator vmi;
+----- addresses:
+ffffffff8167f539
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (mm->map_count >= sysctl_max_map_count - 3)
+----- addresses:
+ffffffff8167f52a
+ffffffff8167f55e
+ffffffff8167f547
+ffffffff816804a4
+ffffffff816804ba
+ffffffff8167f565
+ffffffff816804b5
+ffffffff8167f539
+ffffffff8167f595
+ffffffff8167f557
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (unlikely(flags & MREMAP_DONTUNMAP))
+----- addresses:
+ffffffff8167f59e
+ffffffff8167f5a3
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (vma->vm_ops && vma->vm_ops->may_split) {
+----- addresses:
+ffffffff8167f5d1
+ffffffff8167f625
+ffffffff8167f5fd
+ffffffff816807d6
+ffffffff8167f5f4
+ffffffff81680820
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (vma->vm_start != old_addr)
+----- addresses:
+ffffffff8167f62e
+ffffffff8167f64e
+ffffffff8168085d
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+err = vma->vm_ops->may_split(vma, old_addr);
+----- addresses:
+ffffffff8167f654
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (!err && vma->vm_end != old_addr + old_len)
+----- addresses:
+ffffffff8167f668
+ffffffff8167f6aa
+ffffffff8168096e
+ffffffff8167f67e
+ffffffff8167f6a2
+ffffffff8167f671
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+err = vma->vm_ops->may_split(vma, old_addr + old_len);
+----- addresses:
+ffffffff8167f6d4
+ffffffff8167f6de
+ffffffff8168091c
+ffffffff8167f6f7
+ffffffff8167f6b0
+ffffffff8167f6e2
+ffffffff81680912
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (err)
+----- addresses:
+ffffffff8167f709
+ffffffff8167f712
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+return err;
+----- addresses:
+ffffffff816800b5
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+err = ksm_madvise(vma, old_addr, old_addr + old_len,
+----- addresses:
+ffffffff81680362
+ffffffff8167f712
+ffffffff8168036a
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (vm_flags & VM_ACCOUNT) {
+----- addresses:
+ffffffff8167f717
+ffffffff8167f712
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (security_vm_enough_memory_mm(mm, to_account >> PAGE_SHIFT))
+----- addresses:
+ffffffff8167ffc9
+ffffffff8167ffdf
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vma_start_write(vma);
+----- addresses:
+ffffffff8167f72c
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+new_pgoff = vma->vm_pgoff + ((old_addr - vma->vm_start) >> PAGE_SHIFT);
+----- addresses:
+ffffffff8167f8e4
+ffffffff816807f2
+ffffffff8167f900
+ffffffff8167f8b5
+ffffffff8167f914
+ffffffff816807ff
+ffffffff8167f923
+ffffffff8167f8e1
+ffffffff8167f8e8
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+new_vma = copy_vma(&vma, new_addr, new_len, new_pgoff,
+----- addresses:
+ffffffff8167f900
+ffffffff8167f926
+ffffffff8167f907
+ffffffff8167f918
+ffffffff8167f92b
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (!new_vma) {
+----- addresses:
+ffffffff8167f930
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (vm_flags & VM_ACCOUNT)
+----- addresses:
+ffffffff816800c4
+ffffffff816800bf
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vm_unacct_memory(to_account >> PAGE_SHIFT);
+----- addresses:
+ffffffff816800f5
+ffffffff816800dc
+ffffffff816800d0
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+return -ENOMEM;
+----- addresses:
+ffffffff8167ffee
+ffffffff8167ffe7
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+moved_len = move_page_tables(vma, old_addr, new_vma, new_addr, old_len,
+----- addresses:
+ffffffff8167f93e
+ffffffff8167f939
+ffffffff8167f96a
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (moved_len < old_len) {
+----- addresses:
+ffffffff8167f969
+ffffffff8167f96d
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+err = -ENOMEM;
+----- addresses:
+ffffffff8168004f
+ffffffff81680047
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+} else if (vma->vm_ops && vma->vm_ops->mremap) {
+----- addresses:
+ffffffff8167f9a6
+ffffffff8167f9d7
+ffffffff8167f97b
+ffffffff81680964
+ffffffff8167f976
+ffffffff8167f9af
+ffffffff81680908
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+err = vma->vm_ops->mremap(new_vma);
+----- addresses:
+ffffffff8167f9e0
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (unlikely(err)) {
+----- addresses:
+ffffffff8167f9f4
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+move_page_tables(new_vma, new_addr, vma, old_addr, moved_len,
+----- addresses:
+ffffffff81680077
+ffffffff81680056
+ffffffff8167fa01
+ffffffff8168007c
+ffffffff8167f9fc
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vma = new_vma;
+----- addresses:
+ffffffff81680087
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+old_len = new_len;
+----- addresses:
+ffffffff81680090
+ffffffff8168008f
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+old_addr = new_addr;
+----- addresses:
+ffffffff8168008f
+ffffffff81680074
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+new_addr = err;
+----- addresses:
+ffffffff816807a5
+ffffffff8168008f
+ffffffff816807aa
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (is_vm_hugetlb_page(vma)) {
+----- addresses:
+ffffffff8167fa0c
+ffffffff8167fa35
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+clear_vma_resv_huge_pages(vma);
+----- addresses:
+ffffffff81680430
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (vm_flags & VM_ACCOUNT && !(flags & MREMAP_DONTUNMAP)) {
+----- addresses:
+ffffffff8167fa3f
+ffffffff8167fa50
+ffffffff8167fa6d
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vm_flags_clear(vma, VM_ACCOUNT);
+----- addresses:
+ffffffff81680126
+ffffffff8168043d
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (vma->vm_start < old_addr)
+----- addresses:
+ffffffff816802e2
+ffffffff81680a48
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (vma->vm_end > old_addr + old_len)
+----- addresses:
+ffffffff81680317
+ffffffff81680a3e
+ffffffff81680343
+ffffffff81680346
+ffffffff8168031c
+ffffffff8168033b
+ffffffff8168034b
+ffffffff8168033f
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+hiwater_vm = mm->hiwater_vm;
+----- addresses:
+ffffffff8167fa73
+ffffffff8167faab
+ffffffff81680843
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vm_stat_account(mm, vma->vm_flags, new_len >> PAGE_SHIFT);
+----- addresses:
+ffffffff8167facc
+ffffffff8167faa1
+ffffffff8168082a
+ffffffff8167fac2
+ffffffff8167fabe
+ffffffff8167faa6
+ffffffff81680834
+ffffffff8167fab0
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (unlikely(vma->vm_flags & VM_PFNMAP))
+----- addresses:
+ffffffff81680839
+ffffffff8167fb02
+ffffffff8167fadb
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+untrack_pfn_clear(vma);
+----- addresses:
+ffffffff816804e8
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (unlikely(!err && (flags & MREMAP_DONTUNMAP))) {
+----- addresses:
+ffffffff816804fa
+ffffffff8167fb0c
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vm_flags_clear(vma, VM_LOCKED_MASK);
+----- addresses:
+ffffffff8168050b
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (new_vma != vma && vma->vm_start == old_addr &&
+----- addresses:
+ffffffff816806a8
+ffffffff816806b0
+ffffffff816806db
+ffffffff81680a78
+ffffffff816806bb
+ffffffff8168070d
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vma->vm_end == (old_addr + old_len))
+----- addresses:
+ffffffff81680709
+ffffffff816806e5
+ffffffff81680a6e
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+unlink_anon_vmas(vma);
+----- addresses:
+ffffffff81680717
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vma_iter_init(&vmi, mm, old_addr);
+----- addresses:
+ffffffff8167fb1d
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (do_vmi_munmap(&vmi, mm, old_addr, old_len, uf_unmap, false) < 0) {
+----- addresses:
+ffffffff8167fb9b
+ffffffff8167fb8a
+ffffffff8167fb55
+ffffffff8167fb42
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (vm_flags & VM_ACCOUNT && !(flags & MREMAP_DONTUNMAP))
+----- addresses:
+ffffffff81680372
+ffffffff8168037f
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vm_acct_memory(old_len >> PAGE_SHIFT);
+----- addresses:
+ffffffff81680735
+ffffffff81680729
+ffffffff81680750
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (vm_flags & VM_LOCKED) {
+----- addresses:
+ffffffff8167fba3
+ffffffff81680390
+ffffffff8167fb94
+ffffffff8167fb8f
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+mm->locked_vm += new_len >> PAGE_SHIFT;
+----- addresses:
+ffffffff8168039e
+ffffffff816803ca
+ffffffff816808b6
+ffffffff8167fbad
+ffffffff8167fbd9
+ffffffff81680a64
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+*locked = true;
+----- addresses:
+ffffffff8167fbe0
+ffffffff8167fbd4
+ffffffff816803d1
+ffffffff816808a7
+ffffffff816803c5
+ffffffff81680408
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+mm->hiwater_vm = hiwater_vm;
+----- addresses:
+ffffffff81680401
+ffffffff81680479
+ffffffff8167fc38
+ffffffff8167fc0d
+ffffffff81680453
+ffffffff81680957
+ffffffff8168040b
+ffffffff81680a31
+ffffffff8168041f
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (account_start) {
+----- addresses:
+ffffffff8167fc32
+ffffffff8167fc3f
+ffffffff8168042b
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vma = vma_prev(&vmi);
+----- addresses:
+ffffffff8167fc45
+ffffffff8167fc58
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vm_flags_set(vma, VM_ACCOUNT);
+----- addresses:
+ffffffff8167fc63
+ffffffff8167fe30
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+if (account_end) {
+----- addresses:
+ffffffff8167fdfc
+ffffffff8168042b
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+vma = vma_next(&vmi);
+----- addresses:
+ffffffff8167fe0d
+ffffffff8167fe25
+----- funcname:
+move_vma
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/mremap.c
+----- source:
+}
+----- addresses:
+ffffffff816807e0
+ffffffff81680017
+----- funcname:
+shmem_reacct_size
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+static inline int shmem_reacct_size(unsigned long flags,
+----- addresses:
+ffffffff815ed1eb
+----- funcname:
+shmem_reacct_size
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+if (!(flags & VM_NORESERVE)) {
+----- addresses:
+ffffffff815ed1eb
+----- funcname:
+shmem_reacct_size
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+if (VM_ACCT(newsize) > VM_ACCT(oldsize))
+----- addresses:
+ffffffff815ed1f7
+ffffffff815ed1fc
+ffffffff815ed208
+ffffffff815ed211
+ffffffff815ed224
+ffffffff815ed20d
+----- funcname:
+shmem_reacct_size
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+return security_vm_enough_memory_mm(current->mm,
+----- addresses:
+ffffffff815edc2a
+ffffffff815edc42
+ffffffff815ede26
+ffffffff815edc4e
+ffffffff815edc07
+ffffffff815ede39
+ffffffff815ede2b
+ffffffff815edc15
+----- funcname:
+shmem_reacct_size
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+VM_ACCT(newsize) - VM_ACCT(oldsize));
+----- addresses:
+ffffffff815edc07
+ffffffff815edc1f
+----- funcname:
+shmem_reacct_size
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+else if (VM_ACCT(newsize) < VM_ACCT(oldsize))
+----- addresses:
+ffffffff815ed22d
+----- funcname:
+shmem_reacct_size
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/mm/shmem.c
+----- source:
+vm_unacct_memory(VM_ACCT(oldsize) - VM_ACCT(newsize));
+----- addresses:
+ffffffff815ed240

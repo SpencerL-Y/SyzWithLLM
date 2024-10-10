@@ -1,0 +1,308 @@
+----- funcname:
+locks_delete_global_blocked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+static void locks_delete_global_blocked(struct file_lock_core *waiter)
+----- addresses:
+ffffffff8188218b
+ffffffff81881ebc
+----- funcname:
+locks_delete_global_blocked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+lockdep_assert_held(&blocked_lock_lock);
+----- addresses:
+ffffffff8188218b
+ffffffff81881ebc
+----- funcname:
+locks_delete_global_blocked
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+hash_del(&waiter->flc_link);
+----- addresses:
+ffffffff8188218b
+ffffffff81881ebc
+----- funcname:
+__locks_unlink_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+static void __locks_unlink_block(struct file_lock_core *waiter)
+----- addresses:
+ffffffff8188218b
+ffffffff81881ebc
+----- funcname:
+__locks_unlink_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+locks_delete_global_blocked(waiter);
+----- addresses:
+ffffffff8188218b
+ffffffff81881ebc
+----- funcname:
+__locks_unlink_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+list_del_init(&waiter->flc_blocked_member);
+----- addresses:
+ffffffff81881f4d
+ffffffff81882240
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+{
+----- addresses:
+ffffffff81882118
+ffffffff81882110
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+int status = -ENOENT;
+----- addresses:
+ffffffff81882110
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+if (!smp_load_acquire(&waiter->flc_blocker) &&
+----- addresses:
+ffffffff81882120
+ffffffff81882110
+ffffffff8188213e
+ffffffff81882375
+ffffffff81882368
+ffffffff8188211b
+ffffffff81882340
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+list_empty(&waiter->flc_blocked_requests))
+----- addresses:
+ffffffff8188231d
+ffffffff81882318
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+return status;
+----- addresses:
+ffffffff81882349
+ffffffff81882303
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+spin_lock(&blocked_lock_lock);
+----- addresses:
+ffffffff81882147
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+if (waiter->flc_blocker)
+----- addresses:
+ffffffff81882158
+ffffffff8188235b
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+status = 0;
+----- addresses:
+ffffffff81882173
+ffffffff81882182
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+__locks_wake_up_blocks(waiter);
+----- addresses:
+ffffffff8188217a
+ffffffff81882186
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+__locks_unlink_block(waiter);
+----- addresses:
+ffffffff8188218b
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+smp_store_release(&waiter->flc_blocker, NULL);
+----- addresses:
+ffffffff818822d5
+ffffffff818822f7
+ffffffff81882375
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+spin_unlock(&blocked_lock_lock);
+----- addresses:
+ffffffff818822f7
+----- funcname:
+__locks_delete_block
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+}
+----- addresses:
+ffffffff8188230c
+ffffffff81882308
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+{
+----- addresses:
+ffffffff81881db0
+ffffffff81881dbf
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+while (!list_empty(&blocker->flc_blocked_requests)) {
+----- addresses:
+ffffffff81881dbb
+ffffffff81881dc5
+ffffffff81881db0
+ffffffff81881ea0
+ffffffff81881e92
+ffffffff81881de9
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+struct file_lock_core *waiter;
+----- addresses:
+ffffffff81881ea9
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+struct file_lock *fl;
+----- addresses:
+ffffffff81881ea9
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+waiter = list_first_entry(&blocker->flc_blocked_requests,
+----- addresses:
+ffffffff81881ebc
+ffffffff81881df2
+ffffffff8188201c
+ffffffff81881ea9
+ffffffff81882029
+ffffffff81881e0b
+ffffffff81881e5f
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+fl = file_lock(waiter);
+----- addresses:
+ffffffff81881ebc
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+__locks_unlink_block(waiter);
+----- addresses:
+ffffffff81881ebc
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+if ((waiter->flc_flags & (FL_POSIX | FL_FLOCK)) &&
+----- addresses:
+ffffffff81881e29
+ffffffff81881fdc
+ffffffff81881fd8
+ffffffff81881fc5
+ffffffff81881fcc
+ffffffff81882043
+ffffffff81881fbe
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+fl->fl_lmops && fl->fl_lmops->lm_notify)
+----- addresses:
+ffffffff818820e8
+ffffffff81881e32
+ffffffff81881e25
+ffffffff818820de
+ffffffff81881e0b
+ffffffff81881e52
+ffffffff818820a7
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+fl->fl_lmops->lm_notify(fl);
+----- addresses:
+ffffffff81881e5f
+ffffffff81881e68
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+locks_wake_up(fl);
+----- addresses:
+ffffffff81881fe6
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+smp_store_release(&waiter->flc_blocker, NULL);
+----- addresses:
+ffffffff81882036
+ffffffff81881db0
+ffffffff81881e92
+ffffffff81881e74
+ffffffff81881e79
+----- funcname:
+__locks_wake_up_blocks
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/locks.c
+----- source:
+}
+----- addresses:
+ffffffff81882017
+ffffffff81882013
+ffffffff81882009

@@ -1,0 +1,158 @@
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+static int zap_process(struct task_struct *start, int exit_code)
+----- addresses:
+ffffffff818ae688
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+struct task_struct *t;
+----- addresses:
+ffffffff818ae688
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+int nr = 0;
+----- addresses:
+ffffffff818ae688
+ffffffff818ae770
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+start->signal->flags = SIGNAL_GROUP_EXIT;
+----- addresses:
+ffffffff818ae68f
+ffffffff818ae688
+ffffffff818afa5a
+ffffffff818b138d
+ffffffff818b137c
+ffffffff818ae6ae
+ffffffff818ae6a7
+ffffffff818ae676
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+start->signal->group_exit_code = exit_code;
+----- addresses:
+ffffffff818ae6eb
+ffffffff818ae71a
+ffffffff818ae6e4
+ffffffff818afa64
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+start->signal->group_stop_count = 0;
+----- addresses:
+ffffffff818afa6e
+ffffffff818ae741
+ffffffff818ae725
+ffffffff818ae710
+ffffffff818ae71e
+ffffffff818afa78
+ffffffff818afa73
+ffffffff818ae739
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+for_each_thread(start, t) {
+----- addresses:
+ffffffff818ae7b1
+ffffffff818ae7e4
+ffffffff818b1118
+ffffffff818ae77a
+ffffffff818ae74a
+ffffffff818ae7a6
+ffffffff818b135b
+ffffffff818ae7c6
+ffffffff818ae7f6
+ffffffff818ae7c4
+ffffffff818b1368
+ffffffff818b10fb
+ffffffff818ae7fc
+ffffffff818ae7eb
+ffffffff818b1105
+ffffffff818ae7bc
+ffffffff818ae77e
+ffffffff818ae785
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
+----- addresses:
+ffffffff818ae810
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+if (t != current && !(t->flags & PF_POSTCOREDUMP)) {
+----- addresses:
+ffffffff818b1131
+ffffffff818b1124
+ffffffff818ae82b
+ffffffff818ae79c
+ffffffff818ae855
+ffffffff818ae822
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+sigaddset(&t->pending.signal, SIGKILL);
+----- addresses:
+ffffffff818ae868
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+signal_wake_up(t, 1);
+----- addresses:
+ffffffff818ae89e
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+if ((t->flags & (PF_USER_WORKER | PF_IO_WORKER)) != PF_USER_WORKER)
+----- addresses:
+ffffffff818b134e
+ffffffff818ae91f
+ffffffff818ae929
+ffffffff818ae8fe
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+nr++;
+----- addresses:
+ffffffff818ae946
+ffffffff818ae935
+ffffffff818ae941
+ffffffff818ae93a
+----- funcname:
+zap_process
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/coredump.c
+----- source:
+return nr;
+----- addresses:
+ffffffff818ae94d

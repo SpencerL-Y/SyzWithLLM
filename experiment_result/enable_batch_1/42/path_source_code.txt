@@ -1,0 +1,1444 @@
+static void __lapic_update_tsc_freq(void *info)
+{
+	struct clock_event_device *levt = this_cpu_ptr(&lapic_events);
+
+	if (!this_cpu_has(X86_FEATURE_TSC_DEADLINE_TIMER))
+		return;
+
+	clockevents_update_freq(levt, tsc_khz * (1000 / TSC_DIVISOR));
+}
+int clockevents_update_freq(struct clock_event_device *dev, u32 freq)
+{
+	unsigned long flags;
+	int ret;
+
+	local_irq_save(flags);
+	ret = tick_broadcast_update_freq(dev, freq);
+	if (ret == -ENODEV)
+		ret = __clockevents_update_freq(dev, freq);
+	local_irq_restore(flags);
+	return ret;
+}
+int __clockevents_update_freq(struct clock_event_device *dev, u32 freq)
+{
+	clockevents_config(dev, freq);
+
+	if (clockevent_state_oneshot(dev))
+		return clockevents_program_event(dev, dev->next_event, false);
+
+	if (clockevent_state_periodic(dev))
+		return __clockevents_switch_state(dev, CLOCK_EVT_STATE_PERIODIC);
+
+	return 0;
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static int takedown_cpu(unsigned int cpu)
+{
+	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
+	int err;
+
+	/* Park the smpboot threads */
+	kthread_park(st->thread);
+
+	/*
+	 * Prevent irq alloc/free while the dying cpu reorganizes the
+	 * interrupt affinities.
+	 */
+	irq_lock_sparse();
+
+	/*
+	 * So now all preempt/rcu users must observe !cpu_active().
+	 */
+	err = stop_machine_cpuslocked(take_cpu_down, NULL, cpumask_of(cpu));
+	if (err) {
+		/* CPU refused to die */
+		irq_unlock_sparse();
+		/* Unpark the hotplug thread so we can rollback there */
+		kthread_unpark(st->thread);
+		return err;
+	}
+	BUG_ON(cpu_online(cpu));
+
+	/*
+	 * The teardown callback for CPUHP_AP_SCHED_STARTING will have removed
+	 * all runnable tasks from the CPU, there's only the idle task left now
+	 * that the migration thread is done doing the stop_machine thing.
+	 *
+	 * Wait for the stop thread to go away.
+	 */
+	wait_for_ap_thread(st, false);
+	BUG_ON(st->state != CPUHP_AP_IDLE_DEAD);
+
+	/* Interrupts are moved away from the dying cpu, reenable alloc/free */
+	irq_unlock_sparse();
+
+	hotplug_cpu__broadcast_tick_pull(cpu);
+	/* This actually kills the CPU. */
+	__cpu_die(cpu);
+
+	cpuhp_bp_sync_dead(cpu);
+
+	tick_cleanup_dead_cpu(cpu);
+
+	/*
+	 * Callbacks must be re-integrated right away to the RCU state machine.
+	 * Otherwise an RCU callback could block a further teardown function
+	 * waiting for its completion.
+	 */
+	rcutree_migrate_callbacks(cpu);
+
+	return 0;
+}
+void hotplug_cpu__broadcast_tick_pull(int deadcpu)
+{
+	struct clock_event_device *bc;
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&tick_broadcast_lock, flags);
+	bc = tick_broadcast_device.evtdev;
+
+	if (bc && broadcast_needs_cpu(bc, deadcpu)) {
+		/* This moves the broadcast assignment to this CPU: */
+		clockevents_program_event(bc, bc->next_event, 1);
+	}
+	raw_spin_unlock_irqrestore(&tick_broadcast_lock, flags);
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static void tick_handle_oneshot_broadcast(struct clock_event_device *dev)
+{
+	struct tick_device *td;
+	ktime_t now, next_event;
+	int cpu, next_cpu = 0;
+	bool bc_local;
+
+	raw_spin_lock(&tick_broadcast_lock);
+	dev->next_event = KTIME_MAX;
+	next_event = KTIME_MAX;
+	cpumask_clear(tmpmask);
+	now = ktime_get();
+	/* Find all expired events */
+	for_each_cpu(cpu, tick_broadcast_oneshot_mask) {
+		/*
+		 * Required for !SMP because for_each_cpu() reports
+		 * unconditionally CPU0 as set on UP kernels.
+		 */
+		if (!IS_ENABLED(CONFIG_SMP) &&
+		    cpumask_empty(tick_broadcast_oneshot_mask))
+			break;
+
+		td = &per_cpu(tick_cpu_device, cpu);
+		if (td->evtdev->next_event <= now) {
+			cpumask_set_cpu(cpu, tmpmask);
+			/*
+			 * Mark the remote cpu in the pending mask, so
+			 * it can avoid reprogramming the cpu local
+			 * timer in tick_broadcast_oneshot_control().
+			 */
+			cpumask_set_cpu(cpu, tick_broadcast_pending_mask);
+		} else if (td->evtdev->next_event < next_event) {
+			next_event = td->evtdev->next_event;
+			next_cpu = cpu;
+		}
+	}
+
+	/*
+	 * Remove the current cpu from the pending mask. The event is
+	 * delivered immediately in tick_do_broadcast() !
+	 */
+	cpumask_clear_cpu(smp_processor_id(), tick_broadcast_pending_mask);
+
+	/* Take care of enforced broadcast requests */
+	cpumask_or(tmpmask, tmpmask, tick_broadcast_force_mask);
+	cpumask_clear(tick_broadcast_force_mask);
+
+	/*
+	 * Sanity check. Catch the case where we try to broadcast to
+	 * offline cpus.
+	 */
+	if (WARN_ON_ONCE(!cpumask_subset(tmpmask, cpu_online_mask)))
+		cpumask_and(tmpmask, tmpmask, cpu_online_mask);
+
+	/*
+	 * Wakeup the cpus which have an expired event.
+	 */
+	bc_local = tick_do_broadcast(tmpmask);
+
+	/*
+	 * Two reasons for reprogram:
+	 *
+	 * - The global event did not expire any CPU local
+	 * events. This happens in dyntick mode, as the maximum PIT
+	 * delta is quite small.
+	 *
+	 * - There are pending events on sleeping CPUs which were not
+	 * in the event mask
+	 */
+	if (next_event != KTIME_MAX)
+		tick_broadcast_set_event(dev, next_cpu, next_event);
+
+	raw_spin_unlock(&tick_broadcast_lock);
+
+	if (bc_local) {
+		td = this_cpu_ptr(&tick_cpu_device);
+		td->evtdev->event_handler(td->evtdev);
+	}
+}
+static void tick_broadcast_set_event(struct clock_event_device *bc, int cpu,
+				     ktime_t expires)
+{
+	if (!clockevent_state_oneshot(bc))
+		clockevents_switch_state(bc, CLOCK_EVT_STATE_ONESHOT);
+
+	clockevents_program_event(bc, expires, 1);
+	tick_broadcast_set_affinity(bc, cpumask_of(cpu));
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+void tick_handle_periodic(struct clock_event_device *dev)
+{
+	int cpu = smp_processor_id();
+	ktime_t next = dev->next_event;
+
+	tick_periodic(cpu);
+
+	/*
+	 * The cpu might have transitioned to HIGHRES or NOHZ mode via
+	 * update_process_times() -> run_local_timers() ->
+	 * hrtimer_run_queues().
+	 */
+	if (IS_ENABLED(CONFIG_TICK_ONESHOT) && dev->event_handler != tick_handle_periodic)
+		return;
+
+	if (!clockevent_state_oneshot(dev))
+		return;
+	for (;;) {
+		/*
+		 * Setup the next period for devices, which do not have
+		 * periodic mode:
+		 */
+		next = ktime_add_ns(next, TICK_NSEC);
+
+		if (!clockevents_program_event(dev, next, false))
+			return;
+		/*
+		 * Have to be careful here. If we're in oneshot mode,
+		 * before we call tick_periodic() in a loop, we need
+		 * to be sure we're using a real hardware clocksource.
+		 * Otherwise we could get trapped in an infinite
+		 * loop, as the tick_periodic() increments jiffies,
+		 * which then will increment time, possibly causing
+		 * the loop to trigger again and again.
+		 */
+		if (timekeeping_valid_for_hres())
+			tick_periodic(cpu);
+	}
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static void tick_handle_periodic_broadcast(struct clock_event_device *dev)
+{
+	struct tick_device *td = this_cpu_ptr(&tick_cpu_device);
+	bool bc_local;
+
+	raw_spin_lock(&tick_broadcast_lock);
+
+	/* Handle spurious interrupts gracefully */
+	if (clockevent_state_shutdown(tick_broadcast_device.evtdev)) {
+		raw_spin_unlock(&tick_broadcast_lock);
+		return;
+	}
+
+	bc_local = tick_do_periodic_broadcast();
+
+	if (clockevent_state_oneshot(dev)) {
+		ktime_t next = ktime_add_ns(dev->next_event, TICK_NSEC);
+
+		clockevents_program_event(dev, next, true);
+	}
+	raw_spin_unlock(&tick_broadcast_lock);
+
+	/*
+	 * We run the handler of the local cpu after dropping
+	 * tick_broadcast_lock because the handler might deadlock when
+	 * trying to switch to oneshot mode.
+	 */
+	if (bc_local)
+		td->evtdev->event_handler(td->evtdev);
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+void hrtimer_interrupt(struct clock_event_device *dev)
+{
+	struct hrtimer_cpu_base *cpu_base = this_cpu_ptr(&hrtimer_bases);
+	ktime_t expires_next, now, entry_time, delta;
+	unsigned long flags;
+	int retries = 0;
+
+	BUG_ON(!cpu_base->hres_active);
+	cpu_base->nr_events++;
+	dev->next_event = KTIME_MAX;
+
+	raw_spin_lock_irqsave(&cpu_base->lock, flags);
+	entry_time = now = hrtimer_update_base(cpu_base);
+retry:
+	cpu_base->in_hrtirq = 1;
+	/*
+	 * We set expires_next to KTIME_MAX here with cpu_base->lock
+	 * held to prevent that a timer is enqueued in our queue via
+	 * the migration code. This does not affect enqueueing of
+	 * timers which run their callback and need to be requeued on
+	 * this CPU.
+	 */
+	cpu_base->expires_next = KTIME_MAX;
+
+	if (!ktime_before(now, cpu_base->softirq_expires_next)) {
+		cpu_base->softirq_expires_next = KTIME_MAX;
+		cpu_base->softirq_activated = 1;
+		raise_softirq_irqoff(HRTIMER_SOFTIRQ);
+	}
+
+	__hrtimer_run_queues(cpu_base, now, flags, HRTIMER_ACTIVE_HARD);
+
+	/* Reevaluate the clock bases for the [soft] next expiry */
+	expires_next = hrtimer_update_next_event(cpu_base);
+	/*
+	 * Store the new expiry value so the migration code can verify
+	 * against it.
+	 */
+	cpu_base->expires_next = expires_next;
+	cpu_base->in_hrtirq = 0;
+	raw_spin_unlock_irqrestore(&cpu_base->lock, flags);
+
+	/* Reprogramming necessary ? */
+	if (!tick_program_event(expires_next, 0)) {
+		cpu_base->hang_detected = 0;
+		return;
+	}
+
+	/*
+	 * The next timer was already expired due to:
+	 * - tracing
+	 * - long lasting callbacks
+	 * - being scheduled away when running in a VM
+	 *
+	 * We need to prevent that we loop forever in the hrtimer
+	 * interrupt routine. We give it 3 attempts to avoid
+	 * overreacting on some spurious event.
+	 *
+	 * Acquire base lock for updating the offsets and retrieving
+	 * the current time.
+	 */
+	raw_spin_lock_irqsave(&cpu_base->lock, flags);
+	now = hrtimer_update_base(cpu_base);
+	cpu_base->nr_retries++;
+	if (++retries < 3)
+		goto retry;
+	/*
+	 * Give the system a chance to do something else than looping
+	 * here. We stored the entry time, so we know exactly how long
+	 * we spent here. We schedule the next event this amount of
+	 * time away.
+	 */
+	cpu_base->nr_hangs++;
+	cpu_base->hang_detected = 1;
+	raw_spin_unlock_irqrestore(&cpu_base->lock, flags);
+
+	delta = ktime_sub(now, entry_time);
+	if ((unsigned int)delta > cpu_base->max_hang_time)
+		cpu_base->max_hang_time = (unsigned int) delta;
+	/*
+	 * Limit it to a sensible value as we enforce a longer
+	 * delay. Give the CPU at least 100ms to catch up.
+	 */
+	if (delta > 100 * NSEC_PER_MSEC)
+		expires_next = ktime_add_ns(now, 100 * NSEC_PER_MSEC);
+	else
+		expires_next = ktime_add(now, delta);
+	tick_program_event(expires_next, 1);
+	pr_warn_once("hrtimer: interrupt took %llu ns\n", ktime_to_ns(delta));
+}
+int tick_program_event(ktime_t expires, int force)
+{
+	struct clock_event_device *dev = __this_cpu_read(tick_cpu_device.evtdev);
+
+	if (unlikely(expires == KTIME_MAX)) {
+		/*
+		 * We don't need the clock event device any more, stop it.
+		 */
+		clockevents_switch_state(dev, CLOCK_EVT_STATE_ONESHOT_STOPPED);
+		dev->next_event = KTIME_MAX;
+		return 0;
+	}
+
+	if (unlikely(clockevent_state_oneshot_stopped(dev))) {
+		/*
+		 * We need the clock event again, configure it in ONESHOT mode
+		 * before using it.
+		 */
+		clockevents_switch_state(dev, CLOCK_EVT_STATE_ONESHOT);
+	}
+
+	return clockevents_program_event(dev, expires, force);
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static void tick_nohz_lowres_handler(struct clock_event_device *dev)
+{
+	struct tick_sched *ts = this_cpu_ptr(&tick_cpu_sched);
+
+	dev->next_event = KTIME_MAX;
+
+	if (likely(tick_nohz_handler(&ts->sched_timer) == HRTIMER_RESTART))
+		tick_program_event(hrtimer_get_expires(&ts->sched_timer), 1);
+}
+int tick_program_event(ktime_t expires, int force)
+{
+	struct clock_event_device *dev = __this_cpu_read(tick_cpu_device.evtdev);
+
+	if (unlikely(expires == KTIME_MAX)) {
+		/*
+		 * We don't need the clock event device any more, stop it.
+		 */
+		clockevents_switch_state(dev, CLOCK_EVT_STATE_ONESHOT_STOPPED);
+		dev->next_event = KTIME_MAX;
+		return 0;
+	}
+
+	if (unlikely(clockevent_state_oneshot_stopped(dev))) {
+		/*
+		 * We need the clock event again, configure it in ONESHOT mode
+		 * before using it.
+		 */
+		clockevents_switch_state(dev, CLOCK_EVT_STATE_ONESHOT);
+	}
+
+	return clockevents_program_event(dev, expires, force);
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static int takedown_cpu(unsigned int cpu)
+{
+	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
+	int err;
+
+	/* Park the smpboot threads */
+	kthread_park(st->thread);
+
+	/*
+	 * Prevent irq alloc/free while the dying cpu reorganizes the
+	 * interrupt affinities.
+	 */
+	irq_lock_sparse();
+
+	/*
+	 * So now all preempt/rcu users must observe !cpu_active().
+	 */
+	err = stop_machine_cpuslocked(take_cpu_down, NULL, cpumask_of(cpu));
+	if (err) {
+		/* CPU refused to die */
+		irq_unlock_sparse();
+		/* Unpark the hotplug thread so we can rollback there */
+		kthread_unpark(st->thread);
+		return err;
+	}
+	BUG_ON(cpu_online(cpu));
+
+	/*
+	 * The teardown callback for CPUHP_AP_SCHED_STARTING will have removed
+	 * all runnable tasks from the CPU, there's only the idle task left now
+	 * that the migration thread is done doing the stop_machine thing.
+	 *
+	 * Wait for the stop thread to go away.
+	 */
+	wait_for_ap_thread(st, false);
+	BUG_ON(st->state != CPUHP_AP_IDLE_DEAD);
+
+	/* Interrupts are moved away from the dying cpu, reenable alloc/free */
+	irq_unlock_sparse();
+
+	hotplug_cpu__broadcast_tick_pull(cpu);
+	/* This actually kills the CPU. */
+	__cpu_die(cpu);
+
+	cpuhp_bp_sync_dead(cpu);
+
+	tick_cleanup_dead_cpu(cpu);
+
+	/*
+	 * Callbacks must be re-integrated right away to the RCU state machine.
+	 * Otherwise an RCU callback could block a further teardown function
+	 * waiting for its completion.
+	 */
+	rcutree_migrate_callbacks(cpu);
+
+	return 0;
+}
+void hotplug_cpu__broadcast_tick_pull(int deadcpu)
+{
+	struct clock_event_device *bc;
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&tick_broadcast_lock, flags);
+	bc = tick_broadcast_device.evtdev;
+
+	if (bc && broadcast_needs_cpu(bc, deadcpu)) {
+		/* This moves the broadcast assignment to this CPU: */
+		clockevents_program_event(bc, bc->next_event, 1);
+	}
+	raw_spin_unlock_irqrestore(&tick_broadcast_lock, flags);
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static int clockevents_program_min_delta(struct clock_event_device *dev)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int i;
+
+	for (i = 0;;) {
+		delta = dev->min_delta_ns;
+		dev->next_event = ktime_add_ns(ktime_get(), delta);
+
+		if (clockevent_state_shutdown(dev))
+			return 0;
+
+		dev->retries++;
+		clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+		if (dev->set_next_event((unsigned long) clc, dev) == 0)
+			return 0;
+
+		if (++i > 2) {
+			/*
+			 * We tried 3 times to program the device with the
+			 * given min_delta_ns. Try to increase the minimum
+			 * delta, if that fails as well get out of here.
+			 */
+			if (clockevents_increase_min_delta(dev))
+				return -ETIME;
+			i = 0;
+		}
+	}
+}
+static void tick_handle_oneshot_broadcast(struct clock_event_device *dev)
+{
+	struct tick_device *td;
+	ktime_t now, next_event;
+	int cpu, next_cpu = 0;
+	bool bc_local;
+
+	raw_spin_lock(&tick_broadcast_lock);
+	dev->next_event = KTIME_MAX;
+	next_event = KTIME_MAX;
+	cpumask_clear(tmpmask);
+	now = ktime_get();
+	/* Find all expired events */
+	for_each_cpu(cpu, tick_broadcast_oneshot_mask) {
+		/*
+		 * Required for !SMP because for_each_cpu() reports
+		 * unconditionally CPU0 as set on UP kernels.
+		 */
+		if (!IS_ENABLED(CONFIG_SMP) &&
+		    cpumask_empty(tick_broadcast_oneshot_mask))
+			break;
+
+		td = &per_cpu(tick_cpu_device, cpu);
+		if (td->evtdev->next_event <= now) {
+			cpumask_set_cpu(cpu, tmpmask);
+			/*
+			 * Mark the remote cpu in the pending mask, so
+			 * it can avoid reprogramming the cpu local
+			 * timer in tick_broadcast_oneshot_control().
+			 */
+			cpumask_set_cpu(cpu, tick_broadcast_pending_mask);
+		} else if (td->evtdev->next_event < next_event) {
+			next_event = td->evtdev->next_event;
+			next_cpu = cpu;
+		}
+	}
+
+	/*
+	 * Remove the current cpu from the pending mask. The event is
+	 * delivered immediately in tick_do_broadcast() !
+	 */
+	cpumask_clear_cpu(smp_processor_id(), tick_broadcast_pending_mask);
+
+	/* Take care of enforced broadcast requests */
+	cpumask_or(tmpmask, tmpmask, tick_broadcast_force_mask);
+	cpumask_clear(tick_broadcast_force_mask);
+
+	/*
+	 * Sanity check. Catch the case where we try to broadcast to
+	 * offline cpus.
+	 */
+	if (WARN_ON_ONCE(!cpumask_subset(tmpmask, cpu_online_mask)))
+		cpumask_and(tmpmask, tmpmask, cpu_online_mask);
+
+	/*
+	 * Wakeup the cpus which have an expired event.
+	 */
+	bc_local = tick_do_broadcast(tmpmask);
+
+	/*
+	 * Two reasons for reprogram:
+	 *
+	 * - The global event did not expire any CPU local
+	 * events. This happens in dyntick mode, as the maximum PIT
+	 * delta is quite small.
+	 *
+	 * - There are pending events on sleeping CPUs which were not
+	 * in the event mask
+	 */
+	if (next_event != KTIME_MAX)
+		tick_broadcast_set_event(dev, next_cpu, next_event);
+
+	raw_spin_unlock(&tick_broadcast_lock);
+
+	if (bc_local) {
+		td = this_cpu_ptr(&tick_cpu_device);
+		td->evtdev->event_handler(td->evtdev);
+	}
+}
+static void tick_broadcast_set_event(struct clock_event_device *bc, int cpu,
+				     ktime_t expires)
+{
+	if (!clockevent_state_oneshot(bc))
+		clockevents_switch_state(bc, CLOCK_EVT_STATE_ONESHOT);
+
+	clockevents_program_event(bc, expires, 1);
+	tick_broadcast_set_affinity(bc, cpumask_of(cpu));
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static int clockevents_program_min_delta(struct clock_event_device *dev)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int i;
+
+	for (i = 0;;) {
+		delta = dev->min_delta_ns;
+		dev->next_event = ktime_add_ns(ktime_get(), delta);
+
+		if (clockevent_state_shutdown(dev))
+			return 0;
+
+		dev->retries++;
+		clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+		if (dev->set_next_event((unsigned long) clc, dev) == 0)
+			return 0;
+
+		if (++i > 2) {
+			/*
+			 * We tried 3 times to program the device with the
+			 * given min_delta_ns. Try to increase the minimum
+			 * delta, if that fails as well get out of here.
+			 */
+			if (clockevents_increase_min_delta(dev))
+				return -ETIME;
+			i = 0;
+		}
+	}
+}
+void tick_handle_periodic(struct clock_event_device *dev)
+{
+	int cpu = smp_processor_id();
+	ktime_t next = dev->next_event;
+
+	tick_periodic(cpu);
+
+	/*
+	 * The cpu might have transitioned to HIGHRES or NOHZ mode via
+	 * update_process_times() -> run_local_timers() ->
+	 * hrtimer_run_queues().
+	 */
+	if (IS_ENABLED(CONFIG_TICK_ONESHOT) && dev->event_handler != tick_handle_periodic)
+		return;
+
+	if (!clockevent_state_oneshot(dev))
+		return;
+	for (;;) {
+		/*
+		 * Setup the next period for devices, which do not have
+		 * periodic mode:
+		 */
+		next = ktime_add_ns(next, TICK_NSEC);
+
+		if (!clockevents_program_event(dev, next, false))
+			return;
+		/*
+		 * Have to be careful here. If we're in oneshot mode,
+		 * before we call tick_periodic() in a loop, we need
+		 * to be sure we're using a real hardware clocksource.
+		 * Otherwise we could get trapped in an infinite
+		 * loop, as the tick_periodic() increments jiffies,
+		 * which then will increment time, possibly causing
+		 * the loop to trigger again and again.
+		 */
+		if (timekeeping_valid_for_hres())
+			tick_periodic(cpu);
+	}
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static int clockevents_program_min_delta(struct clock_event_device *dev)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int i;
+
+	for (i = 0;;) {
+		delta = dev->min_delta_ns;
+		dev->next_event = ktime_add_ns(ktime_get(), delta);
+
+		if (clockevent_state_shutdown(dev))
+			return 0;
+
+		dev->retries++;
+		clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+		if (dev->set_next_event((unsigned long) clc, dev) == 0)
+			return 0;
+
+		if (++i > 2) {
+			/*
+			 * We tried 3 times to program the device with the
+			 * given min_delta_ns. Try to increase the minimum
+			 * delta, if that fails as well get out of here.
+			 */
+			if (clockevents_increase_min_delta(dev))
+				return -ETIME;
+			i = 0;
+		}
+	}
+}
+static void tick_handle_periodic_broadcast(struct clock_event_device *dev)
+{
+	struct tick_device *td = this_cpu_ptr(&tick_cpu_device);
+	bool bc_local;
+
+	raw_spin_lock(&tick_broadcast_lock);
+
+	/* Handle spurious interrupts gracefully */
+	if (clockevent_state_shutdown(tick_broadcast_device.evtdev)) {
+		raw_spin_unlock(&tick_broadcast_lock);
+		return;
+	}
+
+	bc_local = tick_do_periodic_broadcast();
+
+	if (clockevent_state_oneshot(dev)) {
+		ktime_t next = ktime_add_ns(dev->next_event, TICK_NSEC);
+
+		clockevents_program_event(dev, next, true);
+	}
+	raw_spin_unlock(&tick_broadcast_lock);
+
+	/*
+	 * We run the handler of the local cpu after dropping
+	 * tick_broadcast_lock because the handler might deadlock when
+	 * trying to switch to oneshot mode.
+	 */
+	if (bc_local)
+		td->evtdev->event_handler(td->evtdev);
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static int clockevents_program_min_delta(struct clock_event_device *dev)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int i;
+
+	for (i = 0;;) {
+		delta = dev->min_delta_ns;
+		dev->next_event = ktime_add_ns(ktime_get(), delta);
+
+		if (clockevent_state_shutdown(dev))
+			return 0;
+
+		dev->retries++;
+		clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+		if (dev->set_next_event((unsigned long) clc, dev) == 0)
+			return 0;
+
+		if (++i > 2) {
+			/*
+			 * We tried 3 times to program the device with the
+			 * given min_delta_ns. Try to increase the minimum
+			 * delta, if that fails as well get out of here.
+			 */
+			if (clockevents_increase_min_delta(dev))
+				return -ETIME;
+			i = 0;
+		}
+	}
+}
+void hrtimer_interrupt(struct clock_event_device *dev)
+{
+	struct hrtimer_cpu_base *cpu_base = this_cpu_ptr(&hrtimer_bases);
+	ktime_t expires_next, now, entry_time, delta;
+	unsigned long flags;
+	int retries = 0;
+
+	BUG_ON(!cpu_base->hres_active);
+	cpu_base->nr_events++;
+	dev->next_event = KTIME_MAX;
+
+	raw_spin_lock_irqsave(&cpu_base->lock, flags);
+	entry_time = now = hrtimer_update_base(cpu_base);
+retry:
+	cpu_base->in_hrtirq = 1;
+	/*
+	 * We set expires_next to KTIME_MAX here with cpu_base->lock
+	 * held to prevent that a timer is enqueued in our queue via
+	 * the migration code. This does not affect enqueueing of
+	 * timers which run their callback and need to be requeued on
+	 * this CPU.
+	 */
+	cpu_base->expires_next = KTIME_MAX;
+
+	if (!ktime_before(now, cpu_base->softirq_expires_next)) {
+		cpu_base->softirq_expires_next = KTIME_MAX;
+		cpu_base->softirq_activated = 1;
+		raise_softirq_irqoff(HRTIMER_SOFTIRQ);
+	}
+
+	__hrtimer_run_queues(cpu_base, now, flags, HRTIMER_ACTIVE_HARD);
+
+	/* Reevaluate the clock bases for the [soft] next expiry */
+	expires_next = hrtimer_update_next_event(cpu_base);
+	/*
+	 * Store the new expiry value so the migration code can verify
+	 * against it.
+	 */
+	cpu_base->expires_next = expires_next;
+	cpu_base->in_hrtirq = 0;
+	raw_spin_unlock_irqrestore(&cpu_base->lock, flags);
+
+	/* Reprogramming necessary ? */
+	if (!tick_program_event(expires_next, 0)) {
+		cpu_base->hang_detected = 0;
+		return;
+	}
+
+	/*
+	 * The next timer was already expired due to:
+	 * - tracing
+	 * - long lasting callbacks
+	 * - being scheduled away when running in a VM
+	 *
+	 * We need to prevent that we loop forever in the hrtimer
+	 * interrupt routine. We give it 3 attempts to avoid
+	 * overreacting on some spurious event.
+	 *
+	 * Acquire base lock for updating the offsets and retrieving
+	 * the current time.
+	 */
+	raw_spin_lock_irqsave(&cpu_base->lock, flags);
+	now = hrtimer_update_base(cpu_base);
+	cpu_base->nr_retries++;
+	if (++retries < 3)
+		goto retry;
+	/*
+	 * Give the system a chance to do something else than looping
+	 * here. We stored the entry time, so we know exactly how long
+	 * we spent here. We schedule the next event this amount of
+	 * time away.
+	 */
+	cpu_base->nr_hangs++;
+	cpu_base->hang_detected = 1;
+	raw_spin_unlock_irqrestore(&cpu_base->lock, flags);
+
+	delta = ktime_sub(now, entry_time);
+	if ((unsigned int)delta > cpu_base->max_hang_time)
+		cpu_base->max_hang_time = (unsigned int) delta;
+	/*
+	 * Limit it to a sensible value as we enforce a longer
+	 * delay. Give the CPU at least 100ms to catch up.
+	 */
+	if (delta > 100 * NSEC_PER_MSEC)
+		expires_next = ktime_add_ns(now, 100 * NSEC_PER_MSEC);
+	else
+		expires_next = ktime_add(now, delta);
+	tick_program_event(expires_next, 1);
+	pr_warn_once("hrtimer: interrupt took %llu ns\n", ktime_to_ns(delta));
+}
+int tick_program_event(ktime_t expires, int force)
+{
+	struct clock_event_device *dev = __this_cpu_read(tick_cpu_device.evtdev);
+
+	if (unlikely(expires == KTIME_MAX)) {
+		/*
+		 * We don't need the clock event device any more, stop it.
+		 */
+		clockevents_switch_state(dev, CLOCK_EVT_STATE_ONESHOT_STOPPED);
+		dev->next_event = KTIME_MAX;
+		return 0;
+	}
+
+	if (unlikely(clockevent_state_oneshot_stopped(dev))) {
+		/*
+		 * We need the clock event again, configure it in ONESHOT mode
+		 * before using it.
+		 */
+		clockevents_switch_state(dev, CLOCK_EVT_STATE_ONESHOT);
+	}
+
+	return clockevents_program_event(dev, expires, force);
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static int clockevents_program_min_delta(struct clock_event_device *dev)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int i;
+
+	for (i = 0;;) {
+		delta = dev->min_delta_ns;
+		dev->next_event = ktime_add_ns(ktime_get(), delta);
+
+		if (clockevent_state_shutdown(dev))
+			return 0;
+
+		dev->retries++;
+		clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+		if (dev->set_next_event((unsigned long) clc, dev) == 0)
+			return 0;
+
+		if (++i > 2) {
+			/*
+			 * We tried 3 times to program the device with the
+			 * given min_delta_ns. Try to increase the minimum
+			 * delta, if that fails as well get out of here.
+			 */
+			if (clockevents_increase_min_delta(dev))
+				return -ETIME;
+			i = 0;
+		}
+	}
+}
+static void tick_nohz_lowres_handler(struct clock_event_device *dev)
+{
+	struct tick_sched *ts = this_cpu_ptr(&tick_cpu_sched);
+
+	dev->next_event = KTIME_MAX;
+
+	if (likely(tick_nohz_handler(&ts->sched_timer) == HRTIMER_RESTART))
+		tick_program_event(hrtimer_get_expires(&ts->sched_timer), 1);
+}
+int tick_program_event(ktime_t expires, int force)
+{
+	struct clock_event_device *dev = __this_cpu_read(tick_cpu_device.evtdev);
+
+	if (unlikely(expires == KTIME_MAX)) {
+		/*
+		 * We don't need the clock event device any more, stop it.
+		 */
+		clockevents_switch_state(dev, CLOCK_EVT_STATE_ONESHOT_STOPPED);
+		dev->next_event = KTIME_MAX;
+		return 0;
+	}
+
+	if (unlikely(clockevent_state_oneshot_stopped(dev))) {
+		/*
+		 * We need the clock event again, configure it in ONESHOT mode
+		 * before using it.
+		 */
+		clockevents_switch_state(dev, CLOCK_EVT_STATE_ONESHOT);
+	}
+
+	return clockevents_program_event(dev, expires, force);
+}
+int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
+			      bool force)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int rc;
+
+	if (WARN_ON_ONCE(expires < 0))
+		return -ETIME;
+
+	dev->next_event = expires;
+
+	if (clockevent_state_shutdown(dev))
+		return 0;
+
+	/* We must be in ONESHOT state here */
+	WARN_ONCE(!clockevent_state_oneshot(dev), "Current state: %d\n",
+		  clockevent_get_state(dev));
+
+	/* Shortcut for clockevent devices that can deal with ktime. */
+	if (dev->features & CLOCK_EVT_FEAT_KTIME)
+		return dev->set_next_ktime(expires, dev);
+
+	delta = ktime_to_ns(ktime_sub(expires, ktime_get()));
+	if (delta <= 0)
+		return force ? clockevents_program_min_delta(dev) : -ETIME;
+
+	delta = min(delta, (int64_t) dev->max_delta_ns);
+	delta = max(delta, (int64_t) dev->min_delta_ns);
+
+	clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+	rc = dev->set_next_event((unsigned long) clc, dev);
+
+	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
+}
+static int clockevents_program_min_delta(struct clock_event_device *dev)
+{
+	unsigned long long clc;
+	int64_t delta;
+	int i;
+
+	for (i = 0;;) {
+		delta = dev->min_delta_ns;
+		dev->next_event = ktime_add_ns(ktime_get(), delta);
+
+		if (clockevent_state_shutdown(dev))
+			return 0;
+
+		dev->retries++;
+		clc = ((unsigned long long) delta * dev->mult) >> dev->shift;
+		if (dev->set_next_event((unsigned long) clc, dev) == 0)
+			return 0;
+
+		if (++i > 2) {
+			/*
+			 * We tried 3 times to program the device with the
+			 * given min_delta_ns. Try to increase the minimum
+			 * delta, if that fails as well get out of here.
+			 */
+			if (clockevents_increase_min_delta(dev))
+				return -ETIME;
+			i = 0;
+		}
+	}
+}
+static void tick_handle_periodic_broadcast(struct clock_event_device *dev)
+{
+	struct tick_device *td = this_cpu_ptr(&tick_cpu_device);
+	bool bc_local;
+
+	raw_spin_lock(&tick_broadcast_lock);
+
+	/* Handle spurious interrupts gracefully */
+	if (clockevent_state_shutdown(tick_broadcast_device.evtdev)) {
+		raw_spin_unlock(&tick_broadcast_lock);
+		return;
+	}
+
+	bc_local = tick_do_periodic_broadcast();
+
+	if (clockevent_state_oneshot(dev)) {
+		ktime_t next = ktime_add_ns(dev->next_event, TICK_NSEC);
+
+		clockevents_program_event(dev, next, true);
+	}
+	raw_spin_unlock(&tick_broadcast_lock);
+
+	/*
+	 * We run the handler of the local cpu after dropping
+	 * tick_broadcast_lock because the handler might deadlock when
+	 * trying to switch to oneshot mode.
+	 */
+	if (bc_local)
+		td->evtdev->event_handler(td->evtdev);
+}

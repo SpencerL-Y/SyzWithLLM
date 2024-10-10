@@ -1,0 +1,3189 @@
+int hibernate_quiet_exec(int (*func)(void *data), void *data)
+{
+	unsigned int sleep_flags;
+	int error;
+
+	sleep_flags = lock_system_sleep();
+
+	if (!hibernate_acquire()) {
+		error = -EBUSY;
+		goto unlock;
+	}
+
+	pm_prepare_console();
+
+	error = pm_notifier_call_chain_robust(PM_HIBERNATION_PREPARE, PM_POST_HIBERNATION);
+	if (error)
+		goto restore;
+
+	error = freeze_processes();
+	if (error)
+		goto exit;
+
+	lock_device_hotplug();
+
+	pm_suspend_clear_flags();
+
+	error = platform_begin(true);
+	if (error)
+		goto thaw;
+
+	error = freeze_kernel_threads();
+	if (error)
+		goto thaw;
+
+	error = dpm_prepare(PMSG_FREEZE);
+	if (error)
+		goto dpm_complete;
+
+	suspend_console();
+
+	error = dpm_suspend(PMSG_FREEZE);
+	if (error)
+		goto dpm_resume;
+
+	error = dpm_suspend_end(PMSG_FREEZE);
+	if (error)
+		goto dpm_resume;
+
+	error = platform_pre_snapshot(true);
+	if (error)
+		goto skip;
+
+	error = func(data);
+
+skip:
+	platform_finish(true);
+
+	dpm_resume_start(PMSG_THAW);
+
+dpm_resume:
+	dpm_resume(PMSG_THAW);
+
+	resume_console();
+
+dpm_complete:
+	dpm_complete(PMSG_THAW);
+
+	thaw_kernel_threads();
+
+thaw:
+	platform_end(true);
+
+	unlock_device_hotplug();
+
+	thaw_processes();
+
+exit:
+	pm_notifier_call_chain(PM_POST_HIBERNATION);
+
+restore:
+	pm_restore_console();
+
+	hibernate_release();
+
+unlock:
+	unlock_system_sleep(sleep_flags);
+
+	return error;
+}
+int dpm_prepare(pm_message_t state)
+{
+	int error = 0;
+
+	trace_suspend_resume(TPS("dpm_prepare"), state.event, true);
+	might_sleep();
+
+	/*
+	 * Give a chance for the known devices to complete their probes, before
+	 * disable probing of devices. This sync point is important at least
+	 * at boot time + hibernation restore.
+	 */
+	wait_for_device_probe();
+	/*
+	 * It is unsafe if probing of devices will happen during suspend or
+	 * hibernation and system behavior will be unpredictable in this case.
+	 * So, let's prohibit device's probing here and defer their probes
+	 * instead. The normal behavior will be restored in dpm_complete().
+	 */
+	device_block_probing();
+
+	mutex_lock(&dpm_list_mtx);
+	while (!list_empty(&dpm_list) && !error) {
+		struct device *dev = to_device(dpm_list.next);
+
+		get_device(dev);
+
+		mutex_unlock(&dpm_list_mtx);
+
+		trace_device_pm_callback_start(dev, "", state.event);
+		error = device_prepare(dev, state);
+		trace_device_pm_callback_end(dev, error);
+
+		mutex_lock(&dpm_list_mtx);
+
+		if (!error) {
+			dev->power.is_prepared = true;
+			if (!list_empty(&dev->power.entry))
+				list_move_tail(&dev->power.entry, &dpm_prepared_list);
+		} else if (error == -EAGAIN) {
+			error = 0;
+		} else {
+			dev_info(dev, "not prepared for power transition: code %d\n",
+				 error);
+		}
+
+		mutex_unlock(&dpm_list_mtx);
+
+		put_device(dev);
+
+		mutex_lock(&dpm_list_mtx);
+	}
+	mutex_unlock(&dpm_list_mtx);
+	trace_suspend_resume(TPS("dpm_prepare"), state.event, false);
+	return error;
+}
+void device_block_probing(void)
+{
+	defer_all_probes = true;
+	/* sync with probes to avoid races. */
+	wait_for_device_probe();
+}
+SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+		void __user *, arg)
+{
+	struct pid_namespace *pid_ns = task_active_pid_ns(current);
+	char buffer[256];
+	int ret = 0;
+
+	/* We only trust the superuser with rebooting the system. */
+	if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
+		return -EPERM;
+
+	/* For safety, we require "magic" arguments. */
+	if (magic1 != LINUX_REBOOT_MAGIC1 ||
+			(magic2 != LINUX_REBOOT_MAGIC2 &&
+			magic2 != LINUX_REBOOT_MAGIC2A &&
+			magic2 != LINUX_REBOOT_MAGIC2B &&
+			magic2 != LINUX_REBOOT_MAGIC2C))
+		return -EINVAL;
+
+	/*
+	 * If pid namespaces are enabled and the current task is in a child
+	 * pid_namespace, the command is handled by reboot_pid_ns() which will
+	 * call do_exit().
+	 */
+	ret = reboot_pid_ns(pid_ns, cmd);
+	if (ret)
+		return ret;
+
+	/* Instead of trying to make the power_off code look like
+	 * halt when pm_power_off is not set do it the easy way.
+	 */
+	if ((cmd == LINUX_REBOOT_CMD_POWER_OFF) && !kernel_can_power_off()) {
+		poweroff_fallback_to_halt = true;
+		cmd = LINUX_REBOOT_CMD_HALT;
+	}
+
+	mutex_lock(&system_transition_mutex);
+	switch (cmd) {
+	case LINUX_REBOOT_CMD_RESTART:
+		kernel_restart(NULL);
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_ON:
+		C_A_D = 1;
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_OFF:
+		C_A_D = 0;
+		break;
+
+	case LINUX_REBOOT_CMD_HALT:
+		kernel_halt();
+		do_exit(0);
+
+	case LINUX_REBOOT_CMD_POWER_OFF:
+		kernel_power_off();
+		do_exit(0);
+		break;
+
+	case LINUX_REBOOT_CMD_RESTART2:
+		ret = strncpy_from_user(&buffer[0], arg, sizeof(buffer) - 1);
+		if (ret < 0) {
+			ret = -EFAULT;
+			break;
+		}
+		buffer[sizeof(buffer) - 1] = '\0';
+
+		kernel_restart(buffer);
+		break;
+
+#ifdef CONFIG_KEXEC_CORE
+	case LINUX_REBOOT_CMD_KEXEC:
+		ret = kernel_kexec();
+		break;
+#endif
+
+#ifdef CONFIG_HIBERNATION
+	case LINUX_REBOOT_CMD_SW_SUSPEND:
+		ret = hibernate();
+		break;
+#endif
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&system_transition_mutex);
+	return ret;
+}
+int kernel_kexec(void)
+{
+	int error = 0;
+
+	if (!kexec_trylock())
+		return -EBUSY;
+	if (!kexec_image) {
+		error = -EINVAL;
+		goto Unlock;
+	}
+
+#ifdef CONFIG_KEXEC_JUMP
+	if (kexec_image->preserve_context) {
+		pm_prepare_console();
+		error = freeze_processes();
+		if (error) {
+			error = -EBUSY;
+			goto Restore_console;
+		}
+		suspend_console();
+		error = dpm_suspend_start(PMSG_FREEZE);
+		if (error)
+			goto Resume_console;
+		/* At this point, dpm_suspend_start() has been called,
+		 * but *not* dpm_suspend_end(). We *must* call
+		 * dpm_suspend_end() now.  Otherwise, drivers for
+		 * some devices (e.g. interrupt controllers) become
+		 * desynchronized with the actual state of the
+		 * hardware at resume time, and evil weirdness ensues.
+		 */
+		error = dpm_suspend_end(PMSG_FREEZE);
+		if (error)
+			goto Resume_devices;
+		error = suspend_disable_secondary_cpus();
+		if (error)
+			goto Enable_cpus;
+		local_irq_disable();
+		error = syscore_suspend();
+		if (error)
+			goto Enable_irqs;
+	} else
+#endif
+	{
+		kexec_in_progress = true;
+		kernel_restart_prepare("kexec reboot");
+		migrate_to_reboot_cpu();
+		syscore_shutdown();
+
+		/*
+		 * migrate_to_reboot_cpu() disables CPU hotplug assuming that
+		 * no further code needs to use CPU hotplug (which is true in
+		 * the reboot case). However, the kexec path depends on using
+		 * CPU hotplug again; so re-enable it here.
+		 */
+		cpu_hotplug_enable();
+		pr_notice("Starting new kernel\n");
+		machine_shutdown();
+	}
+
+	kmsg_dump(KMSG_DUMP_SHUTDOWN);
+	machine_kexec(kexec_image);
+
+#ifdef CONFIG_KEXEC_JUMP
+	if (kexec_image->preserve_context) {
+		syscore_resume();
+ Enable_irqs:
+		local_irq_enable();
+ Enable_cpus:
+		suspend_enable_secondary_cpus();
+		dpm_resume_start(PMSG_RESTORE);
+ Resume_devices:
+		dpm_resume_end(PMSG_RESTORE);
+ Resume_console:
+		resume_console();
+		thaw_processes();
+ Restore_console:
+		pm_restore_console();
+	}
+#endif
+
+ Unlock:
+	kexec_unlock();
+	return error;
+}
+void kernel_restart_prepare(char *cmd)
+{
+	blocking_notifier_call_chain(&reboot_notifier_list, SYS_RESTART, cmd);
+	system_state = SYSTEM_RESTART;
+	usermodehelper_disable();
+	device_shutdown();
+}
+void device_shutdown(void)
+{
+	struct device *dev, *parent;
+
+	wait_for_device_probe();
+	device_block_probing();
+
+	cpufreq_suspend();
+
+	spin_lock(&devices_kset->list_lock);
+	/*
+	 * Walk the devices list backward, shutting down each in turn.
+	 * Beware that device unplug events may also start pulling
+	 * devices offline, even as the system is shutting down.
+	 */
+	while (!list_empty(&devices_kset->list)) {
+		dev = list_entry(devices_kset->list.prev, struct device,
+				kobj.entry);
+
+		/*
+		 * hold reference count of device's parent to
+		 * prevent it from being freed because parent's
+		 * lock is to be held
+		 */
+		parent = get_device(dev->parent);
+		get_device(dev);
+		/*
+		 * Make sure the device is off the kset list, in the
+		 * event that dev->*->shutdown() doesn't remove it.
+		 */
+		list_del_init(&dev->kobj.entry);
+		spin_unlock(&devices_kset->list_lock);
+
+		/* hold lock to avoid race with probe/release */
+		if (parent)
+			device_lock(parent);
+		device_lock(dev);
+
+		/* Don't allow any more runtime suspends */
+		pm_runtime_get_noresume(dev);
+		pm_runtime_barrier(dev);
+
+		if (dev->class && dev->class->shutdown_pre) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown_pre\n");
+			dev->class->shutdown_pre(dev);
+		}
+		if (dev->bus && dev->bus->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->bus->shutdown(dev);
+		} else if (dev->driver && dev->driver->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->driver->shutdown(dev);
+		}
+
+		device_unlock(dev);
+		if (parent)
+			device_unlock(parent);
+
+		put_device(dev);
+		put_device(parent);
+
+		spin_lock(&devices_kset->list_lock);
+	}
+	spin_unlock(&devices_kset->list_lock);
+}
+SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+		void __user *, arg)
+{
+	struct pid_namespace *pid_ns = task_active_pid_ns(current);
+	char buffer[256];
+	int ret = 0;
+
+	/* We only trust the superuser with rebooting the system. */
+	if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
+		return -EPERM;
+
+	/* For safety, we require "magic" arguments. */
+	if (magic1 != LINUX_REBOOT_MAGIC1 ||
+			(magic2 != LINUX_REBOOT_MAGIC2 &&
+			magic2 != LINUX_REBOOT_MAGIC2A &&
+			magic2 != LINUX_REBOOT_MAGIC2B &&
+			magic2 != LINUX_REBOOT_MAGIC2C))
+		return -EINVAL;
+
+	/*
+	 * If pid namespaces are enabled and the current task is in a child
+	 * pid_namespace, the command is handled by reboot_pid_ns() which will
+	 * call do_exit().
+	 */
+	ret = reboot_pid_ns(pid_ns, cmd);
+	if (ret)
+		return ret;
+
+	/* Instead of trying to make the power_off code look like
+	 * halt when pm_power_off is not set do it the easy way.
+	 */
+	if ((cmd == LINUX_REBOOT_CMD_POWER_OFF) && !kernel_can_power_off()) {
+		poweroff_fallback_to_halt = true;
+		cmd = LINUX_REBOOT_CMD_HALT;
+	}
+
+	mutex_lock(&system_transition_mutex);
+	switch (cmd) {
+	case LINUX_REBOOT_CMD_RESTART:
+		kernel_restart(NULL);
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_ON:
+		C_A_D = 1;
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_OFF:
+		C_A_D = 0;
+		break;
+
+	case LINUX_REBOOT_CMD_HALT:
+		kernel_halt();
+		do_exit(0);
+
+	case LINUX_REBOOT_CMD_POWER_OFF:
+		kernel_power_off();
+		do_exit(0);
+		break;
+
+	case LINUX_REBOOT_CMD_RESTART2:
+		ret = strncpy_from_user(&buffer[0], arg, sizeof(buffer) - 1);
+		if (ret < 0) {
+			ret = -EFAULT;
+			break;
+		}
+		buffer[sizeof(buffer) - 1] = '\0';
+
+		kernel_restart(buffer);
+		break;
+
+#ifdef CONFIG_KEXEC_CORE
+	case LINUX_REBOOT_CMD_KEXEC:
+		ret = kernel_kexec();
+		break;
+#endif
+
+#ifdef CONFIG_HIBERNATION
+	case LINUX_REBOOT_CMD_SW_SUSPEND:
+		ret = hibernate();
+		break;
+#endif
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&system_transition_mutex);
+	return ret;
+}
+void kernel_restart(char *cmd)
+{
+	kernel_restart_prepare(cmd);
+	do_kernel_restart_prepare();
+	migrate_to_reboot_cpu();
+	syscore_shutdown();
+	if (!cmd)
+		pr_emerg("Restarting system\n");
+	else
+		pr_emerg("Restarting system with command '%s'\n", cmd);
+	kmsg_dump(KMSG_DUMP_SHUTDOWN);
+	machine_restart(cmd);
+}
+void kernel_restart_prepare(char *cmd)
+{
+	blocking_notifier_call_chain(&reboot_notifier_list, SYS_RESTART, cmd);
+	system_state = SYSTEM_RESTART;
+	usermodehelper_disable();
+	device_shutdown();
+}
+void device_shutdown(void)
+{
+	struct device *dev, *parent;
+
+	wait_for_device_probe();
+	device_block_probing();
+
+	cpufreq_suspend();
+
+	spin_lock(&devices_kset->list_lock);
+	/*
+	 * Walk the devices list backward, shutting down each in turn.
+	 * Beware that device unplug events may also start pulling
+	 * devices offline, even as the system is shutting down.
+	 */
+	while (!list_empty(&devices_kset->list)) {
+		dev = list_entry(devices_kset->list.prev, struct device,
+				kobj.entry);
+
+		/*
+		 * hold reference count of device's parent to
+		 * prevent it from being freed because parent's
+		 * lock is to be held
+		 */
+		parent = get_device(dev->parent);
+		get_device(dev);
+		/*
+		 * Make sure the device is off the kset list, in the
+		 * event that dev->*->shutdown() doesn't remove it.
+		 */
+		list_del_init(&dev->kobj.entry);
+		spin_unlock(&devices_kset->list_lock);
+
+		/* hold lock to avoid race with probe/release */
+		if (parent)
+			device_lock(parent);
+		device_lock(dev);
+
+		/* Don't allow any more runtime suspends */
+		pm_runtime_get_noresume(dev);
+		pm_runtime_barrier(dev);
+
+		if (dev->class && dev->class->shutdown_pre) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown_pre\n");
+			dev->class->shutdown_pre(dev);
+		}
+		if (dev->bus && dev->bus->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->bus->shutdown(dev);
+		} else if (dev->driver && dev->driver->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->driver->shutdown(dev);
+		}
+
+		device_unlock(dev);
+		if (parent)
+			device_unlock(parent);
+
+		put_device(dev);
+		put_device(parent);
+
+		spin_lock(&devices_kset->list_lock);
+	}
+	spin_unlock(&devices_kset->list_lock);
+}
+static void deferred_cad(struct work_struct *dummy)
+{
+	kernel_restart(NULL);
+}
+void kernel_restart(char *cmd)
+{
+	kernel_restart_prepare(cmd);
+	do_kernel_restart_prepare();
+	migrate_to_reboot_cpu();
+	syscore_shutdown();
+	if (!cmd)
+		pr_emerg("Restarting system\n");
+	else
+		pr_emerg("Restarting system with command '%s'\n", cmd);
+	kmsg_dump(KMSG_DUMP_SHUTDOWN);
+	machine_restart(cmd);
+}
+void kernel_restart_prepare(char *cmd)
+{
+	blocking_notifier_call_chain(&reboot_notifier_list, SYS_RESTART, cmd);
+	system_state = SYSTEM_RESTART;
+	usermodehelper_disable();
+	device_shutdown();
+}
+void device_shutdown(void)
+{
+	struct device *dev, *parent;
+
+	wait_for_device_probe();
+	device_block_probing();
+
+	cpufreq_suspend();
+
+	spin_lock(&devices_kset->list_lock);
+	/*
+	 * Walk the devices list backward, shutting down each in turn.
+	 * Beware that device unplug events may also start pulling
+	 * devices offline, even as the system is shutting down.
+	 */
+	while (!list_empty(&devices_kset->list)) {
+		dev = list_entry(devices_kset->list.prev, struct device,
+				kobj.entry);
+
+		/*
+		 * hold reference count of device's parent to
+		 * prevent it from being freed because parent's
+		 * lock is to be held
+		 */
+		parent = get_device(dev->parent);
+		get_device(dev);
+		/*
+		 * Make sure the device is off the kset list, in the
+		 * event that dev->*->shutdown() doesn't remove it.
+		 */
+		list_del_init(&dev->kobj.entry);
+		spin_unlock(&devices_kset->list_lock);
+
+		/* hold lock to avoid race with probe/release */
+		if (parent)
+			device_lock(parent);
+		device_lock(dev);
+
+		/* Don't allow any more runtime suspends */
+		pm_runtime_get_noresume(dev);
+		pm_runtime_barrier(dev);
+
+		if (dev->class && dev->class->shutdown_pre) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown_pre\n");
+			dev->class->shutdown_pre(dev);
+		}
+		if (dev->bus && dev->bus->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->bus->shutdown(dev);
+		} else if (dev->driver && dev->driver->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->driver->shutdown(dev);
+		}
+
+		device_unlock(dev);
+		if (parent)
+			device_unlock(parent);
+
+		put_device(dev);
+		put_device(parent);
+
+		spin_lock(&devices_kset->list_lock);
+	}
+	spin_unlock(&devices_kset->list_lock);
+}
+SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+		void __user *, arg)
+{
+	struct pid_namespace *pid_ns = task_active_pid_ns(current);
+	char buffer[256];
+	int ret = 0;
+
+	/* We only trust the superuser with rebooting the system. */
+	if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
+		return -EPERM;
+
+	/* For safety, we require "magic" arguments. */
+	if (magic1 != LINUX_REBOOT_MAGIC1 ||
+			(magic2 != LINUX_REBOOT_MAGIC2 &&
+			magic2 != LINUX_REBOOT_MAGIC2A &&
+			magic2 != LINUX_REBOOT_MAGIC2B &&
+			magic2 != LINUX_REBOOT_MAGIC2C))
+		return -EINVAL;
+
+	/*
+	 * If pid namespaces are enabled and the current task is in a child
+	 * pid_namespace, the command is handled by reboot_pid_ns() which will
+	 * call do_exit().
+	 */
+	ret = reboot_pid_ns(pid_ns, cmd);
+	if (ret)
+		return ret;
+
+	/* Instead of trying to make the power_off code look like
+	 * halt when pm_power_off is not set do it the easy way.
+	 */
+	if ((cmd == LINUX_REBOOT_CMD_POWER_OFF) && !kernel_can_power_off()) {
+		poweroff_fallback_to_halt = true;
+		cmd = LINUX_REBOOT_CMD_HALT;
+	}
+
+	mutex_lock(&system_transition_mutex);
+	switch (cmd) {
+	case LINUX_REBOOT_CMD_RESTART:
+		kernel_restart(NULL);
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_ON:
+		C_A_D = 1;
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_OFF:
+		C_A_D = 0;
+		break;
+
+	case LINUX_REBOOT_CMD_HALT:
+		kernel_halt();
+		do_exit(0);
+
+	case LINUX_REBOOT_CMD_POWER_OFF:
+		kernel_power_off();
+		do_exit(0);
+		break;
+
+	case LINUX_REBOOT_CMD_RESTART2:
+		ret = strncpy_from_user(&buffer[0], arg, sizeof(buffer) - 1);
+		if (ret < 0) {
+			ret = -EFAULT;
+			break;
+		}
+		buffer[sizeof(buffer) - 1] = '\0';
+
+		kernel_restart(buffer);
+		break;
+
+#ifdef CONFIG_KEXEC_CORE
+	case LINUX_REBOOT_CMD_KEXEC:
+		ret = kernel_kexec();
+		break;
+#endif
+
+#ifdef CONFIG_HIBERNATION
+	case LINUX_REBOOT_CMD_SW_SUSPEND:
+		ret = hibernate();
+		break;
+#endif
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&system_transition_mutex);
+	return ret;
+}
+void kernel_halt(void)
+{
+	kernel_shutdown_prepare(SYSTEM_HALT);
+	migrate_to_reboot_cpu();
+	syscore_shutdown();
+	if (poweroff_fallback_to_halt)
+		pr_emerg("Power off not available: System halted instead\n");
+	else
+		pr_emerg("System halted\n");
+	kmsg_dump(KMSG_DUMP_SHUTDOWN);
+	machine_halt();
+}
+static void kernel_shutdown_prepare(enum system_states state)
+{
+	blocking_notifier_call_chain(&reboot_notifier_list,
+		(state == SYSTEM_HALT) ? SYS_HALT : SYS_POWER_OFF, NULL);
+	system_state = state;
+	usermodehelper_disable();
+	device_shutdown();
+}
+void device_shutdown(void)
+{
+	struct device *dev, *parent;
+
+	wait_for_device_probe();
+	device_block_probing();
+
+	cpufreq_suspend();
+
+	spin_lock(&devices_kset->list_lock);
+	/*
+	 * Walk the devices list backward, shutting down each in turn.
+	 * Beware that device unplug events may also start pulling
+	 * devices offline, even as the system is shutting down.
+	 */
+	while (!list_empty(&devices_kset->list)) {
+		dev = list_entry(devices_kset->list.prev, struct device,
+				kobj.entry);
+
+		/*
+		 * hold reference count of device's parent to
+		 * prevent it from being freed because parent's
+		 * lock is to be held
+		 */
+		parent = get_device(dev->parent);
+		get_device(dev);
+		/*
+		 * Make sure the device is off the kset list, in the
+		 * event that dev->*->shutdown() doesn't remove it.
+		 */
+		list_del_init(&dev->kobj.entry);
+		spin_unlock(&devices_kset->list_lock);
+
+		/* hold lock to avoid race with probe/release */
+		if (parent)
+			device_lock(parent);
+		device_lock(dev);
+
+		/* Don't allow any more runtime suspends */
+		pm_runtime_get_noresume(dev);
+		pm_runtime_barrier(dev);
+
+		if (dev->class && dev->class->shutdown_pre) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown_pre\n");
+			dev->class->shutdown_pre(dev);
+		}
+		if (dev->bus && dev->bus->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->bus->shutdown(dev);
+		} else if (dev->driver && dev->driver->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->driver->shutdown(dev);
+		}
+
+		device_unlock(dev);
+		if (parent)
+			device_unlock(parent);
+
+		put_device(dev);
+		put_device(parent);
+
+		spin_lock(&devices_kset->list_lock);
+	}
+	spin_unlock(&devices_kset->list_lock);
+}
+SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+		void __user *, arg)
+{
+	struct pid_namespace *pid_ns = task_active_pid_ns(current);
+	char buffer[256];
+	int ret = 0;
+
+	/* We only trust the superuser with rebooting the system. */
+	if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
+		return -EPERM;
+
+	/* For safety, we require "magic" arguments. */
+	if (magic1 != LINUX_REBOOT_MAGIC1 ||
+			(magic2 != LINUX_REBOOT_MAGIC2 &&
+			magic2 != LINUX_REBOOT_MAGIC2A &&
+			magic2 != LINUX_REBOOT_MAGIC2B &&
+			magic2 != LINUX_REBOOT_MAGIC2C))
+		return -EINVAL;
+
+	/*
+	 * If pid namespaces are enabled and the current task is in a child
+	 * pid_namespace, the command is handled by reboot_pid_ns() which will
+	 * call do_exit().
+	 */
+	ret = reboot_pid_ns(pid_ns, cmd);
+	if (ret)
+		return ret;
+
+	/* Instead of trying to make the power_off code look like
+	 * halt when pm_power_off is not set do it the easy way.
+	 */
+	if ((cmd == LINUX_REBOOT_CMD_POWER_OFF) && !kernel_can_power_off()) {
+		poweroff_fallback_to_halt = true;
+		cmd = LINUX_REBOOT_CMD_HALT;
+	}
+
+	mutex_lock(&system_transition_mutex);
+	switch (cmd) {
+	case LINUX_REBOOT_CMD_RESTART:
+		kernel_restart(NULL);
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_ON:
+		C_A_D = 1;
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_OFF:
+		C_A_D = 0;
+		break;
+
+	case LINUX_REBOOT_CMD_HALT:
+		kernel_halt();
+		do_exit(0);
+
+	case LINUX_REBOOT_CMD_POWER_OFF:
+		kernel_power_off();
+		do_exit(0);
+		break;
+
+	case LINUX_REBOOT_CMD_RESTART2:
+		ret = strncpy_from_user(&buffer[0], arg, sizeof(buffer) - 1);
+		if (ret < 0) {
+			ret = -EFAULT;
+			break;
+		}
+		buffer[sizeof(buffer) - 1] = '\0';
+
+		kernel_restart(buffer);
+		break;
+
+#ifdef CONFIG_KEXEC_CORE
+	case LINUX_REBOOT_CMD_KEXEC:
+		ret = kernel_kexec();
+		break;
+#endif
+
+#ifdef CONFIG_HIBERNATION
+	case LINUX_REBOOT_CMD_SW_SUSPEND:
+		ret = hibernate();
+		break;
+#endif
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&system_transition_mutex);
+	return ret;
+}
+void kernel_power_off(void)
+{
+	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
+	do_kernel_power_off_prepare();
+	migrate_to_reboot_cpu();
+	syscore_shutdown();
+	pr_emerg("Power down\n");
+	kmsg_dump(KMSG_DUMP_SHUTDOWN);
+	machine_power_off();
+}
+static void kernel_shutdown_prepare(enum system_states state)
+{
+	blocking_notifier_call_chain(&reboot_notifier_list,
+		(state == SYSTEM_HALT) ? SYS_HALT : SYS_POWER_OFF, NULL);
+	system_state = state;
+	usermodehelper_disable();
+	device_shutdown();
+}
+void device_shutdown(void)
+{
+	struct device *dev, *parent;
+
+	wait_for_device_probe();
+	device_block_probing();
+
+	cpufreq_suspend();
+
+	spin_lock(&devices_kset->list_lock);
+	/*
+	 * Walk the devices list backward, shutting down each in turn.
+	 * Beware that device unplug events may also start pulling
+	 * devices offline, even as the system is shutting down.
+	 */
+	while (!list_empty(&devices_kset->list)) {
+		dev = list_entry(devices_kset->list.prev, struct device,
+				kobj.entry);
+
+		/*
+		 * hold reference count of device's parent to
+		 * prevent it from being freed because parent's
+		 * lock is to be held
+		 */
+		parent = get_device(dev->parent);
+		get_device(dev);
+		/*
+		 * Make sure the device is off the kset list, in the
+		 * event that dev->*->shutdown() doesn't remove it.
+		 */
+		list_del_init(&dev->kobj.entry);
+		spin_unlock(&devices_kset->list_lock);
+
+		/* hold lock to avoid race with probe/release */
+		if (parent)
+			device_lock(parent);
+		device_lock(dev);
+
+		/* Don't allow any more runtime suspends */
+		pm_runtime_get_noresume(dev);
+		pm_runtime_barrier(dev);
+
+		if (dev->class && dev->class->shutdown_pre) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown_pre\n");
+			dev->class->shutdown_pre(dev);
+		}
+		if (dev->bus && dev->bus->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->bus->shutdown(dev);
+		} else if (dev->driver && dev->driver->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->driver->shutdown(dev);
+		}
+
+		device_unlock(dev);
+		if (parent)
+			device_unlock(parent);
+
+		put_device(dev);
+		put_device(parent);
+
+		spin_lock(&devices_kset->list_lock);
+	}
+	spin_unlock(&devices_kset->list_lock);
+}
+static void do_poweroff(void)
+{
+	switch (system_state) {
+	case SYSTEM_BOOTING:
+	case SYSTEM_SCHEDULING:
+		orderly_poweroff(true);
+		break;
+	case SYSTEM_RUNNING:
+		orderly_poweroff(false);
+		break;
+	default:
+		/* Don't do it when we are halting/rebooting. */
+		pr_info("Ignoring Xen toolstack shutdown.\n");
+		break;
+	}
+}
+void kernel_power_off(void)
+{
+	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
+	do_kernel_power_off_prepare();
+	migrate_to_reboot_cpu();
+	syscore_shutdown();
+	pr_emerg("Power down\n");
+	kmsg_dump(KMSG_DUMP_SHUTDOWN);
+	machine_power_off();
+}
+static void kernel_shutdown_prepare(enum system_states state)
+{
+	blocking_notifier_call_chain(&reboot_notifier_list,
+		(state == SYSTEM_HALT) ? SYS_HALT : SYS_POWER_OFF, NULL);
+	system_state = state;
+	usermodehelper_disable();
+	device_shutdown();
+}
+void device_shutdown(void)
+{
+	struct device *dev, *parent;
+
+	wait_for_device_probe();
+	device_block_probing();
+
+	cpufreq_suspend();
+
+	spin_lock(&devices_kset->list_lock);
+	/*
+	 * Walk the devices list backward, shutting down each in turn.
+	 * Beware that device unplug events may also start pulling
+	 * devices offline, even as the system is shutting down.
+	 */
+	while (!list_empty(&devices_kset->list)) {
+		dev = list_entry(devices_kset->list.prev, struct device,
+				kobj.entry);
+
+		/*
+		 * hold reference count of device's parent to
+		 * prevent it from being freed because parent's
+		 * lock is to be held
+		 */
+		parent = get_device(dev->parent);
+		get_device(dev);
+		/*
+		 * Make sure the device is off the kset list, in the
+		 * event that dev->*->shutdown() doesn't remove it.
+		 */
+		list_del_init(&dev->kobj.entry);
+		spin_unlock(&devices_kset->list_lock);
+
+		/* hold lock to avoid race with probe/release */
+		if (parent)
+			device_lock(parent);
+		device_lock(dev);
+
+		/* Don't allow any more runtime suspends */
+		pm_runtime_get_noresume(dev);
+		pm_runtime_barrier(dev);
+
+		if (dev->class && dev->class->shutdown_pre) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown_pre\n");
+			dev->class->shutdown_pre(dev);
+		}
+		if (dev->bus && dev->bus->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->bus->shutdown(dev);
+		} else if (dev->driver && dev->driver->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->driver->shutdown(dev);
+		}
+
+		device_unlock(dev);
+		if (parent)
+			device_unlock(parent);
+
+		put_device(dev);
+		put_device(parent);
+
+		spin_lock(&devices_kset->list_lock);
+	}
+	spin_unlock(&devices_kset->list_lock);
+}
+static void hw_failure_emergency_poweroff_func(struct work_struct *work)
+{
+	/*
+	 * We have reached here after the emergency shutdown waiting period has
+	 * expired. This means orderly_poweroff has not been able to shut off
+	 * the system for some reason.
+	 *
+	 * Try to shut down the system immediately using kernel_power_off
+	 * if populated
+	 */
+	pr_emerg("Hardware protection timed-out. Trying forced poweroff\n");
+	kernel_power_off();
+
+	/*
+	 * Worst of the worst case trigger emergency restart
+	 */
+	pr_emerg("Hardware protection shutdown failed. Trying emergency restart\n");
+	emergency_restart();
+}
+void kernel_power_off(void)
+{
+	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
+	do_kernel_power_off_prepare();
+	migrate_to_reboot_cpu();
+	syscore_shutdown();
+	pr_emerg("Power down\n");
+	kmsg_dump(KMSG_DUMP_SHUTDOWN);
+	machine_power_off();
+}
+static void kernel_shutdown_prepare(enum system_states state)
+{
+	blocking_notifier_call_chain(&reboot_notifier_list,
+		(state == SYSTEM_HALT) ? SYS_HALT : SYS_POWER_OFF, NULL);
+	system_state = state;
+	usermodehelper_disable();
+	device_shutdown();
+}
+void device_shutdown(void)
+{
+	struct device *dev, *parent;
+
+	wait_for_device_probe();
+	device_block_probing();
+
+	cpufreq_suspend();
+
+	spin_lock(&devices_kset->list_lock);
+	/*
+	 * Walk the devices list backward, shutting down each in turn.
+	 * Beware that device unplug events may also start pulling
+	 * devices offline, even as the system is shutting down.
+	 */
+	while (!list_empty(&devices_kset->list)) {
+		dev = list_entry(devices_kset->list.prev, struct device,
+				kobj.entry);
+
+		/*
+		 * hold reference count of device's parent to
+		 * prevent it from being freed because parent's
+		 * lock is to be held
+		 */
+		parent = get_device(dev->parent);
+		get_device(dev);
+		/*
+		 * Make sure the device is off the kset list, in the
+		 * event that dev->*->shutdown() doesn't remove it.
+		 */
+		list_del_init(&dev->kobj.entry);
+		spin_unlock(&devices_kset->list_lock);
+
+		/* hold lock to avoid race with probe/release */
+		if (parent)
+			device_lock(parent);
+		device_lock(dev);
+
+		/* Don't allow any more runtime suspends */
+		pm_runtime_get_noresume(dev);
+		pm_runtime_barrier(dev);
+
+		if (dev->class && dev->class->shutdown_pre) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown_pre\n");
+			dev->class->shutdown_pre(dev);
+		}
+		if (dev->bus && dev->bus->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->bus->shutdown(dev);
+		} else if (dev->driver && dev->driver->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->driver->shutdown(dev);
+		}
+
+		device_unlock(dev);
+		if (parent)
+			device_unlock(parent);
+
+		put_device(dev);
+		put_device(parent);
+
+		spin_lock(&devices_kset->list_lock);
+	}
+	spin_unlock(&devices_kset->list_lock);
+}
+int hibernate_quiet_exec(int (*func)(void *data), void *data)
+{
+	unsigned int sleep_flags;
+	int error;
+
+	sleep_flags = lock_system_sleep();
+
+	if (!hibernate_acquire()) {
+		error = -EBUSY;
+		goto unlock;
+	}
+
+	pm_prepare_console();
+
+	error = pm_notifier_call_chain_robust(PM_HIBERNATION_PREPARE, PM_POST_HIBERNATION);
+	if (error)
+		goto restore;
+
+	error = freeze_processes();
+	if (error)
+		goto exit;
+
+	lock_device_hotplug();
+
+	pm_suspend_clear_flags();
+
+	error = platform_begin(true);
+	if (error)
+		goto thaw;
+
+	error = freeze_kernel_threads();
+	if (error)
+		goto thaw;
+
+	error = dpm_prepare(PMSG_FREEZE);
+	if (error)
+		goto dpm_complete;
+
+	suspend_console();
+
+	error = dpm_suspend(PMSG_FREEZE);
+	if (error)
+		goto dpm_resume;
+
+	error = dpm_suspend_end(PMSG_FREEZE);
+	if (error)
+		goto dpm_resume;
+
+	error = platform_pre_snapshot(true);
+	if (error)
+		goto skip;
+
+	error = func(data);
+
+skip:
+	platform_finish(true);
+
+	dpm_resume_start(PMSG_THAW);
+
+dpm_resume:
+	dpm_resume(PMSG_THAW);
+
+	resume_console();
+
+dpm_complete:
+	dpm_complete(PMSG_THAW);
+
+	thaw_kernel_threads();
+
+thaw:
+	platform_end(true);
+
+	unlock_device_hotplug();
+
+	thaw_processes();
+
+exit:
+	pm_notifier_call_chain(PM_POST_HIBERNATION);
+
+restore:
+	pm_restore_console();
+
+	hibernate_release();
+
+unlock:
+	unlock_system_sleep(sleep_flags);
+
+	return error;
+}
+int dpm_prepare(pm_message_t state)
+{
+	int error = 0;
+
+	trace_suspend_resume(TPS("dpm_prepare"), state.event, true);
+	might_sleep();
+
+	/*
+	 * Give a chance for the known devices to complete their probes, before
+	 * disable probing of devices. This sync point is important at least
+	 * at boot time + hibernation restore.
+	 */
+	wait_for_device_probe();
+	/*
+	 * It is unsafe if probing of devices will happen during suspend or
+	 * hibernation and system behavior will be unpredictable in this case.
+	 * So, let's prohibit device's probing here and defer their probes
+	 * instead. The normal behavior will be restored in dpm_complete().
+	 */
+	device_block_probing();
+
+	mutex_lock(&dpm_list_mtx);
+	while (!list_empty(&dpm_list) && !error) {
+		struct device *dev = to_device(dpm_list.next);
+
+		get_device(dev);
+
+		mutex_unlock(&dpm_list_mtx);
+
+		trace_device_pm_callback_start(dev, "", state.event);
+		error = device_prepare(dev, state);
+		trace_device_pm_callback_end(dev, error);
+
+		mutex_lock(&dpm_list_mtx);
+
+		if (!error) {
+			dev->power.is_prepared = true;
+			if (!list_empty(&dev->power.entry))
+				list_move_tail(&dev->power.entry, &dpm_prepared_list);
+		} else if (error == -EAGAIN) {
+			error = 0;
+		} else {
+			dev_info(dev, "not prepared for power transition: code %d\n",
+				 error);
+		}
+
+		mutex_unlock(&dpm_list_mtx);
+
+		put_device(dev);
+
+		mutex_lock(&dpm_list_mtx);
+	}
+	mutex_unlock(&dpm_list_mtx);
+	trace_suspend_resume(TPS("dpm_prepare"), state.event, false);
+	return error;
+}
+SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+		void __user *, arg)
+{
+	struct pid_namespace *pid_ns = task_active_pid_ns(current);
+	char buffer[256];
+	int ret = 0;
+
+	/* We only trust the superuser with rebooting the system. */
+	if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
+		return -EPERM;
+
+	/* For safety, we require "magic" arguments. */
+	if (magic1 != LINUX_REBOOT_MAGIC1 ||
+			(magic2 != LINUX_REBOOT_MAGIC2 &&
+			magic2 != LINUX_REBOOT_MAGIC2A &&
+			magic2 != LINUX_REBOOT_MAGIC2B &&
+			magic2 != LINUX_REBOOT_MAGIC2C))
+		return -EINVAL;
+
+	/*
+	 * If pid namespaces are enabled and the current task is in a child
+	 * pid_namespace, the command is handled by reboot_pid_ns() which will
+	 * call do_exit().
+	 */
+	ret = reboot_pid_ns(pid_ns, cmd);
+	if (ret)
+		return ret;
+
+	/* Instead of trying to make the power_off code look like
+	 * halt when pm_power_off is not set do it the easy way.
+	 */
+	if ((cmd == LINUX_REBOOT_CMD_POWER_OFF) && !kernel_can_power_off()) {
+		poweroff_fallback_to_halt = true;
+		cmd = LINUX_REBOOT_CMD_HALT;
+	}
+
+	mutex_lock(&system_transition_mutex);
+	switch (cmd) {
+	case LINUX_REBOOT_CMD_RESTART:
+		kernel_restart(NULL);
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_ON:
+		C_A_D = 1;
+		break;
+
+	case LINUX_REBOOT_CMD_CAD_OFF:
+		C_A_D = 0;
+		break;
+
+	case LINUX_REBOOT_CMD_HALT:
+		kernel_halt();
+		do_exit(0);
+
+	case LINUX_REBOOT_CMD_POWER_OFF:
+		kernel_power_off();
+		do_exit(0);
+		break;
+
+	case LINUX_REBOOT_CMD_RESTART2:
+		ret = strncpy_from_user(&buffer[0], arg, sizeof(buffer) - 1);
+		if (ret < 0) {
+			ret = -EFAULT;
+			break;
+		}
+		buffer[sizeof(buffer) - 1] = '\0';
+
+		kernel_restart(buffer);
+		break;
+
+#ifdef CONFIG_KEXEC_CORE
+	case LINUX_REBOOT_CMD_KEXEC:
+		ret = kernel_kexec();
+		break;
+#endif
+
+#ifdef CONFIG_HIBERNATION
+	case LINUX_REBOOT_CMD_SW_SUSPEND:
+		ret = hibernate();
+		break;
+#endif
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&system_transition_mutex);
+	return ret;
+}
+int hibernate(void)
+{
+	bool snapshot_test = false;
+	unsigned int sleep_flags;
+	int error;
+
+	if (!hibernation_available()) {
+		pm_pr_dbg("Hibernation not available.\n");
+		return -EPERM;
+	}
+
+	/*
+	 * Query for the compression algorithm support if compression is enabled.
+	 */
+	if (!nocompress) {
+		strscpy(hib_comp_algo, hibernate_compressor, sizeof(hib_comp_algo));
+		if (crypto_has_comp(hib_comp_algo, 0, 0) != 1) {
+			pr_err("%s compression is not available\n", hib_comp_algo);
+			return -EOPNOTSUPP;
+		}
+	}
+
+	sleep_flags = lock_system_sleep();
+	/* The snapshot device should not be opened while we're running */
+	if (!hibernate_acquire()) {
+		error = -EBUSY;
+		goto Unlock;
+	}
+
+	pr_info("hibernation entry\n");
+	pm_prepare_console();
+	error = pm_notifier_call_chain_robust(PM_HIBERNATION_PREPARE, PM_POST_HIBERNATION);
+	if (error)
+		goto Restore;
+
+	ksys_sync_helper();
+
+	error = freeze_processes();
+	if (error)
+		goto Exit;
+
+	lock_device_hotplug();
+	/* Allocate memory management structures */
+	error = create_basic_memory_bitmaps();
+	if (error)
+		goto Thaw;
+
+	error = hibernation_snapshot(hibernation_mode == HIBERNATION_PLATFORM);
+	if (error || freezer_test_done)
+		goto Free_bitmaps;
+
+	if (in_suspend) {
+		unsigned int flags = 0;
+
+		if (hibernation_mode == HIBERNATION_PLATFORM)
+			flags |= SF_PLATFORM_MODE;
+		if (nocompress) {
+			flags |= SF_NOCOMPRESS_MODE;
+		} else {
+		        flags |= SF_CRC32_MODE;
+
+			/*
+			 * By default, LZO compression is enabled. Use SF_COMPRESSION_ALG_LZ4
+			 * to override this behaviour and use LZ4.
+			 *
+			 * Refer kernel/power/power.h for more details
+			 */
+
+			if (!strcmp(hib_comp_algo, COMPRESSION_ALGO_LZ4))
+				flags |= SF_COMPRESSION_ALG_LZ4;
+			else
+				flags |= SF_COMPRESSION_ALG_LZO;
+		}
+
+		pm_pr_dbg("Writing hibernation image.\n");
+		error = swsusp_write(flags);
+		swsusp_free();
+		if (!error) {
+			if (hibernation_mode == HIBERNATION_TEST_RESUME)
+				snapshot_test = true;
+			else
+				power_down();
+		}
+		in_suspend = 0;
+		pm_restore_gfp_mask();
+	} else {
+		pm_pr_dbg("Hibernation image restored successfully.\n");
+	}
+
+ Free_bitmaps:
+	free_basic_memory_bitmaps();
+ Thaw:
+	unlock_device_hotplug();
+	if (snapshot_test) {
+		pm_pr_dbg("Checking hibernation image\n");
+		error = swsusp_check(false);
+		if (!error)
+			error = load_image_and_restore();
+	}
+	thaw_processes();
+
+	/* Don't bother checking whether freezer_test_done is true */
+	freezer_test_done = false;
+ Exit:
+	pm_notifier_call_chain(PM_POST_HIBERNATION);
+ Restore:
+	pm_restore_console();
+	hibernate_release();
+ Unlock:
+	unlock_system_sleep(sleep_flags);
+	pr_info("hibernation exit\n");
+
+	return error;
+}
+int hibernation_snapshot(int platform_mode)
+{
+	pm_message_t msg;
+	int error;
+
+	pm_suspend_clear_flags();
+	error = platform_begin(platform_mode);
+	if (error)
+		goto Close;
+
+	/* Preallocate image memory before shutting down devices. */
+	error = hibernate_preallocate_memory();
+	if (error)
+		goto Close;
+
+	error = freeze_kernel_threads();
+	if (error)
+		goto Cleanup;
+
+	if (hibernation_test(TEST_FREEZER)) {
+
+		/*
+		 * Indicate to the caller that we are returning due to a
+		 * successful freezer test.
+		 */
+		freezer_test_done = true;
+		goto Thaw;
+	}
+
+	error = dpm_prepare(PMSG_FREEZE);
+	if (error) {
+		dpm_complete(PMSG_RECOVER);
+		goto Thaw;
+	}
+
+	suspend_console();
+	pm_restrict_gfp_mask();
+
+	error = dpm_suspend(PMSG_FREEZE);
+
+	if (error || hibernation_test(TEST_DEVICES))
+		platform_recover(platform_mode);
+	else
+		error = create_image(platform_mode);
+
+	/*
+	 * In the case that we call create_image() above, the control
+	 * returns here (1) after the image has been created or the
+	 * image creation has failed and (2) after a successful restore.
+	 */
+
+	/* We may need to release the preallocated image pages here. */
+	if (error || !in_suspend)
+		swsusp_free();
+
+	msg = in_suspend ? (error ? PMSG_RECOVER : PMSG_THAW) : PMSG_RESTORE;
+	dpm_resume(msg);
+
+	if (error || !in_suspend)
+		pm_restore_gfp_mask();
+
+	resume_console();
+	dpm_complete(msg);
+
+ Close:
+	platform_end(platform_mode);
+	return error;
+
+ Thaw:
+	thaw_kernel_threads();
+ Cleanup:
+	swsusp_free();
+	goto Close;
+}
+int dpm_prepare(pm_message_t state)
+{
+	int error = 0;
+
+	trace_suspend_resume(TPS("dpm_prepare"), state.event, true);
+	might_sleep();
+
+	/*
+	 * Give a chance for the known devices to complete their probes, before
+	 * disable probing of devices. This sync point is important at least
+	 * at boot time + hibernation restore.
+	 */
+	wait_for_device_probe();
+	/*
+	 * It is unsafe if probing of devices will happen during suspend or
+	 * hibernation and system behavior will be unpredictable in this case.
+	 * So, let's prohibit device's probing here and defer their probes
+	 * instead. The normal behavior will be restored in dpm_complete().
+	 */
+	device_block_probing();
+
+	mutex_lock(&dpm_list_mtx);
+	while (!list_empty(&dpm_list) && !error) {
+		struct device *dev = to_device(dpm_list.next);
+
+		get_device(dev);
+
+		mutex_unlock(&dpm_list_mtx);
+
+		trace_device_pm_callback_start(dev, "", state.event);
+		error = device_prepare(dev, state);
+		trace_device_pm_callback_end(dev, error);
+
+		mutex_lock(&dpm_list_mtx);
+
+		if (!error) {
+			dev->power.is_prepared = true;
+			if (!list_empty(&dev->power.entry))
+				list_move_tail(&dev->power.entry, &dpm_prepared_list);
+		} else if (error == -EAGAIN) {
+			error = 0;
+		} else {
+			dev_info(dev, "not prepared for power transition: code %d\n",
+				 error);
+		}
+
+		mutex_unlock(&dpm_list_mtx);
+
+		put_device(dev);
+
+		mutex_lock(&dpm_list_mtx);
+	}
+	mutex_unlock(&dpm_list_mtx);
+	trace_suspend_resume(TPS("dpm_prepare"), state.event, false);
+	return error;
+}
+static ssize_t state_store(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	const int online_type = mhp_online_type_from_str(buf);
+	struct memory_block *mem = to_memory_block(dev);
+	int ret;
+
+	if (online_type < 0)
+		return -EINVAL;
+
+	ret = lock_device_hotplug_sysfs();
+	if (ret)
+		return ret;
+
+	switch (online_type) {
+	case MMOP_ONLINE_KERNEL:
+	case MMOP_ONLINE_MOVABLE:
+	case MMOP_ONLINE:
+		/* mem->online_type is protected by device_hotplug_lock */
+		mem->online_type = online_type;
+		ret = device_online(&mem->dev);
+		break;
+	case MMOP_OFFLINE:
+		ret = device_offline(&mem->dev);
+		break;
+	default:
+		ret = -EINVAL; /* should never happen */
+	}
+
+	unlock_device_hotplug();
+
+	if (ret < 0)
+		return ret;
+	if (ret)
+		return -EINVAL;
+
+	return count;
+}
+int hibernate(void)
+{
+	bool snapshot_test = false;
+	unsigned int sleep_flags;
+	int error;
+
+	if (!hibernation_available()) {
+		pm_pr_dbg("Hibernation not available.\n");
+		return -EPERM;
+	}
+
+	/*
+	 * Query for the compression algorithm support if compression is enabled.
+	 */
+	if (!nocompress) {
+		strscpy(hib_comp_algo, hibernate_compressor, sizeof(hib_comp_algo));
+		if (crypto_has_comp(hib_comp_algo, 0, 0) != 1) {
+			pr_err("%s compression is not available\n", hib_comp_algo);
+			return -EOPNOTSUPP;
+		}
+	}
+
+	sleep_flags = lock_system_sleep();
+	/* The snapshot device should not be opened while we're running */
+	if (!hibernate_acquire()) {
+		error = -EBUSY;
+		goto Unlock;
+	}
+
+	pr_info("hibernation entry\n");
+	pm_prepare_console();
+	error = pm_notifier_call_chain_robust(PM_HIBERNATION_PREPARE, PM_POST_HIBERNATION);
+	if (error)
+		goto Restore;
+
+	ksys_sync_helper();
+
+	error = freeze_processes();
+	if (error)
+		goto Exit;
+
+	lock_device_hotplug();
+	/* Allocate memory management structures */
+	error = create_basic_memory_bitmaps();
+	if (error)
+		goto Thaw;
+
+	error = hibernation_snapshot(hibernation_mode == HIBERNATION_PLATFORM);
+	if (error || freezer_test_done)
+		goto Free_bitmaps;
+
+	if (in_suspend) {
+		unsigned int flags = 0;
+
+		if (hibernation_mode == HIBERNATION_PLATFORM)
+			flags |= SF_PLATFORM_MODE;
+		if (nocompress) {
+			flags |= SF_NOCOMPRESS_MODE;
+		} else {
+		        flags |= SF_CRC32_MODE;
+
+			/*
+			 * By default, LZO compression is enabled. Use SF_COMPRESSION_ALG_LZ4
+			 * to override this behaviour and use LZ4.
+			 *
+			 * Refer kernel/power/power.h for more details
+			 */
+
+			if (!strcmp(hib_comp_algo, COMPRESSION_ALGO_LZ4))
+				flags |= SF_COMPRESSION_ALG_LZ4;
+			else
+				flags |= SF_COMPRESSION_ALG_LZO;
+		}
+
+		pm_pr_dbg("Writing hibernation image.\n");
+		error = swsusp_write(flags);
+		swsusp_free();
+		if (!error) {
+			if (hibernation_mode == HIBERNATION_TEST_RESUME)
+				snapshot_test = true;
+			else
+				power_down();
+		}
+		in_suspend = 0;
+		pm_restore_gfp_mask();
+	} else {
+		pm_pr_dbg("Hibernation image restored successfully.\n");
+	}
+
+ Free_bitmaps:
+	free_basic_memory_bitmaps();
+ Thaw:
+	unlock_device_hotplug();
+	if (snapshot_test) {
+		pm_pr_dbg("Checking hibernation image\n");
+		error = swsusp_check(false);
+		if (!error)
+			error = load_image_and_restore();
+	}
+	thaw_processes();
+
+	/* Don't bother checking whether freezer_test_done is true */
+	freezer_test_done = false;
+ Exit:
+	pm_notifier_call_chain(PM_POST_HIBERNATION);
+ Restore:
+	pm_restore_console();
+	hibernate_release();
+ Unlock:
+	unlock_system_sleep(sleep_flags);
+	pr_info("hibernation exit\n");
+
+	return error;
+}
+int hibernation_snapshot(int platform_mode)
+{
+	pm_message_t msg;
+	int error;
+
+	pm_suspend_clear_flags();
+	error = platform_begin(platform_mode);
+	if (error)
+		goto Close;
+
+	/* Preallocate image memory before shutting down devices. */
+	error = hibernate_preallocate_memory();
+	if (error)
+		goto Close;
+
+	error = freeze_kernel_threads();
+	if (error)
+		goto Cleanup;
+
+	if (hibernation_test(TEST_FREEZER)) {
+
+		/*
+		 * Indicate to the caller that we are returning due to a
+		 * successful freezer test.
+		 */
+		freezer_test_done = true;
+		goto Thaw;
+	}
+
+	error = dpm_prepare(PMSG_FREEZE);
+	if (error) {
+		dpm_complete(PMSG_RECOVER);
+		goto Thaw;
+	}
+
+	suspend_console();
+	pm_restrict_gfp_mask();
+
+	error = dpm_suspend(PMSG_FREEZE);
+
+	if (error || hibernation_test(TEST_DEVICES))
+		platform_recover(platform_mode);
+	else
+		error = create_image(platform_mode);
+
+	/*
+	 * In the case that we call create_image() above, the control
+	 * returns here (1) after the image has been created or the
+	 * image creation has failed and (2) after a successful restore.
+	 */
+
+	/* We may need to release the preallocated image pages here. */
+	if (error || !in_suspend)
+		swsusp_free();
+
+	msg = in_suspend ? (error ? PMSG_RECOVER : PMSG_THAW) : PMSG_RESTORE;
+	dpm_resume(msg);
+
+	if (error || !in_suspend)
+		pm_restore_gfp_mask();
+
+	resume_console();
+	dpm_complete(msg);
+
+ Close:
+	platform_end(platform_mode);
+	return error;
+
+ Thaw:
+	thaw_kernel_threads();
+ Cleanup:
+	swsusp_free();
+	goto Close;
+}
+int dpm_prepare(pm_message_t state)
+{
+	int error = 0;
+
+	trace_suspend_resume(TPS("dpm_prepare"), state.event, true);
+	might_sleep();
+
+	/*
+	 * Give a chance for the known devices to complete their probes, before
+	 * disable probing of devices. This sync point is important at least
+	 * at boot time + hibernation restore.
+	 */
+	wait_for_device_probe();
+	/*
+	 * It is unsafe if probing of devices will happen during suspend or
+	 * hibernation and system behavior will be unpredictable in this case.
+	 * So, let's prohibit device's probing here and defer their probes
+	 * instead. The normal behavior will be restored in dpm_complete().
+	 */
+	device_block_probing();
+
+	mutex_lock(&dpm_list_mtx);
+	while (!list_empty(&dpm_list) && !error) {
+		struct device *dev = to_device(dpm_list.next);
+
+		get_device(dev);
+
+		mutex_unlock(&dpm_list_mtx);
+
+		trace_device_pm_callback_start(dev, "", state.event);
+		error = device_prepare(dev, state);
+		trace_device_pm_callback_end(dev, error);
+
+		mutex_lock(&dpm_list_mtx);
+
+		if (!error) {
+			dev->power.is_prepared = true;
+			if (!list_empty(&dev->power.entry))
+				list_move_tail(&dev->power.entry, &dpm_prepared_list);
+		} else if (error == -EAGAIN) {
+			error = 0;
+		} else {
+			dev_info(dev, "not prepared for power transition: code %d\n",
+				 error);
+		}
+
+		mutex_unlock(&dpm_list_mtx);
+
+		put_device(dev);
+
+		mutex_lock(&dpm_list_mtx);
+	}
+	mutex_unlock(&dpm_list_mtx);
+	trace_suspend_resume(TPS("dpm_prepare"), state.event, false);
+	return error;
+}
+snapshot_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	BUILD_BUG_ON(sizeof(loff_t) != sizeof(compat_loff_t));
+
+	switch (cmd) {
+	case SNAPSHOT_GET_IMAGE_SIZE:
+	case SNAPSHOT_AVAIL_SWAP_SIZE:
+	case SNAPSHOT_ALLOC_SWAP_PAGE:
+	case SNAPSHOT_CREATE_IMAGE:
+	case SNAPSHOT_SET_SWAP_AREA:
+		return snapshot_ioctl(file, cmd,
+				      (unsigned long) compat_ptr(arg));
+	default:
+		return snapshot_ioctl(file, cmd, arg);
+	}
+}
+static long snapshot_ioctl(struct file *filp, unsigned int cmd,
+							unsigned long arg)
+{
+	int error = 0;
+	struct snapshot_data *data;
+	loff_t size;
+	sector_t offset;
+
+	if (need_wait) {
+		wait_for_device_probe();
+		need_wait = false;
+	}
+
+	if (_IOC_TYPE(cmd) != SNAPSHOT_IOC_MAGIC)
+		return -ENOTTY;
+	if (_IOC_NR(cmd) > SNAPSHOT_IOC_MAXNR)
+		return -ENOTTY;
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	if (!mutex_trylock(&system_transition_mutex))
+		return -EBUSY;
+
+	lock_device_hotplug();
+	data = filp->private_data;
+
+	switch (cmd) {
+
+	case SNAPSHOT_FREEZE:
+		if (data->frozen)
+			break;
+
+		ksys_sync_helper();
+
+		error = freeze_processes();
+		if (error)
+			break;
+
+		error = create_basic_memory_bitmaps();
+		if (error)
+			thaw_processes();
+		else
+			data->frozen = true;
+
+		break;
+
+	case SNAPSHOT_UNFREEZE:
+		if (!data->frozen || data->ready)
+			break;
+		pm_restore_gfp_mask();
+		free_basic_memory_bitmaps();
+		data->free_bitmaps = false;
+		thaw_processes();
+		data->frozen = false;
+		break;
+
+	case SNAPSHOT_CREATE_IMAGE:
+		if (data->mode != O_RDONLY || !data->frozen  || data->ready) {
+			error = -EPERM;
+			break;
+		}
+		pm_restore_gfp_mask();
+		error = hibernation_snapshot(data->platform_support);
+		if (!error) {
+			error = put_user(in_suspend, (int __user *)arg);
+			data->ready = !freezer_test_done && !error;
+			freezer_test_done = false;
+		}
+		break;
+
+	case SNAPSHOT_ATOMIC_RESTORE:
+		error = snapshot_write_finalize(&data->handle);
+		if (error)
+			break;
+		if (data->mode != O_WRONLY || !data->frozen ||
+		    !snapshot_image_loaded(&data->handle)) {
+			error = -EPERM;
+			break;
+		}
+		error = hibernation_restore(data->platform_support);
+		break;
+
+	case SNAPSHOT_FREE:
+		swsusp_free();
+		memset(&data->handle, 0, sizeof(struct snapshot_handle));
+		data->ready = false;
+		/*
+		 * It is necessary to thaw kernel threads here, because
+		 * SNAPSHOT_CREATE_IMAGE may be invoked directly after
+		 * SNAPSHOT_FREE.  In that case, if kernel threads were not
+		 * thawed, the preallocation of memory carried out by
+		 * hibernation_snapshot() might run into problems (i.e. it
+		 * might fail or even deadlock).
+		 */
+		thaw_kernel_threads();
+		break;
+
+	case SNAPSHOT_PREF_IMAGE_SIZE:
+		image_size = arg;
+		break;
+
+	case SNAPSHOT_GET_IMAGE_SIZE:
+		if (!data->ready) {
+			error = -ENODATA;
+			break;
+		}
+		size = snapshot_get_image_size();
+		size <<= PAGE_SHIFT;
+		error = put_user(size, (loff_t __user *)arg);
+		break;
+
+	case SNAPSHOT_AVAIL_SWAP_SIZE:
+		size = count_swap_pages(data->swap, 1);
+		size <<= PAGE_SHIFT;
+		error = put_user(size, (loff_t __user *)arg);
+		break;
+
+	case SNAPSHOT_ALLOC_SWAP_PAGE:
+		if (data->swap < 0 || data->swap >= MAX_SWAPFILES) {
+			error = -ENODEV;
+			break;
+		}
+		offset = alloc_swapdev_block(data->swap);
+		if (offset) {
+			offset <<= PAGE_SHIFT;
+			error = put_user(offset, (loff_t __user *)arg);
+		} else {
+			error = -ENOSPC;
+		}
+		break;
+
+	case SNAPSHOT_FREE_SWAP_PAGES:
+		if (data->swap < 0 || data->swap >= MAX_SWAPFILES) {
+			error = -ENODEV;
+			break;
+		}
+		free_all_swap_pages(data->swap);
+		break;
+
+	case SNAPSHOT_S2RAM:
+		if (!data->frozen) {
+			error = -EPERM;
+			break;
+		}
+		/*
+		 * Tasks are frozen and the notifiers have been called with
+		 * PM_HIBERNATION_PREPARE
+		 */
+		error = suspend_devices_and_enter(PM_SUSPEND_MEM);
+		data->ready = false;
+		break;
+
+	case SNAPSHOT_PLATFORM_SUPPORT:
+		data->platform_support = !!arg;
+		break;
+
+	case SNAPSHOT_POWER_OFF:
+		if (data->platform_support)
+			error = hibernation_platform_enter();
+		break;
+
+	case SNAPSHOT_SET_SWAP_AREA:
+		error = snapshot_set_swap_area(data, (void __user *)arg);
+		break;
+
+	default:
+		error = -ENOTTY;
+
+	}
+
+	unlock_device_hotplug();
+	mutex_unlock(&system_transition_mutex);
+
+	return error;
+}
+int hibernation_snapshot(int platform_mode)
+{
+	pm_message_t msg;
+	int error;
+
+	pm_suspend_clear_flags();
+	error = platform_begin(platform_mode);
+	if (error)
+		goto Close;
+
+	/* Preallocate image memory before shutting down devices. */
+	error = hibernate_preallocate_memory();
+	if (error)
+		goto Close;
+
+	error = freeze_kernel_threads();
+	if (error)
+		goto Cleanup;
+
+	if (hibernation_test(TEST_FREEZER)) {
+
+		/*
+		 * Indicate to the caller that we are returning due to a
+		 * successful freezer test.
+		 */
+		freezer_test_done = true;
+		goto Thaw;
+	}
+
+	error = dpm_prepare(PMSG_FREEZE);
+	if (error) {
+		dpm_complete(PMSG_RECOVER);
+		goto Thaw;
+	}
+
+	suspend_console();
+	pm_restrict_gfp_mask();
+
+	error = dpm_suspend(PMSG_FREEZE);
+
+	if (error || hibernation_test(TEST_DEVICES))
+		platform_recover(platform_mode);
+	else
+		error = create_image(platform_mode);
+
+	/*
+	 * In the case that we call create_image() above, the control
+	 * returns here (1) after the image has been created or the
+	 * image creation has failed and (2) after a successful restore.
+	 */
+
+	/* We may need to release the preallocated image pages here. */
+	if (error || !in_suspend)
+		swsusp_free();
+
+	msg = in_suspend ? (error ? PMSG_RECOVER : PMSG_THAW) : PMSG_RESTORE;
+	dpm_resume(msg);
+
+	if (error || !in_suspend)
+		pm_restore_gfp_mask();
+
+	resume_console();
+	dpm_complete(msg);
+
+ Close:
+	platform_end(platform_mode);
+	return error;
+
+ Thaw:
+	thaw_kernel_threads();
+ Cleanup:
+	swsusp_free();
+	goto Close;
+}
+int dpm_prepare(pm_message_t state)
+{
+	int error = 0;
+
+	trace_suspend_resume(TPS("dpm_prepare"), state.event, true);
+	might_sleep();
+
+	/*
+	 * Give a chance for the known devices to complete their probes, before
+	 * disable probing of devices. This sync point is important at least
+	 * at boot time + hibernation restore.
+	 */
+	wait_for_device_probe();
+	/*
+	 * It is unsafe if probing of devices will happen during suspend or
+	 * hibernation and system behavior will be unpredictable in this case.
+	 * So, let's prohibit device's probing here and defer their probes
+	 * instead. The normal behavior will be restored in dpm_complete().
+	 */
+	device_block_probing();
+
+	mutex_lock(&dpm_list_mtx);
+	while (!list_empty(&dpm_list) && !error) {
+		struct device *dev = to_device(dpm_list.next);
+
+		get_device(dev);
+
+		mutex_unlock(&dpm_list_mtx);
+
+		trace_device_pm_callback_start(dev, "", state.event);
+		error = device_prepare(dev, state);
+		trace_device_pm_callback_end(dev, error);
+
+		mutex_lock(&dpm_list_mtx);
+
+		if (!error) {
+			dev->power.is_prepared = true;
+			if (!list_empty(&dev->power.entry))
+				list_move_tail(&dev->power.entry, &dpm_prepared_list);
+		} else if (error == -EAGAIN) {
+			error = 0;
+		} else {
+			dev_info(dev, "not prepared for power transition: code %d\n",
+				 error);
+		}
+
+		mutex_unlock(&dpm_list_mtx);
+
+		put_device(dev);
+
+		mutex_lock(&dpm_list_mtx);
+	}
+	mutex_unlock(&dpm_list_mtx);
+	trace_suspend_resume(TPS("dpm_prepare"), state.event, false);
+	return error;
+}
+static int __init software_resume_initcall(void)
+{
+	/*
+	 * If the user said "noresume".. bail out early.
+	 */
+	if (noresume || !hibernation_available())
+		return 0;
+
+	if (!swsusp_resume_device) {
+		int error = find_resume_device();
+
+		if (error)
+			return error;
+	}
+
+	return software_resume();
+}
+static int __init find_resume_device(void)
+{
+	if (!strlen(resume_file))
+		return -ENOENT;
+
+	pm_pr_dbg("Checking hibernation image partition %s\n", resume_file);
+
+	if (resume_delay) {
+		pr_info("Waiting %dsec before reading resume device ...\n",
+			resume_delay);
+		ssleep(resume_delay);
+	}
+
+	/* Check if the device is there */
+	if (!early_lookup_bdev(resume_file, &swsusp_resume_device))
+		return 0;
+
+	/*
+	 * Some device discovery might still be in progress; we need to wait for
+	 * this to finish.
+	 */
+	wait_for_device_probe();
+	if (resume_wait) {
+		while (early_lookup_bdev(resume_file, &swsusp_resume_device))
+			msleep(10);
+		async_synchronize_full();
+	}
+
+	return early_lookup_bdev(resume_file, &swsusp_resume_device);
+}
+static int __ref kernel_init(void *unused)
+{
+	int ret;
+
+	/*
+	 * Wait until kthreadd is all set-up.
+	 */
+	wait_for_completion(&kthreadd_done);
+
+	kernel_init_freeable();
+	/* need to finish all async __init code before freeing the memory */
+	async_synchronize_full();
+
+	system_state = SYSTEM_FREEING_INITMEM;
+	kprobe_free_init_mem();
+	ftrace_free_init_mem();
+	kgdb_free_init_mem();
+	exit_boot_config();
+	free_initmem();
+	mark_readonly();
+
+	/*
+	 * Kernel mappings are now finalized - update the userspace page-table
+	 * to finalize PTI.
+	 */
+	pti_finalize();
+
+	system_state = SYSTEM_RUNNING;
+	numa_default_policy();
+
+	rcu_end_inkernel_boot();
+
+	do_sysctl_args();
+
+	if (ramdisk_execute_command) {
+		ret = run_init_process(ramdisk_execute_command);
+		if (!ret)
+			return 0;
+		pr_err("Failed to execute %s (error %d)\n",
+		       ramdisk_execute_command, ret);
+	}
+
+	/*
+	 * We try each of these until one succeeds.
+	 *
+	 * The Bourne shell can be used instead of init if we are
+	 * trying to recover a really broken machine.
+	 */
+	if (execute_command) {
+		ret = run_init_process(execute_command);
+		if (!ret)
+			return 0;
+		panic("Requested init %s failed (error %d).",
+		      execute_command, ret);
+	}
+
+	if (CONFIG_DEFAULT_INIT[0] != '\0') {
+		ret = run_init_process(CONFIG_DEFAULT_INIT);
+		if (ret)
+			pr_err("Default init %s failed (error %d)\n",
+			       CONFIG_DEFAULT_INIT, ret);
+		else
+			return 0;
+	}
+
+	if (!try_to_run_init_process("/sbin/init") ||
+	    !try_to_run_init_process("/etc/init") ||
+	    !try_to_run_init_process("/bin/init") ||
+	    !try_to_run_init_process("/bin/sh"))
+		return 0;
+
+	panic("No working init found.  Try passing init= option to kernel. "
+	      "See Linux Documentation/admin-guide/init.rst for guidance.");
+}
+static noinline void __init kernel_init_freeable(void)
+{
+	/* Now the scheduler is fully set up and can do blocking allocations */
+	gfp_allowed_mask = __GFP_BITS_MASK;
+
+	/*
+	 * init can allocate pages on any node
+	 */
+	set_mems_allowed(node_states[N_MEMORY]);
+
+	cad_pid = get_pid(task_pid(current));
+
+	smp_prepare_cpus(setup_max_cpus);
+
+	workqueue_init();
+
+	init_mm_internals();
+
+	rcu_init_tasks_generic();
+	do_pre_smp_initcalls();
+	lockup_detector_init();
+
+	smp_init();
+	sched_init_smp();
+
+	workqueue_init_topology();
+	async_init();
+	padata_init();
+	page_alloc_init_late();
+
+	do_basic_setup();
+
+	kunit_run_all_tests();
+
+	wait_for_initramfs();
+	console_on_rootfs();
+
+	/*
+	 * check if there is an early userspace init.  If yes, let it do all
+	 * the work
+	 */
+	if (init_eaccess(ramdisk_execute_command) != 0) {
+		ramdisk_execute_command = NULL;
+		prepare_namespace();
+	}
+
+	/*
+	 * Ok, we have completed the initial bootup, and
+	 * we're essentially up and running. Get rid of the
+	 * initmem segments and start the user-mode stuff..
+	 *
+	 * rootfs is available now, try loading the public keys
+	 * and default modules
+	 */
+
+	integrity_load_keys();
+}
+void __init prepare_namespace(void)
+{
+	if (root_delay) {
+		printk(KERN_INFO "Waiting %d sec before mounting root device...\n",
+		       root_delay);
+		ssleep(root_delay);
+	}
+
+	/*
+	 * wait for the known devices to complete their probing
+	 *
+	 * Note: this is a potential source of long boot delays.
+	 * For example, it is not atypical to wait 5 seconds here
+	 * for the touchpad of a laptop to initialize.
+	 */
+	wait_for_device_probe();
+
+	md_run_setup();
+
+	if (saved_root_name[0])
+		ROOT_DEV = parse_root_device(saved_root_name);
+
+	if (initrd_load(saved_root_name))
+		goto out;
+
+	if (root_wait)
+		wait_for_root(saved_root_name);
+	mount_root(saved_root_name);
+out:
+	devtmpfs_mount();
+	init_mount(".", "/", NULL, MS_MOVE, NULL);
+	init_chroot(".");
+}
+snapshot_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	BUILD_BUG_ON(sizeof(loff_t) != sizeof(compat_loff_t));
+
+	switch (cmd) {
+	case SNAPSHOT_GET_IMAGE_SIZE:
+	case SNAPSHOT_AVAIL_SWAP_SIZE:
+	case SNAPSHOT_ALLOC_SWAP_PAGE:
+	case SNAPSHOT_CREATE_IMAGE:
+	case SNAPSHOT_SET_SWAP_AREA:
+		return snapshot_ioctl(file, cmd,
+				      (unsigned long) compat_ptr(arg));
+	default:
+		return snapshot_ioctl(file, cmd, arg);
+	}
+}
+static long snapshot_ioctl(struct file *filp, unsigned int cmd,
+							unsigned long arg)
+{
+	int error = 0;
+	struct snapshot_data *data;
+	loff_t size;
+	sector_t offset;
+
+	if (need_wait) {
+		wait_for_device_probe();
+		need_wait = false;
+	}
+
+	if (_IOC_TYPE(cmd) != SNAPSHOT_IOC_MAGIC)
+		return -ENOTTY;
+	if (_IOC_NR(cmd) > SNAPSHOT_IOC_MAXNR)
+		return -ENOTTY;
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	if (!mutex_trylock(&system_transition_mutex))
+		return -EBUSY;
+
+	lock_device_hotplug();
+	data = filp->private_data;
+
+	switch (cmd) {
+
+	case SNAPSHOT_FREEZE:
+		if (data->frozen)
+			break;
+
+		ksys_sync_helper();
+
+		error = freeze_processes();
+		if (error)
+			break;
+
+		error = create_basic_memory_bitmaps();
+		if (error)
+			thaw_processes();
+		else
+			data->frozen = true;
+
+		break;
+
+	case SNAPSHOT_UNFREEZE:
+		if (!data->frozen || data->ready)
+			break;
+		pm_restore_gfp_mask();
+		free_basic_memory_bitmaps();
+		data->free_bitmaps = false;
+		thaw_processes();
+		data->frozen = false;
+		break;
+
+	case SNAPSHOT_CREATE_IMAGE:
+		if (data->mode != O_RDONLY || !data->frozen  || data->ready) {
+			error = -EPERM;
+			break;
+		}
+		pm_restore_gfp_mask();
+		error = hibernation_snapshot(data->platform_support);
+		if (!error) {
+			error = put_user(in_suspend, (int __user *)arg);
+			data->ready = !freezer_test_done && !error;
+			freezer_test_done = false;
+		}
+		break;
+
+	case SNAPSHOT_ATOMIC_RESTORE:
+		error = snapshot_write_finalize(&data->handle);
+		if (error)
+			break;
+		if (data->mode != O_WRONLY || !data->frozen ||
+		    !snapshot_image_loaded(&data->handle)) {
+			error = -EPERM;
+			break;
+		}
+		error = hibernation_restore(data->platform_support);
+		break;
+
+	case SNAPSHOT_FREE:
+		swsusp_free();
+		memset(&data->handle, 0, sizeof(struct snapshot_handle));
+		data->ready = false;
+		/*
+		 * It is necessary to thaw kernel threads here, because
+		 * SNAPSHOT_CREATE_IMAGE may be invoked directly after
+		 * SNAPSHOT_FREE.  In that case, if kernel threads were not
+		 * thawed, the preallocation of memory carried out by
+		 * hibernation_snapshot() might run into problems (i.e. it
+		 * might fail or even deadlock).
+		 */
+		thaw_kernel_threads();
+		break;
+
+	case SNAPSHOT_PREF_IMAGE_SIZE:
+		image_size = arg;
+		break;
+
+	case SNAPSHOT_GET_IMAGE_SIZE:
+		if (!data->ready) {
+			error = -ENODATA;
+			break;
+		}
+		size = snapshot_get_image_size();
+		size <<= PAGE_SHIFT;
+		error = put_user(size, (loff_t __user *)arg);
+		break;
+
+	case SNAPSHOT_AVAIL_SWAP_SIZE:
+		size = count_swap_pages(data->swap, 1);
+		size <<= PAGE_SHIFT;
+		error = put_user(size, (loff_t __user *)arg);
+		break;
+
+	case SNAPSHOT_ALLOC_SWAP_PAGE:
+		if (data->swap < 0 || data->swap >= MAX_SWAPFILES) {
+			error = -ENODEV;
+			break;
+		}
+		offset = alloc_swapdev_block(data->swap);
+		if (offset) {
+			offset <<= PAGE_SHIFT;
+			error = put_user(offset, (loff_t __user *)arg);
+		} else {
+			error = -ENOSPC;
+		}
+		break;
+
+	case SNAPSHOT_FREE_SWAP_PAGES:
+		if (data->swap < 0 || data->swap >= MAX_SWAPFILES) {
+			error = -ENODEV;
+			break;
+		}
+		free_all_swap_pages(data->swap);
+		break;
+
+	case SNAPSHOT_S2RAM:
+		if (!data->frozen) {
+			error = -EPERM;
+			break;
+		}
+		/*
+		 * Tasks are frozen and the notifiers have been called with
+		 * PM_HIBERNATION_PREPARE
+		 */
+		error = suspend_devices_and_enter(PM_SUSPEND_MEM);
+		data->ready = false;
+		break;
+
+	case SNAPSHOT_PLATFORM_SUPPORT:
+		data->platform_support = !!arg;
+		break;
+
+	case SNAPSHOT_POWER_OFF:
+		if (data->platform_support)
+			error = hibernation_platform_enter();
+		break;
+
+	case SNAPSHOT_SET_SWAP_AREA:
+		error = snapshot_set_swap_area(data, (void __user *)arg);
+		break;
+
+	default:
+		error = -ENOTTY;
+
+	}
+
+	unlock_device_hotplug();
+	mutex_unlock(&system_transition_mutex);
+
+	return error;
+}
+static ssize_t snapshot_write(struct file *filp, const char __user *buf,
+                              size_t count, loff_t *offp)
+{
+	loff_t pg_offp = *offp & ~PAGE_MASK;
+	struct snapshot_data *data;
+	unsigned long sleep_flags;
+	ssize_t res;
+
+	if (need_wait) {
+		wait_for_device_probe();
+		need_wait = false;
+	}
+
+	sleep_flags = lock_system_sleep();
+
+	data = filp->private_data;
+
+	if (!pg_offp) {
+		res = snapshot_write_next(&data->handle);
+		if (res <= 0)
+			goto unlock;
+	} else {
+		res = PAGE_SIZE;
+	}
+
+	if (!data_of(data->handle)) {
+		res = -EINVAL;
+		goto unlock;
+	}
+
+	res = simple_write_to_buffer(data_of(data->handle), res, &pg_offp,
+			buf, count);
+	if (res > 0)
+		*offp += res;
+unlock:
+	unlock_system_sleep(sleep_flags);
+
+	return res;
+}
+static int __init ip_auto_config(void)
+{
+	__be32 addr;
+#ifdef IPCONFIG_DYNAMIC
+	int retries = CONF_OPEN_RETRIES;
+#endif
+	int err;
+	unsigned int i, count;
+
+	/* Initialise all name servers and NTP servers to NONE (but only if the
+	 * "ip=" or "nfsaddrs=" kernel command line parameters weren't decoded,
+	 * otherwise we'll overwrite the IP addresses specified there)
+	 */
+	if (ic_set_manually == 0) {
+		ic_nameservers_predef();
+		ic_ntp_servers_predef();
+	}
+
+#ifdef CONFIG_PROC_FS
+	proc_create_single("pnp", 0444, init_net.proc_net, pnp_seq_show);
+
+	if (ipconfig_proc_net_init() == 0)
+		ipconfig_proc_net_create("ntp_servers", &ntp_servers_proc_ops);
+#endif /* CONFIG_PROC_FS */
+
+	if (!ic_enable)
+		return 0;
+
+	pr_debug("IP-Config: Entered.\n");
+#ifdef IPCONFIG_DYNAMIC
+ try_try_again:
+#endif
+	/* Wait for devices to appear */
+	err = wait_for_devices();
+	if (err)
+		return err;
+
+	/* Setup all network devices */
+	err = ic_open_devs();
+	if (err)
+		return err;
+
+	/* Give drivers a chance to settle */
+	msleep(CONF_POST_OPEN);
+
+	/*
+	 * If the config information is insufficient (e.g., our IP address or
+	 * IP address of the boot server is missing or we have multiple network
+	 * interfaces and no default was set), use BOOTP or RARP to get the
+	 * missing values.
+	 */
+	if (ic_myaddr == NONE ||
+#if defined(CONFIG_ROOT_NFS) || defined(CONFIG_CIFS_ROOT)
+	    (root_server_addr == NONE &&
+	     ic_servaddr == NONE &&
+	     (ROOT_DEV == Root_NFS || ROOT_DEV == Root_CIFS)) ||
+#endif
+	    ic_first_dev->next) {
+#ifdef IPCONFIG_DYNAMIC
+		if (ic_dynamic() < 0) {
+			ic_close_devs();
+
+			/*
+			 * I don't know why, but sometimes the
+			 * eepro100 driver (at least) gets upset and
+			 * doesn't work the first time it's opened.
+			 * But then if you close it and reopen it, it
+			 * works just fine.  So we need to try that at
+			 * least once before giving up.
+			 *
+			 * Also, if the root will be NFS-mounted, we
+			 * have nowhere to go if DHCP fails.  So we
+			 * just have to keep trying forever.
+			 *
+			 * 				-- Chip
+			 */
+#ifdef CONFIG_ROOT_NFS
+			if (ROOT_DEV ==  Root_NFS) {
+				pr_err("IP-Config: Retrying forever (NFS root)...\n");
+				goto try_try_again;
+			}
+#endif
+#ifdef CONFIG_CIFS_ROOT
+			if (ROOT_DEV == Root_CIFS) {
+				pr_err("IP-Config: Retrying forever (CIFS root)...\n");
+				goto try_try_again;
+			}
+#endif
+
+			if (--retries) {
+				pr_err("IP-Config: Reopening network devices...\n");
+				goto try_try_again;
+			}
+
+			/* Oh, well.  At least we tried. */
+			pr_err("IP-Config: Auto-configuration of network failed\n");
+			return -1;
+		}
+#else /* !DYNAMIC */
+		pr_err("IP-Config: Incomplete network configuration information\n");
+		ic_close_devs();
+		return -1;
+#endif /* IPCONFIG_DYNAMIC */
+	} else {
+		/* Device selected manually or only one device -> use it */
+		ic_dev = ic_first_dev;
+	}
+
+	addr = root_nfs_parse_addr(root_server_path);
+	if (root_server_addr == NONE)
+		root_server_addr = addr;
+
+	/*
+	 * Use defaults wherever applicable.
+	 */
+	if (ic_defaults() < 0)
+		return -1;
+
+	/*
+	 * Record which protocol was actually used.
+	 */
+#ifdef IPCONFIG_DYNAMIC
+	ic_proto_used = ic_got_reply | (ic_proto_enabled & IC_USE_DHCP);
+#endif
+
+#ifndef IPCONFIG_SILENT
+	/*
+	 * Clue in the operator.
+	 */
+	pr_info("IP-Config: Complete:\n");
+
+	pr_info("     device=%s, hwaddr=%*phC, ipaddr=%pI4, mask=%pI4, gw=%pI4\n",
+		ic_dev->dev->name, ic_dev->dev->addr_len, ic_dev->dev->dev_addr,
+		&ic_myaddr, &ic_netmask, &ic_gateway);
+	pr_info("     host=%s, domain=%s, nis-domain=%s\n",
+		utsname()->nodename, ic_domain, utsname()->domainname);
+	pr_info("     bootserver=%pI4, rootserver=%pI4, rootpath=%s",
+		&ic_servaddr, &root_server_addr, root_server_path);
+	if (ic_dev_mtu)
+		pr_cont(", mtu=%d", ic_dev_mtu);
+	/* Name servers (if any): */
+	for (i = 0, count = 0; i < CONF_NAMESERVERS_MAX; i++) {
+		if (ic_nameservers[i] != NONE) {
+			if (i == 0)
+				pr_info("     nameserver%u=%pI4",
+					i, &ic_nameservers[i]);
+			else
+				pr_cont(", nameserver%u=%pI4",
+					i, &ic_nameservers[i]);
+
+			count++;
+		}
+		if ((i + 1 == CONF_NAMESERVERS_MAX) && count > 0)
+			pr_cont("\n");
+	}
+	/* NTP servers (if any): */
+	for (i = 0, count = 0; i < CONF_NTP_SERVERS_MAX; i++) {
+		if (ic_ntp_servers[i] != NONE) {
+			if (i == 0)
+				pr_info("     ntpserver%u=%pI4",
+					i, &ic_ntp_servers[i]);
+			else
+				pr_cont(", ntpserver%u=%pI4",
+					i, &ic_ntp_servers[i]);
+
+			count++;
+		}
+		if ((i + 1 == CONF_NTP_SERVERS_MAX) && count > 0)
+			pr_cont("\n");
+	}
+#endif /* !SILENT */
+
+	/*
+	 * Close all network devices except the device we've
+	 * autoconfigured and set up routes.
+	 */
+	if (ic_setup_if() < 0 || ic_setup_routes() < 0)
+		err = -1;
+	else
+		err = 0;
+
+	ic_close_devs();
+
+	return err;
+}
+static void wait_for_devices(struct xenbus_driver *xendrv)
+{
+	unsigned long start = jiffies;
+	struct device_driver *drv = xendrv ? &xendrv->driver : NULL;
+	unsigned int seconds_waited = 0;
+
+	if (!ready_to_wait_for_devices || !xen_domain())
+		return;
+
+	while (exists_non_essential_connecting_device(drv))
+		if (wait_loop(start, 30, &seconds_waited))
+			break;
+
+	/* Skips PVKB and PVFB check.*/
+	while (exists_essential_connecting_device(drv))
+		if (wait_loop(start, 270, &seconds_waited))
+			break;
+
+	if (seconds_waited)
+		printk("\n");
+
+	bus_for_each_dev(&xenbus_frontend.bus, NULL, drv,
+			 print_device_status);
+}
+static int __init ip_auto_config(void)
+{
+	__be32 addr;
+#ifdef IPCONFIG_DYNAMIC
+	int retries = CONF_OPEN_RETRIES;
+#endif
+	int err;
+	unsigned int i, count;
+
+	/* Initialise all name servers and NTP servers to NONE (but only if the
+	 * "ip=" or "nfsaddrs=" kernel command line parameters weren't decoded,
+	 * otherwise we'll overwrite the IP addresses specified there)
+	 */
+	if (ic_set_manually == 0) {
+		ic_nameservers_predef();
+		ic_ntp_servers_predef();
+	}
+
+#ifdef CONFIG_PROC_FS
+	proc_create_single("pnp", 0444, init_net.proc_net, pnp_seq_show);
+
+	if (ipconfig_proc_net_init() == 0)
+		ipconfig_proc_net_create("ntp_servers", &ntp_servers_proc_ops);
+#endif /* CONFIG_PROC_FS */
+
+	if (!ic_enable)
+		return 0;
+
+	pr_debug("IP-Config: Entered.\n");
+#ifdef IPCONFIG_DYNAMIC
+ try_try_again:
+#endif
+	/* Wait for devices to appear */
+	err = wait_for_devices();
+	if (err)
+		return err;
+
+	/* Setup all network devices */
+	err = ic_open_devs();
+	if (err)
+		return err;
+
+	/* Give drivers a chance to settle */
+	msleep(CONF_POST_OPEN);
+
+	/*
+	 * If the config information is insufficient (e.g., our IP address or
+	 * IP address of the boot server is missing or we have multiple network
+	 * interfaces and no default was set), use BOOTP or RARP to get the
+	 * missing values.
+	 */
+	if (ic_myaddr == NONE ||
+#if defined(CONFIG_ROOT_NFS) || defined(CONFIG_CIFS_ROOT)
+	    (root_server_addr == NONE &&
+	     ic_servaddr == NONE &&
+	     (ROOT_DEV == Root_NFS || ROOT_DEV == Root_CIFS)) ||
+#endif
+	    ic_first_dev->next) {
+#ifdef IPCONFIG_DYNAMIC
+		if (ic_dynamic() < 0) {
+			ic_close_devs();
+
+			/*
+			 * I don't know why, but sometimes the
+			 * eepro100 driver (at least) gets upset and
+			 * doesn't work the first time it's opened.
+			 * But then if you close it and reopen it, it
+			 * works just fine.  So we need to try that at
+			 * least once before giving up.
+			 *
+			 * Also, if the root will be NFS-mounted, we
+			 * have nowhere to go if DHCP fails.  So we
+			 * just have to keep trying forever.
+			 *
+			 * 				-- Chip
+			 */
+#ifdef CONFIG_ROOT_NFS
+			if (ROOT_DEV ==  Root_NFS) {
+				pr_err("IP-Config: Retrying forever (NFS root)...\n");
+				goto try_try_again;
+			}
+#endif
+#ifdef CONFIG_CIFS_ROOT
+			if (ROOT_DEV == Root_CIFS) {
+				pr_err("IP-Config: Retrying forever (CIFS root)...\n");
+				goto try_try_again;
+			}
+#endif
+
+			if (--retries) {
+				pr_err("IP-Config: Reopening network devices...\n");
+				goto try_try_again;
+			}
+
+			/* Oh, well.  At least we tried. */
+			pr_err("IP-Config: Auto-configuration of network failed\n");
+			return -1;
+		}
+#else /* !DYNAMIC */
+		pr_err("IP-Config: Incomplete network configuration information\n");
+		ic_close_devs();
+		return -1;
+#endif /* IPCONFIG_DYNAMIC */
+	} else {
+		/* Device selected manually or only one device -> use it */
+		ic_dev = ic_first_dev;
+	}
+
+	addr = root_nfs_parse_addr(root_server_path);
+	if (root_server_addr == NONE)
+		root_server_addr = addr;
+
+	/*
+	 * Use defaults wherever applicable.
+	 */
+	if (ic_defaults() < 0)
+		return -1;
+
+	/*
+	 * Record which protocol was actually used.
+	 */
+#ifdef IPCONFIG_DYNAMIC
+	ic_proto_used = ic_got_reply | (ic_proto_enabled & IC_USE_DHCP);
+#endif
+
+#ifndef IPCONFIG_SILENT
+	/*
+	 * Clue in the operator.
+	 */
+	pr_info("IP-Config: Complete:\n");
+
+	pr_info("     device=%s, hwaddr=%*phC, ipaddr=%pI4, mask=%pI4, gw=%pI4\n",
+		ic_dev->dev->name, ic_dev->dev->addr_len, ic_dev->dev->dev_addr,
+		&ic_myaddr, &ic_netmask, &ic_gateway);
+	pr_info("     host=%s, domain=%s, nis-domain=%s\n",
+		utsname()->nodename, ic_domain, utsname()->domainname);
+	pr_info("     bootserver=%pI4, rootserver=%pI4, rootpath=%s",
+		&ic_servaddr, &root_server_addr, root_server_path);
+	if (ic_dev_mtu)
+		pr_cont(", mtu=%d", ic_dev_mtu);
+	/* Name servers (if any): */
+	for (i = 0, count = 0; i < CONF_NAMESERVERS_MAX; i++) {
+		if (ic_nameservers[i] != NONE) {
+			if (i == 0)
+				pr_info("     nameserver%u=%pI4",
+					i, &ic_nameservers[i]);
+			else
+				pr_cont(", nameserver%u=%pI4",
+					i, &ic_nameservers[i]);
+
+			count++;
+		}
+		if ((i + 1 == CONF_NAMESERVERS_MAX) && count > 0)
+			pr_cont("\n");
+	}
+	/* NTP servers (if any): */
+	for (i = 0, count = 0; i < CONF_NTP_SERVERS_MAX; i++) {
+		if (ic_ntp_servers[i] != NONE) {
+			if (i == 0)
+				pr_info("     ntpserver%u=%pI4",
+					i, &ic_ntp_servers[i]);
+			else
+				pr_cont(", ntpserver%u=%pI4",
+					i, &ic_ntp_servers[i]);
+
+			count++;
+		}
+		if ((i + 1 == CONF_NTP_SERVERS_MAX) && count > 0)
+			pr_cont("\n");
+	}
+#endif /* !SILENT */
+
+	/*
+	 * Close all network devices except the device we've
+	 * autoconfigured and set up routes.
+	 */
+	if (ic_setup_if() < 0 || ic_setup_routes() < 0)
+		err = -1;
+	else
+		err = 0;
+
+	ic_close_devs();
+
+	return err;
+}
+static void wait_for_devices(struct xenbus_driver *xendrv)
+{
+	unsigned long start = jiffies;
+	struct device_driver *drv = xendrv ? &xendrv->driver : NULL;
+	unsigned int seconds_waited = 0;
+
+	if (!ready_to_wait_for_devices || !xen_domain())
+		return;
+
+	while (exists_non_essential_connecting_device(drv))
+		if (wait_loop(start, 30, &seconds_waited))
+			break;
+
+	/* Skips PVKB and PVFB check.*/
+	while (exists_essential_connecting_device(drv))
+		if (wait_loop(start, 270, &seconds_waited))
+			break;
+
+	if (seconds_waited)
+		printk("\n");
+
+	bus_for_each_dev(&xenbus_frontend.bus, NULL, drv,
+			 print_device_status);
+}
+void __init wait_for_init_devices_probe(void)
+{
+	if (!fw_devlink_flags || fw_devlink_is_permissive())
+		return;
+
+	/*
+	 * Wait for all ongoing probes to finish so that the "best effort" is
+	 * only applied to devices that can't probe otherwise.
+	 */
+	wait_for_device_probe();
+
+	pr_info("Trying to probe devices needed for running init ...\n");
+	fw_devlink_best_effort = true;
+	driver_deferred_probe_trigger();
+
+	/*
+	 * Wait for all "best effort" probes to finish before going back to
+	 * normal enforcement.
+	 */
+	wait_for_device_probe();
+	fw_devlink_best_effort = false;
+}

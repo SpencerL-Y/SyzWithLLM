@@ -1,0 +1,1088 @@
+static void __cleanup_mnt(struct rcu_head *head)
+{
+	cleanup_mnt(container_of(head, struct mount, mnt_rcu));
+}
+static void cleanup_mnt(struct mount *mnt)
+{
+	struct hlist_node *p;
+	struct mount *m;
+	/*
+	 * The warning here probably indicates that somebody messed
+	 * up a mnt_want/drop_write() pair.  If this happens, the
+	 * filesystem was probably unable to make r/w->r/o transitions.
+	 * The locking used to deal with mnt_count decrement provides barriers,
+	 * so mnt_get_writers() below is safe.
+	 */
+	WARN_ON(mnt_get_writers(mnt));
+	if (unlikely(mnt->mnt_pins.first))
+		mnt_pin_kill(mnt);
+	hlist_for_each_entry_safe(m, p, &mnt->mnt_stuck_children, mnt_umount) {
+		hlist_del(&m->mnt_umount);
+		mntput(&m->mnt);
+	}
+	fsnotify_vfsmount_delete(&mnt->mnt);
+	dput(mnt->mnt.mnt_root);
+	deactivate_super(mnt->mnt.mnt_sb);
+	mnt_free_id(mnt);
+	call_rcu(&mnt->mnt_rcu, delayed_free_vfsmnt);
+}
+static void delayed_mntput(struct work_struct *unused)
+{
+	struct llist_node *node = llist_del_all(&delayed_mntput_list);
+	struct mount *m, *t;
+
+	llist_for_each_entry_safe(m, t, node, mnt_llist)
+		cleanup_mnt(m);
+}
+static void cleanup_mnt(struct mount *mnt)
+{
+	struct hlist_node *p;
+	struct mount *m;
+	/*
+	 * The warning here probably indicates that somebody messed
+	 * up a mnt_want/drop_write() pair.  If this happens, the
+	 * filesystem was probably unable to make r/w->r/o transitions.
+	 * The locking used to deal with mnt_count decrement provides barriers,
+	 * so mnt_get_writers() below is safe.
+	 */
+	WARN_ON(mnt_get_writers(mnt));
+	if (unlikely(mnt->mnt_pins.first))
+		mnt_pin_kill(mnt);
+	hlist_for_each_entry_safe(m, p, &mnt->mnt_stuck_children, mnt_umount) {
+		hlist_del(&m->mnt_umount);
+		mntput(&m->mnt);
+	}
+	fsnotify_vfsmount_delete(&mnt->mnt);
+	dput(mnt->mnt.mnt_root);
+	deactivate_super(mnt->mnt.mnt_sb);
+	mnt_free_id(mnt);
+	call_rcu(&mnt->mnt_rcu, delayed_free_vfsmnt);
+}
+SYSCALL_DEFINE2(pivot_root, const char __user *, new_root,
+		const char __user *, put_old)
+{
+	struct path new, old, root;
+	struct mount *new_mnt, *root_mnt, *old_mnt, *root_parent, *ex_parent;
+	struct mountpoint *old_mp, *root_mp;
+	int error;
+
+	if (!may_mount())
+		return -EPERM;
+
+	error = user_path_at(AT_FDCWD, new_root,
+			     LOOKUP_FOLLOW | LOOKUP_DIRECTORY, &new);
+	if (error)
+		goto out0;
+
+	error = user_path_at(AT_FDCWD, put_old,
+			     LOOKUP_FOLLOW | LOOKUP_DIRECTORY, &old);
+	if (error)
+		goto out1;
+
+	error = security_sb_pivotroot(&old, &new);
+	if (error)
+		goto out2;
+
+	get_fs_root(current->fs, &root);
+	old_mp = lock_mount(&old);
+	error = PTR_ERR(old_mp);
+	if (IS_ERR(old_mp))
+		goto out3;
+
+	error = -EINVAL;
+	new_mnt = real_mount(new.mnt);
+	root_mnt = real_mount(root.mnt);
+	old_mnt = real_mount(old.mnt);
+	ex_parent = new_mnt->mnt_parent;
+	root_parent = root_mnt->mnt_parent;
+	if (IS_MNT_SHARED(old_mnt) ||
+		IS_MNT_SHARED(ex_parent) ||
+		IS_MNT_SHARED(root_parent))
+		goto out4;
+	if (!check_mnt(root_mnt) || !check_mnt(new_mnt))
+		goto out4;
+	if (new_mnt->mnt.mnt_flags & MNT_LOCKED)
+		goto out4;
+	error = -ENOENT;
+	if (d_unlinked(new.dentry))
+		goto out4;
+	error = -EBUSY;
+	if (new_mnt == root_mnt || old_mnt == root_mnt)
+		goto out4; /* loop, on the same file system  */
+	error = -EINVAL;
+	if (!path_mounted(&root))
+		goto out4; /* not a mountpoint */
+	if (!mnt_has_parent(root_mnt))
+		goto out4; /* not attached */
+	if (!path_mounted(&new))
+		goto out4; /* not a mountpoint */
+	if (!mnt_has_parent(new_mnt))
+		goto out4; /* not attached */
+	/* make sure we can reach put_old from new_root */
+	if (!is_path_reachable(old_mnt, old.dentry, &new))
+		goto out4;
+	/* make certain new is below the root */
+	if (!is_path_reachable(new_mnt, new.dentry, &root))
+		goto out4;
+	lock_mount_hash();
+	umount_mnt(new_mnt);
+	root_mp = unhash_mnt(root_mnt);  /* we'll need its mountpoint */
+	if (root_mnt->mnt.mnt_flags & MNT_LOCKED) {
+		new_mnt->mnt.mnt_flags |= MNT_LOCKED;
+		root_mnt->mnt.mnt_flags &= ~MNT_LOCKED;
+	}
+	/* mount old root on put_old */
+	attach_mnt(root_mnt, old_mnt, old_mp, false);
+	/* mount new_root on / */
+	attach_mnt(new_mnt, root_parent, root_mp, false);
+	mnt_add_count(root_parent, -1);
+	touch_mnt_namespace(current->nsproxy->mnt_ns);
+	/* A moved mount should not expire automatically */
+	list_del_init(&new_mnt->mnt_expire);
+	put_mountpoint(root_mp);
+	unlock_mount_hash();
+	chroot_fs_refs(&root, &new);
+	error = 0;
+out4:
+	unlock_mount(old_mp);
+	if (!error)
+		mntput_no_expire(ex_parent);
+out3:
+	path_put(&root);
+out2:
+	path_put(&old);
+out1:
+	path_put(&new);
+out0:
+	return error;
+}
+static void mntput_no_expire(struct mount *mnt)
+{
+	LIST_HEAD(list);
+	int count;
+
+	rcu_read_lock();
+	if (likely(READ_ONCE(mnt->mnt_ns))) {
+		/*
+		 * Since we don't do lock_mount_hash() here,
+		 * ->mnt_ns can change under us.  However, if it's
+		 * non-NULL, then there's a reference that won't
+		 * be dropped until after an RCU delay done after
+		 * turning ->mnt_ns NULL.  So if we observe it
+		 * non-NULL under rcu_read_lock(), the reference
+		 * we are dropping is not the final one.
+		 */
+		mnt_add_count(mnt, -1);
+		rcu_read_unlock();
+		return;
+	}
+	lock_mount_hash();
+	/*
+	 * make sure that if __legitimize_mnt() has not seen us grab
+	 * mount_lock, we'll see their refcount increment here.
+	 */
+	smp_mb();
+	mnt_add_count(mnt, -1);
+	count = mnt_get_count(mnt);
+	if (count != 0) {
+		WARN_ON(count < 0);
+		rcu_read_unlock();
+		unlock_mount_hash();
+		return;
+	}
+	if (unlikely(mnt->mnt.mnt_flags & MNT_DOOMED)) {
+		rcu_read_unlock();
+		unlock_mount_hash();
+		return;
+	}
+	mnt->mnt.mnt_flags |= MNT_DOOMED;
+	rcu_read_unlock();
+
+	list_del(&mnt->mnt_instance);
+
+	if (unlikely(!list_empty(&mnt->mnt_mounts))) {
+		struct mount *p, *tmp;
+		list_for_each_entry_safe(p, tmp, &mnt->mnt_mounts,  mnt_child) {
+			__put_mountpoint(unhash_mnt(p), &list);
+			hlist_add_head(&p->mnt_umount, &mnt->mnt_stuck_children);
+		}
+	}
+	unlock_mount_hash();
+	shrink_dentry_list(&list);
+
+	if (likely(!(mnt->mnt.mnt_flags & MNT_INTERNAL))) {
+		struct task_struct *task = current;
+		if (likely(!(task->flags & PF_KTHREAD))) {
+			init_task_work(&mnt->mnt_rcu, __cleanup_mnt);
+			if (!task_work_add(task, &mnt->mnt_rcu, TWA_RESUME))
+				return;
+		}
+		if (llist_add(&mnt->mnt_llist, &delayed_mntput_list))
+			schedule_delayed_work(&delayed_mntput_work, 1);
+		return;
+	}
+	cleanup_mnt(mnt);
+}
+static void cleanup_mnt(struct mount *mnt)
+{
+	struct hlist_node *p;
+	struct mount *m;
+	/*
+	 * The warning here probably indicates that somebody messed
+	 * up a mnt_want/drop_write() pair.  If this happens, the
+	 * filesystem was probably unable to make r/w->r/o transitions.
+	 * The locking used to deal with mnt_count decrement provides barriers,
+	 * so mnt_get_writers() below is safe.
+	 */
+	WARN_ON(mnt_get_writers(mnt));
+	if (unlikely(mnt->mnt_pins.first))
+		mnt_pin_kill(mnt);
+	hlist_for_each_entry_safe(m, p, &mnt->mnt_stuck_children, mnt_umount) {
+		hlist_del(&m->mnt_umount);
+		mntput(&m->mnt);
+	}
+	fsnotify_vfsmount_delete(&mnt->mnt);
+	dput(mnt->mnt.mnt_root);
+	deactivate_super(mnt->mnt.mnt_sb);
+	mnt_free_id(mnt);
+	call_rcu(&mnt->mnt_rcu, delayed_free_vfsmnt);
+}
+SYSCALL_DEFINE5(move_mount,
+		int, from_dfd, const char __user *, from_pathname,
+		int, to_dfd, const char __user *, to_pathname,
+		unsigned int, flags)
+{
+	struct path from_path, to_path;
+	unsigned int lflags;
+	int ret = 0;
+
+	if (!may_mount())
+		return -EPERM;
+
+	if (flags & ~MOVE_MOUNT__MASK)
+		return -EINVAL;
+
+	if ((flags & (MOVE_MOUNT_BENEATH | MOVE_MOUNT_SET_GROUP)) ==
+	    (MOVE_MOUNT_BENEATH | MOVE_MOUNT_SET_GROUP))
+		return -EINVAL;
+
+	/* If someone gives a pathname, they aren't permitted to move
+	 * from an fd that requires unmount as we can't get at the flag
+	 * to clear it afterwards.
+	 */
+	lflags = 0;
+	if (flags & MOVE_MOUNT_F_SYMLINKS)	lflags |= LOOKUP_FOLLOW;
+	if (flags & MOVE_MOUNT_F_AUTOMOUNTS)	lflags |= LOOKUP_AUTOMOUNT;
+	if (flags & MOVE_MOUNT_F_EMPTY_PATH)	lflags |= LOOKUP_EMPTY;
+
+	ret = user_path_at(from_dfd, from_pathname, lflags, &from_path);
+	if (ret < 0)
+		return ret;
+
+	lflags = 0;
+	if (flags & MOVE_MOUNT_T_SYMLINKS)	lflags |= LOOKUP_FOLLOW;
+	if (flags & MOVE_MOUNT_T_AUTOMOUNTS)	lflags |= LOOKUP_AUTOMOUNT;
+	if (flags & MOVE_MOUNT_T_EMPTY_PATH)	lflags |= LOOKUP_EMPTY;
+
+	ret = user_path_at(to_dfd, to_pathname, lflags, &to_path);
+	if (ret < 0)
+		goto out_from;
+
+	ret = security_move_mount(&from_path, &to_path);
+	if (ret < 0)
+		goto out_to;
+
+	if (flags & MOVE_MOUNT_SET_GROUP)
+		ret = do_set_group(&from_path, &to_path);
+	else
+		ret = do_move_mount(&from_path, &to_path,
+				    (flags & MOVE_MOUNT_BENEATH));
+
+out_to:
+	path_put(&to_path);
+out_from:
+	path_put(&from_path);
+	return ret;
+}
+static int do_move_mount(struct path *old_path, struct path *new_path,
+			 bool beneath)
+{
+	struct mnt_namespace *ns;
+	struct mount *p;
+	struct mount *old;
+	struct mount *parent;
+	struct mountpoint *mp, *old_mp;
+	int err;
+	bool attached;
+	enum mnt_tree_flags_t flags = 0;
+
+	mp = do_lock_mount(new_path, beneath);
+	if (IS_ERR(mp))
+		return PTR_ERR(mp);
+
+	old = real_mount(old_path->mnt);
+	p = real_mount(new_path->mnt);
+	parent = old->mnt_parent;
+	attached = mnt_has_parent(old);
+	if (attached)
+		flags |= MNT_TREE_MOVE;
+	old_mp = old->mnt_mp;
+	ns = old->mnt_ns;
+
+	err = -EINVAL;
+	/* The mountpoint must be in our namespace. */
+	if (!check_mnt(p))
+		goto out;
+
+	/* The thing moved must be mounted... */
+	if (!is_mounted(&old->mnt))
+		goto out;
+
+	/* ... and either ours or the root of anon namespace */
+	if (!(attached ? check_mnt(old) : is_anon_ns(ns)))
+		goto out;
+
+	if (old->mnt.mnt_flags & MNT_LOCKED)
+		goto out;
+
+	if (!path_mounted(old_path))
+		goto out;
+
+	if (d_is_dir(new_path->dentry) !=
+	    d_is_dir(old_path->dentry))
+		goto out;
+	/*
+	 * Don't move a mount residing in a shared parent.
+	 */
+	if (attached && IS_MNT_SHARED(parent))
+		goto out;
+
+	if (beneath) {
+		err = can_move_mount_beneath(old_path, new_path, mp);
+		if (err)
+			goto out;
+
+		err = -EINVAL;
+		p = p->mnt_parent;
+		flags |= MNT_TREE_BENEATH;
+	}
+
+	/*
+	 * Don't move a mount tree containing unbindable mounts to a destination
+	 * mount which is shared.
+	 */
+	if (IS_MNT_SHARED(p) && tree_contains_unbindable(old))
+		goto out;
+	err = -ELOOP;
+	if (!check_for_nsfs_mounts(old))
+		goto out;
+	for (; mnt_has_parent(p); p = p->mnt_parent)
+		if (p == old)
+			goto out;
+
+	err = attach_recursive_mnt(old, real_mount(new_path->mnt), mp, flags);
+	if (err)
+		goto out;
+
+	/* if the mount is moved, it should no longer be expire
+	 * automatically */
+	list_del_init(&old->mnt_expire);
+	if (attached)
+		put_mountpoint(old_mp);
+out:
+	unlock_mount(mp);
+	if (!err) {
+		if (attached)
+			mntput_no_expire(parent);
+		else
+			free_mnt_ns(ns);
+	}
+	return err;
+}
+static void mntput_no_expire(struct mount *mnt)
+{
+	LIST_HEAD(list);
+	int count;
+
+	rcu_read_lock();
+	if (likely(READ_ONCE(mnt->mnt_ns))) {
+		/*
+		 * Since we don't do lock_mount_hash() here,
+		 * ->mnt_ns can change under us.  However, if it's
+		 * non-NULL, then there's a reference that won't
+		 * be dropped until after an RCU delay done after
+		 * turning ->mnt_ns NULL.  So if we observe it
+		 * non-NULL under rcu_read_lock(), the reference
+		 * we are dropping is not the final one.
+		 */
+		mnt_add_count(mnt, -1);
+		rcu_read_unlock();
+		return;
+	}
+	lock_mount_hash();
+	/*
+	 * make sure that if __legitimize_mnt() has not seen us grab
+	 * mount_lock, we'll see their refcount increment here.
+	 */
+	smp_mb();
+	mnt_add_count(mnt, -1);
+	count = mnt_get_count(mnt);
+	if (count != 0) {
+		WARN_ON(count < 0);
+		rcu_read_unlock();
+		unlock_mount_hash();
+		return;
+	}
+	if (unlikely(mnt->mnt.mnt_flags & MNT_DOOMED)) {
+		rcu_read_unlock();
+		unlock_mount_hash();
+		return;
+	}
+	mnt->mnt.mnt_flags |= MNT_DOOMED;
+	rcu_read_unlock();
+
+	list_del(&mnt->mnt_instance);
+
+	if (unlikely(!list_empty(&mnt->mnt_mounts))) {
+		struct mount *p, *tmp;
+		list_for_each_entry_safe(p, tmp, &mnt->mnt_mounts,  mnt_child) {
+			__put_mountpoint(unhash_mnt(p), &list);
+			hlist_add_head(&p->mnt_umount, &mnt->mnt_stuck_children);
+		}
+	}
+	unlock_mount_hash();
+	shrink_dentry_list(&list);
+
+	if (likely(!(mnt->mnt.mnt_flags & MNT_INTERNAL))) {
+		struct task_struct *task = current;
+		if (likely(!(task->flags & PF_KTHREAD))) {
+			init_task_work(&mnt->mnt_rcu, __cleanup_mnt);
+			if (!task_work_add(task, &mnt->mnt_rcu, TWA_RESUME))
+				return;
+		}
+		if (llist_add(&mnt->mnt_llist, &delayed_mntput_list))
+			schedule_delayed_work(&delayed_mntput_work, 1);
+		return;
+	}
+	cleanup_mnt(mnt);
+}
+static void cleanup_mnt(struct mount *mnt)
+{
+	struct hlist_node *p;
+	struct mount *m;
+	/*
+	 * The warning here probably indicates that somebody messed
+	 * up a mnt_want/drop_write() pair.  If this happens, the
+	 * filesystem was probably unable to make r/w->r/o transitions.
+	 * The locking used to deal with mnt_count decrement provides barriers,
+	 * so mnt_get_writers() below is safe.
+	 */
+	WARN_ON(mnt_get_writers(mnt));
+	if (unlikely(mnt->mnt_pins.first))
+		mnt_pin_kill(mnt);
+	hlist_for_each_entry_safe(m, p, &mnt->mnt_stuck_children, mnt_umount) {
+		hlist_del(&m->mnt_umount);
+		mntput(&m->mnt);
+	}
+	fsnotify_vfsmount_delete(&mnt->mnt);
+	dput(mnt->mnt.mnt_root);
+	deactivate_super(mnt->mnt.mnt_sb);
+	mnt_free_id(mnt);
+	call_rcu(&mnt->mnt_rcu, delayed_free_vfsmnt);
+}
+void kern_unmount_array(struct vfsmount *mnt[], unsigned int num)
+{
+	unsigned int i;
+
+	for (i = 0; i < num; i++)
+		mnt_make_shortterm(mnt[i]);
+	synchronize_rcu_expedited();
+	for (i = 0; i < num; i++)
+		mntput(mnt[i]);
+}
+void mntput(struct vfsmount *mnt)
+{
+	if (mnt) {
+		struct mount *m = real_mount(mnt);
+		/* avoid cacheline pingpong */
+		if (unlikely(m->mnt_expiry_mark))
+			WRITE_ONCE(m->mnt_expiry_mark, 0);
+		mntput_no_expire(m);
+	}
+}
+static void mntput_no_expire(struct mount *mnt)
+{
+	LIST_HEAD(list);
+	int count;
+
+	rcu_read_lock();
+	if (likely(READ_ONCE(mnt->mnt_ns))) {
+		/*
+		 * Since we don't do lock_mount_hash() here,
+		 * ->mnt_ns can change under us.  However, if it's
+		 * non-NULL, then there's a reference that won't
+		 * be dropped until after an RCU delay done after
+		 * turning ->mnt_ns NULL.  So if we observe it
+		 * non-NULL under rcu_read_lock(), the reference
+		 * we are dropping is not the final one.
+		 */
+		mnt_add_count(mnt, -1);
+		rcu_read_unlock();
+		return;
+	}
+	lock_mount_hash();
+	/*
+	 * make sure that if __legitimize_mnt() has not seen us grab
+	 * mount_lock, we'll see their refcount increment here.
+	 */
+	smp_mb();
+	mnt_add_count(mnt, -1);
+	count = mnt_get_count(mnt);
+	if (count != 0) {
+		WARN_ON(count < 0);
+		rcu_read_unlock();
+		unlock_mount_hash();
+		return;
+	}
+	if (unlikely(mnt->mnt.mnt_flags & MNT_DOOMED)) {
+		rcu_read_unlock();
+		unlock_mount_hash();
+		return;
+	}
+	mnt->mnt.mnt_flags |= MNT_DOOMED;
+	rcu_read_unlock();
+
+	list_del(&mnt->mnt_instance);
+
+	if (unlikely(!list_empty(&mnt->mnt_mounts))) {
+		struct mount *p, *tmp;
+		list_for_each_entry_safe(p, tmp, &mnt->mnt_mounts,  mnt_child) {
+			__put_mountpoint(unhash_mnt(p), &list);
+			hlist_add_head(&p->mnt_umount, &mnt->mnt_stuck_children);
+		}
+	}
+	unlock_mount_hash();
+	shrink_dentry_list(&list);
+
+	if (likely(!(mnt->mnt.mnt_flags & MNT_INTERNAL))) {
+		struct task_struct *task = current;
+		if (likely(!(task->flags & PF_KTHREAD))) {
+			init_task_work(&mnt->mnt_rcu, __cleanup_mnt);
+			if (!task_work_add(task, &mnt->mnt_rcu, TWA_RESUME))
+				return;
+		}
+		if (llist_add(&mnt->mnt_llist, &delayed_mntput_list))
+			schedule_delayed_work(&delayed_mntput_work, 1);
+		return;
+	}
+	cleanup_mnt(mnt);
+}
+static void cleanup_mnt(struct mount *mnt)
+{
+	struct hlist_node *p;
+	struct mount *m;
+	/*
+	 * The warning here probably indicates that somebody messed
+	 * up a mnt_want/drop_write() pair.  If this happens, the
+	 * filesystem was probably unable to make r/w->r/o transitions.
+	 * The locking used to deal with mnt_count decrement provides barriers,
+	 * so mnt_get_writers() below is safe.
+	 */
+	WARN_ON(mnt_get_writers(mnt));
+	if (unlikely(mnt->mnt_pins.first))
+		mnt_pin_kill(mnt);
+	hlist_for_each_entry_safe(m, p, &mnt->mnt_stuck_children, mnt_umount) {
+		hlist_del(&m->mnt_umount);
+		mntput(&m->mnt);
+	}
+	fsnotify_vfsmount_delete(&mnt->mnt);
+	dput(mnt->mnt.mnt_root);
+	deactivate_super(mnt->mnt.mnt_sb);
+	mnt_free_id(mnt);
+	call_rcu(&mnt->mnt_rcu, delayed_free_vfsmnt);
+}
+int __init init_umount(const char *name, int flags)
+{
+	int lookup_flags = LOOKUP_MOUNTPOINT;
+	struct path path;
+	int ret;
+
+	if (!(flags & UMOUNT_NOFOLLOW))
+		lookup_flags |= LOOKUP_FOLLOW;
+	ret = kern_path(name, lookup_flags, &path);
+	if (ret)
+		return ret;
+	return path_umount(&path, flags);
+}
+int path_umount(struct path *path, int flags)
+{
+	struct mount *mnt = real_mount(path->mnt);
+	int ret;
+
+	ret = can_umount(path, flags);
+	if (!ret)
+		ret = do_umount(mnt, flags);
+
+	/* we mustn't call path_put() as that would clear mnt_expiry_mark */
+	dput(path->dentry);
+	mntput_no_expire(mnt);
+	return ret;
+}
+static void mntput_no_expire(struct mount *mnt)
+{
+	LIST_HEAD(list);
+	int count;
+
+	rcu_read_lock();
+	if (likely(READ_ONCE(mnt->mnt_ns))) {
+		/*
+		 * Since we don't do lock_mount_hash() here,
+		 * ->mnt_ns can change under us.  However, if it's
+		 * non-NULL, then there's a reference that won't
+		 * be dropped until after an RCU delay done after
+		 * turning ->mnt_ns NULL.  So if we observe it
+		 * non-NULL under rcu_read_lock(), the reference
+		 * we are dropping is not the final one.
+		 */
+		mnt_add_count(mnt, -1);
+		rcu_read_unlock();
+		return;
+	}
+	lock_mount_hash();
+	/*
+	 * make sure that if __legitimize_mnt() has not seen us grab
+	 * mount_lock, we'll see their refcount increment here.
+	 */
+	smp_mb();
+	mnt_add_count(mnt, -1);
+	count = mnt_get_count(mnt);
+	if (count != 0) {
+		WARN_ON(count < 0);
+		rcu_read_unlock();
+		unlock_mount_hash();
+		return;
+	}
+	if (unlikely(mnt->mnt.mnt_flags & MNT_DOOMED)) {
+		rcu_read_unlock();
+		unlock_mount_hash();
+		return;
+	}
+	mnt->mnt.mnt_flags |= MNT_DOOMED;
+	rcu_read_unlock();
+
+	list_del(&mnt->mnt_instance);
+
+	if (unlikely(!list_empty(&mnt->mnt_mounts))) {
+		struct mount *p, *tmp;
+		list_for_each_entry_safe(p, tmp, &mnt->mnt_mounts,  mnt_child) {
+			__put_mountpoint(unhash_mnt(p), &list);
+			hlist_add_head(&p->mnt_umount, &mnt->mnt_stuck_children);
+		}
+	}
+	unlock_mount_hash();
+	shrink_dentry_list(&list);
+
+	if (likely(!(mnt->mnt.mnt_flags & MNT_INTERNAL))) {
+		struct task_struct *task = current;
+		if (likely(!(task->flags & PF_KTHREAD))) {
+			init_task_work(&mnt->mnt_rcu, __cleanup_mnt);
+			if (!task_work_add(task, &mnt->mnt_rcu, TWA_RESUME))
+				return;
+		}
+		if (llist_add(&mnt->mnt_llist, &delayed_mntput_list))
+			schedule_delayed_work(&delayed_mntput_work, 1);
+		return;
+	}
+	cleanup_mnt(mnt);
+}
+static void cleanup_mnt(struct mount *mnt)
+{
+	struct hlist_node *p;
+	struct mount *m;
+	/*
+	 * The warning here probably indicates that somebody messed
+	 * up a mnt_want/drop_write() pair.  If this happens, the
+	 * filesystem was probably unable to make r/w->r/o transitions.
+	 * The locking used to deal with mnt_count decrement provides barriers,
+	 * so mnt_get_writers() below is safe.
+	 */
+	WARN_ON(mnt_get_writers(mnt));
+	if (unlikely(mnt->mnt_pins.first))
+		mnt_pin_kill(mnt);
+	hlist_for_each_entry_safe(m, p, &mnt->mnt_stuck_children, mnt_umount) {
+		hlist_del(&m->mnt_umount);
+		mntput(&m->mnt);
+	}
+	fsnotify_vfsmount_delete(&mnt->mnt);
+	dput(mnt->mnt.mnt_root);
+	deactivate_super(mnt->mnt.mnt_sb);
+	mnt_free_id(mnt);
+	call_rcu(&mnt->mnt_rcu, delayed_free_vfsmnt);
+}
+SYSCALL_DEFINE5(mount_setattr, int, dfd, const char __user *, path,
+		unsigned int, flags, struct mount_attr __user *, uattr,
+		size_t, usize)
+{
+	int err;
+	struct path target;
+	struct mount_attr attr;
+	struct mount_kattr kattr;
+
+	BUILD_BUG_ON(sizeof(struct mount_attr) != MOUNT_ATTR_SIZE_VER0);
+
+	if (flags & ~(AT_EMPTY_PATH |
+		      AT_RECURSIVE |
+		      AT_SYMLINK_NOFOLLOW |
+		      AT_NO_AUTOMOUNT))
+		return -EINVAL;
+
+	if (unlikely(usize > PAGE_SIZE))
+		return -E2BIG;
+	if (unlikely(usize < MOUNT_ATTR_SIZE_VER0))
+		return -EINVAL;
+
+	if (!may_mount())
+		return -EPERM;
+
+	err = copy_struct_from_user(&attr, sizeof(attr), uattr, usize);
+	if (err)
+		return err;
+
+	/* Don't bother walking through the mounts if this is a nop. */
+	if (attr.attr_set == 0 &&
+	    attr.attr_clr == 0 &&
+	    attr.propagation == 0)
+		return 0;
+
+	err = build_mount_kattr(&attr, usize, &kattr, flags);
+	if (err)
+		return err;
+
+	err = user_path_at(dfd, path, kattr.lookup_flags, &target);
+	if (!err) {
+		err = do_mount_setattr(&target, &kattr);
+		path_put(&target);
+	}
+	finish_mount_kattr(&kattr);
+	return err;
+}
+static int do_mount_setattr(struct path *path, struct mount_kattr *kattr)
+{
+	struct mount *mnt = real_mount(path->mnt);
+	int err = 0;
+
+	if (!path_mounted(path))
+		return -EINVAL;
+
+	if (kattr->mnt_userns) {
+		struct mnt_idmap *mnt_idmap;
+
+		mnt_idmap = alloc_mnt_idmap(kattr->mnt_userns);
+		if (IS_ERR(mnt_idmap))
+			return PTR_ERR(mnt_idmap);
+		kattr->mnt_idmap = mnt_idmap;
+	}
+
+	if (kattr->propagation) {
+		/*
+		 * Only take namespace_lock() if we're actually changing
+		 * propagation.
+		 */
+		namespace_lock();
+		if (kattr->propagation == MS_SHARED) {
+			err = invent_group_ids(mnt, kattr->recurse);
+			if (err) {
+				namespace_unlock();
+				return err;
+			}
+		}
+	}
+
+	err = -EINVAL;
+	lock_mount_hash();
+
+	/* Ensure that this isn't anything purely vfs internal. */
+	if (!is_mounted(&mnt->mnt))
+		goto out;
+
+	/*
+	 * If this is an attached mount make sure it's located in the callers
+	 * mount namespace. If it's not don't let the caller interact with it.
+	 *
+	 * If this mount doesn't have a parent it's most often simply a
+	 * detached mount with an anonymous mount namespace. IOW, something
+	 * that's simply not attached yet. But there are apparently also users
+	 * that do change mount properties on the rootfs itself. That obviously
+	 * neither has a parent nor is it a detached mount so we cannot
+	 * unconditionally check for detached mounts.
+	 */
+	if ((mnt_has_parent(mnt) || !is_anon_ns(mnt->mnt_ns)) && !check_mnt(mnt))
+		goto out;
+
+	/*
+	 * First, we get the mount tree in a shape where we can change mount
+	 * properties without failure. If we succeeded to do so we commit all
+	 * changes and if we failed we clean up.
+	 */
+	err = mount_setattr_prepare(kattr, mnt);
+	if (!err)
+		mount_setattr_commit(kattr, mnt);
+
+out:
+	unlock_mount_hash();
+
+	if (kattr->propagation) {
+		if (err)
+			cleanup_group_ids(mnt, NULL);
+		namespace_unlock();
+	}
+
+	return err;
+}
+static int mount_setattr_prepare(struct mount_kattr *kattr, struct mount *mnt)
+{
+	struct mount *m;
+	int err;
+
+	for (m = mnt; m; m = next_mnt(m, mnt)) {
+		if (!can_change_locked_flags(m, recalc_flags(kattr, m))) {
+			err = -EPERM;
+			break;
+		}
+
+		err = can_idmap_mount(kattr, m);
+		if (err)
+			break;
+
+		if (!mnt_allow_writers(kattr, m)) {
+			err = mnt_hold_writers(m);
+			if (err)
+				break;
+		}
+
+		if (!kattr->recurse)
+			return 0;
+	}
+
+	if (err) {
+		struct mount *p;
+
+		/*
+		 * If we had to call mnt_hold_writers() MNT_WRITE_HOLD will
+		 * be set in @mnt_flags. The loop unsets MNT_WRITE_HOLD for all
+		 * mounts and needs to take care to include the first mount.
+		 */
+		for (p = mnt; p; p = next_mnt(p, mnt)) {
+			/* If we had to hold writers unblock them. */
+			if (p->mnt.mnt_flags & MNT_WRITE_HOLD)
+				mnt_unhold_writers(p);
+
+			/*
+			 * We're done once the first mount we changed got
+			 * MNT_WRITE_HOLD unset.
+			 */
+			if (p == m)
+				break;
+		}
+	}
+	return err;
+}
+static inline int mnt_hold_writers(struct mount *mnt)
+{
+	mnt->mnt.mnt_flags |= MNT_WRITE_HOLD;
+	/*
+	 * After storing MNT_WRITE_HOLD, we'll read the counters. This store
+	 * should be visible before we do.
+	 */
+	smp_mb();
+
+	/*
+	 * With writers on hold, if this value is zero, then there are
+	 * definitely no active writers (although held writers may subsequently
+	 * increment the count, they'll have to wait, and decrement it after
+	 * seeing MNT_READONLY).
+	 *
+	 * It is OK to have counter incremented on one CPU and decremented on
+	 * another: the sum will add up correctly. The danger would be when we
+	 * sum up each counter, if we read a counter before it is incremented,
+	 * but then read another CPU's count which it has been subsequently
+	 * decremented from -- we would see more decrements than we should.
+	 * MNT_WRITE_HOLD protects against this scenario, because
+	 * mnt_want_write first increments count, then smp_mb, then spins on
+	 * MNT_WRITE_HOLD, so it can't be decremented by another CPU while
+	 * we're counting up here.
+	 */
+	if (mnt_get_writers(mnt) > 0)
+		return -EBUSY;
+
+	return 0;
+}
+static void do_emergency_remount_callback(struct super_block *sb)
+{
+	bool locked = super_lock_excl(sb);
+
+	if (locked && sb->s_root && sb->s_bdev && !sb_rdonly(sb)) {
+		struct fs_context *fc;
+
+		fc = fs_context_for_reconfigure(sb->s_root,
+					SB_RDONLY | SB_FORCE, SB_RDONLY);
+		if (!IS_ERR(fc)) {
+			if (parse_monolithic_mount_data(fc, NULL) == 0)
+				(void)reconfigure_super(fc);
+			put_fs_context(fc);
+		}
+	}
+	if (locked)
+		super_unlock_excl(sb);
+}
+int reconfigure_super(struct fs_context *fc)
+{
+	struct super_block *sb = fc->root->d_sb;
+	int retval;
+	bool remount_ro = false;
+	bool remount_rw = false;
+	bool force = fc->sb_flags & SB_FORCE;
+
+	if (fc->sb_flags_mask & ~MS_RMT_MASK)
+		return -EINVAL;
+	if (sb->s_writers.frozen != SB_UNFROZEN)
+		return -EBUSY;
+
+	retval = security_sb_remount(sb, fc->security);
+	if (retval)
+		return retval;
+
+	if (fc->sb_flags_mask & SB_RDONLY) {
+#ifdef CONFIG_BLOCK
+		if (!(fc->sb_flags & SB_RDONLY) && sb->s_bdev &&
+		    bdev_read_only(sb->s_bdev))
+			return -EACCES;
+#endif
+		remount_rw = !(fc->sb_flags & SB_RDONLY) && sb_rdonly(sb);
+		remount_ro = (fc->sb_flags & SB_RDONLY) && !sb_rdonly(sb);
+	}
+
+	if (remount_ro) {
+		if (!hlist_empty(&sb->s_pins)) {
+			super_unlock_excl(sb);
+			group_pin_kill(&sb->s_pins);
+			__super_lock_excl(sb);
+			if (!sb->s_root)
+				return 0;
+			if (sb->s_writers.frozen != SB_UNFROZEN)
+				return -EBUSY;
+			remount_ro = !sb_rdonly(sb);
+		}
+	}
+	shrink_dcache_sb(sb);
+
+	/* If we are reconfiguring to RDONLY and current sb is read/write,
+	 * make sure there are no files open for writing.
+	 */
+	if (remount_ro) {
+		if (force) {
+			sb_start_ro_state_change(sb);
+		} else {
+			retval = sb_prepare_remount_readonly(sb);
+			if (retval)
+				return retval;
+		}
+	} else if (remount_rw) {
+		/*
+		 * Protect filesystem's reconfigure code from writes from
+		 * userspace until reconfigure finishes.
+		 */
+		sb_start_ro_state_change(sb);
+	}
+
+	if (fc->ops->reconfigure) {
+		retval = fc->ops->reconfigure(fc);
+		if (retval) {
+			if (!force)
+				goto cancel_readonly;
+			/* If forced remount, go ahead despite any errors */
+			WARN(1, "forced remount of a %s fs returned %i\n",
+			     sb->s_type->name, retval);
+		}
+	}
+
+	WRITE_ONCE(sb->s_flags, ((sb->s_flags & ~fc->sb_flags_mask) |
+				 (fc->sb_flags & fc->sb_flags_mask)));
+	sb_end_ro_state_change(sb);
+
+	/*
+	 * Some filesystems modify their metadata via some other path than the
+	 * bdev buffer cache (eg. use a private mapping, or directories in
+	 * pagecache, etc). Also file data modifications go via their own
+	 * mappings. So If we try to mount readonly then copy the filesystem
+	 * from bdev, we could get stale data, so invalidate it to give a best
+	 * effort at coherency.
+	 */
+	if (remount_ro && sb->s_bdev)
+		invalidate_bdev(sb->s_bdev);
+	return 0;
+
+cancel_readonly:
+	sb_end_ro_state_change(sb);
+	return retval;
+}
+int sb_prepare_remount_readonly(struct super_block *sb)
+{
+	struct mount *mnt;
+	int err = 0;
+
+	/* Racy optimization.  Recheck the counter under MNT_WRITE_HOLD */
+	if (atomic_long_read(&sb->s_remove_count))
+		return -EBUSY;
+
+	lock_mount_hash();
+	list_for_each_entry(mnt, &sb->s_mounts, mnt_instance) {
+		if (!(mnt->mnt.mnt_flags & MNT_READONLY)) {
+			err = mnt_hold_writers(mnt);
+			if (err)
+				break;
+		}
+	}
+	if (!err && atomic_long_read(&sb->s_remove_count))
+		err = -EBUSY;
+
+	if (!err)
+		sb_start_ro_state_change(sb);
+	list_for_each_entry(mnt, &sb->s_mounts, mnt_instance) {
+		if (mnt->mnt.mnt_flags & MNT_WRITE_HOLD)
+			mnt->mnt.mnt_flags &= ~MNT_WRITE_HOLD;
+	}
+	unlock_mount_hash();
+
+	return err;
+}
+static inline int mnt_hold_writers(struct mount *mnt)
+{
+	mnt->mnt.mnt_flags |= MNT_WRITE_HOLD;
+	/*
+	 * After storing MNT_WRITE_HOLD, we'll read the counters. This store
+	 * should be visible before we do.
+	 */
+	smp_mb();
+
+	/*
+	 * With writers on hold, if this value is zero, then there are
+	 * definitely no active writers (although held writers may subsequently
+	 * increment the count, they'll have to wait, and decrement it after
+	 * seeing MNT_READONLY).
+	 *
+	 * It is OK to have counter incremented on one CPU and decremented on
+	 * another: the sum will add up correctly. The danger would be when we
+	 * sum up each counter, if we read a counter before it is incremented,
+	 * but then read another CPU's count which it has been subsequently
+	 * decremented from -- we would see more decrements than we should.
+	 * MNT_WRITE_HOLD protects against this scenario, because
+	 * mnt_want_write first increments count, then smp_mb, then spins on
+	 * MNT_WRITE_HOLD, so it can't be decremented by another CPU while
+	 * we're counting up here.
+	 */
+	if (mnt_get_writers(mnt) > 0)
+		return -EBUSY;
+
+	return 0;
+}

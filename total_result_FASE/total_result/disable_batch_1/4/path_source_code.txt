@@ -1,0 +1,8 @@
+SYSCALL_DEFINE1(setfsgid, gid_t, gid)
+{
+	return __sys_setfsgid(gid);
+}
+SYSCALL_DEFINE1(setfsgid16, old_gid_t, gid)
+{
+	return __sys_setfsgid(low2highgid(gid));
+}

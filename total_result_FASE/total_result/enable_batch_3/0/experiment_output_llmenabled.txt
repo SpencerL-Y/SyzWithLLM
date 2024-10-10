@@ -1,0 +1,104 @@
+2024/10/01 11:50:36 serving http on http://127.0.0.1:56741
+2024/10/01 11:50:36 serving rpc on tcp://[::]:35977
+2024/10/01 11:50:36 booting test machines...
+2024/10/01 11:50:36 wait for the connection from test machine...
+2024/10/01 11:50:47 XXX Fuzzer command: 
+/syz-fuzzer -executor=/syz-executor -name=vm-1 -arch=amd64 -manager=localhost:35977 -sandbox=none -cover=true -debug=false  -optional=slowdown=1:sandbox_arg=0:pprof_port=6060
+2024/10/01 11:50:56 machine check:
+failed to read the following files in the VM:
+/dev/raw-gadget                             : open /dev/raw-gadget: no such file or directory
+
+BinFmtMisc              : enabled
+Comparisons             : call 0 failed with errno 38
+Coverage                : enabled
+DelayKcovMmap           : enabled
+DevlinkPCI              : PCI device 0000:00:10.0 is not available.  (errno 2: No such file or directory).
+ExtraCoverage           : enabled
+Fault                   : CONFIG_FAULT_INJECTION is not enabled.  (errno 2: No such file or directory).
+KCSAN                   : write(/sys/kernel/debug/kcsan, on) failed.  (errno 2: No such file or directory).
+LRWPANEmulation         : netlink: failed to get family id for nl802154: No such file or directory.  netlink_query_family_id failed.  (errno 2: No such file or directory).
+Leak                    : failed to write(kmemleak, "scan=off").  (errno 2: No such file or directory).
+NetDevices              : enabled
+NetInjection            : tun: can't open /dev/net/tun.  (errno 2: No such file or directory).
+NicVF                   : PCI device 0000:00:11.0 is not available.  (errno 2: No such file or directory).
+SandboxAndroid          : enabled
+SandboxNamespace        : enabled
+SandboxSetuid           : enabled
+Swap                    : enabled
+USBEmulation            : failed to chmod /dev/raw-gadget.  (errno 2: No such file or directory).
+VhciInjection           : socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI) failed.  (errno 97: Address family not supported by protocol).
+WifiEmulation           : netlink_query_family_id failed.  (errno 2: No such file or directory).
+syscalls                : 2192/4499
+
+2024/10/01 11:51:04 corpus                  : 29 (0 broken, 29 seeds)
+2024/10/01 11:51:06 candidates=0 corpus=24 coverage=14201 exec total=752 (25/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:51:10 update choice table with LLM
+2024/10/01 11:51:10 UpdateChoiceTable using LLM comm content
+2024/10/01 11:51:10 Build Choice Table with LLM
+2024/10/01 11:51:16 candidates=0 corpus=55 coverage=14577 exec total=1736 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:51:26 candidates=0 corpus=57 coverage=14584 exec total=2128 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:51:36 candidates=0 corpus=64 coverage=15639 exec total=2520 (42/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:51:39 update choice table with LLM
+2024/10/01 11:51:39 UpdateChoiceTable using LLM comm content
+2024/10/01 11:51:39 Build Choice Table with LLM
+2024/10/01 11:51:46 candidates=0 corpus=81 coverage=15680 exec total=3031 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:51:51 Hit times: 0
+2024/10/01 11:51:56 candidates=0 corpus=90 coverage=15778 exec total=3334 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:52:06 candidates=0 corpus=110 coverage=16214 exec total=3999 (44/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:52:16 candidates=0 corpus=131 coverage=16843 exec total=4502 (45/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:52:26 candidates=0 corpus=146 coverage=16895 exec total=5184 (47/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:52:36 candidates=0 corpus=148 coverage=16916 exec total=5266 (43/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:52:46 candidates=0 corpus=149 coverage=16916 exec total=5306 (40/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:52:56 candidates=0 corpus=149 coverage=16916 exec total=5349 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:53:06 candidates=0 corpus=147 coverage=16917 exec total=5409 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:53:16 candidates=0 corpus=170 coverage=16984 exec total=6238 (38/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:53:26 candidates=0 corpus=192 coverage=18169 exec total=6995 (41/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:53:36 candidates=0 corpus=194 coverage=18176 exec total=7059 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:53:46 candidates=0 corpus=219 coverage=18426 exec total=7505 (39/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:53:56 candidates=0 corpus=220 coverage=18426 exec total=7563 (37/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:54:06 candidates=0 corpus=214 coverage=18430 exec total=7626 (36/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:54:16 candidates=0 corpus=219 coverage=18594 exec total=7705 (35/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:54:26 candidates=0 corpus=219 coverage=18594 exec total=7742 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:54:31 Hit times: 0
+2024/10/01 11:54:36 candidates=0 corpus=223 coverage=18654 exec total=7805 (32/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:54:46 candidates=0 corpus=235 coverage=18768 exec total=7999 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:54:56 candidates=0 corpus=255 coverage=19262 exec total=8584 (33/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:55:06 candidates=0 corpus=255 coverage=19278 exec total=8628 (31/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:55:16 candidates=0 corpus=256 coverage=19283 exec total=8662 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:55:26 candidates=0 corpus=265 coverage=19325 exec total=8815 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:55:36 candidates=0 corpus=268 coverage=19351 exec total=8869 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:55:46 candidates=0 corpus=272 coverage=19388 exec total=8915 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:55:56 candidates=0 corpus=275 coverage=19448 exec total=9028 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:56:06 candidates=0 corpus=273 coverage=19466 exec total=9116 (27/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:56:16 candidates=0 corpus=274 coverage=19482 exec total=9160 (26/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:56:26 candidates=0 corpus=290 coverage=19537 exec total=9366 (26/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:56:36 candidates=0 corpus=294 coverage=19557 exec total=9479 (26/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:56:46 candidates=0 corpus=297 coverage=19645 exec total=9527 (25/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:56:56 candidates=0 corpus=301 coverage=19713 exec total=9611 (25/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:57:06 candidates=0 corpus=303 coverage=19750 exec total=9702 (24/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:57:16 candidates=0 corpus=319 coverage=19957 exec total=9968 (24/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:57:26 candidates=0 corpus=353 coverage=20312 exec total=10477 (25/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:57:36 candidates=0 corpus=396 coverage=20838 exec total=11749 (27/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:57:41 update choice table with LLM
+2024/10/01 11:57:41 UpdateChoiceTable using LLM comm content
+2024/10/01 11:57:41 Build Choice Table with LLM
+2024/10/01 11:57:46 candidates=0 corpus=426 coverage=21472 exec total=12345 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:57:50 Hit times: 0
+2024/10/01 11:57:56 candidates=0 corpus=452 coverage=21740 exec total=12936 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:58:06 candidates=0 corpus=458 coverage=21922 exec total=13629 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:58:16 candidates=0 corpus=485 coverage=22500 exec total=14119 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:58:26 candidates=0 corpus=486 coverage=22549 exec total=14192 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:58:36 candidates=0 corpus=489 coverage=22550 exec total=14236 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:58:46 candidates=0 corpus=499 coverage=22590 exec total=14566 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:58:56 candidates=0 corpus=517 coverage=22945 exec total=15186 (30/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:59:06 candidates=0 corpus=513 coverage=22946 exec total=15225 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:59:16 candidates=0 corpus=514 coverage=22951 exec total=15248 (29/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:59:26 candidates=0 corpus=517 coverage=22993 exec total=15287 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:59:36 candidates=0 corpus=523 coverage=23270 exec total=15397 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:59:46 candidates=0 corpus=533 coverage=23329 exec total=15593 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 11:59:56 candidates=0 corpus=543 coverage=23350 exec total=15836 (28/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 12:00:06 candidates=0 corpus=538 coverage=23558 exec total=15880 (27/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 12:00:16 candidates=0 corpus=540 coverage=23573 exec total=16006 (27/sec) fuzzing VMs=1 reproducing=0 
+2024/10/01 12:00:26 candidates=0 corpus=540 coverage=23573 exec total=16058 (27/sec) fuzzing VMs=1 reproducing=0 
+SIGINT: shutting down...
+2024/10/01 12:00:34 vm-1: running for 9m47.628795098s, restarting

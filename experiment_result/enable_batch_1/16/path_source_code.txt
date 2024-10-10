@@ -1,0 +1,724 @@
+SYSCALL_DEFINE4(futex_requeue,
+		struct futex_waitv __user *, waiters,
+		unsigned int, flags,
+		int, nr_wake,
+		int, nr_requeue)
+{
+	struct futex_vector futexes[2];
+	u32 cmpval;
+	int ret;
+
+	if (flags)
+		return -EINVAL;
+
+	if (!waiters)
+		return -EINVAL;
+
+	ret = futex_parse_waitv(futexes, waiters, 2, futex_wake_mark, NULL);
+	if (ret)
+		return ret;
+
+	cmpval = futexes[0].w.val;
+
+	return futex_requeue(u64_to_user_ptr(futexes[0].w.uaddr), futexes[0].w.flags,
+			     u64_to_user_ptr(futexes[1].w.uaddr), futexes[1].w.flags,
+			     nr_wake, nr_requeue, &cmpval, 0);
+}
+SYSCALL_DEFINE4(futex_requeue,
+		struct futex_waitv __user *, waiters,
+		unsigned int, flags,
+		int, nr_wake,
+		int, nr_requeue)
+{
+	struct futex_vector futexes[2];
+	u32 cmpval;
+	int ret;
+
+	if (flags)
+		return -EINVAL;
+
+	if (!waiters)
+		return -EINVAL;
+
+	ret = futex_parse_waitv(futexes, waiters, 2, futex_wake_mark, NULL);
+	if (ret)
+		return ret;
+
+	cmpval = futexes[0].w.val;
+
+	return futex_requeue(u64_to_user_ptr(futexes[0].w.uaddr), futexes[0].w.flags,
+			     u64_to_user_ptr(futexes[1].w.uaddr), futexes[1].w.flags,
+			     nr_wake, nr_requeue, &cmpval, 0);
+}
+futex_proxy_trylock_atomic(u32 __user *pifutex, struct futex_hash_bucket *hb1,
+			   struct futex_hash_bucket *hb2, union futex_key *key1,
+			   union futex_key *key2, struct futex_pi_state **ps,
+			   struct task_struct **exiting, int set_waiters)
+{
+	struct futex_q *top_waiter;
+	u32 curval;
+	int ret;
+
+	if (futex_get_value_locked(&curval, pifutex))
+		return -EFAULT;
+
+	if (unlikely(should_fail_futex(true)))
+		return -EFAULT;
+
+	/*
+	 * Find the top_waiter and determine if there are additional waiters.
+	 * If the caller intends to requeue more than 1 waiter to pifutex,
+	 * force futex_lock_pi_atomic() to set the FUTEX_WAITERS bit now,
+	 * as we have means to handle the possible fault.  If not, don't set
+	 * the bit unnecessarily as it will force the subsequent unlock to enter
+	 * the kernel.
+	 */
+	top_waiter = futex_top_waiter(hb1, key1);
+
+	/* There are no waiters, nothing for us to do. */
+	if (!top_waiter)
+		return 0;
+
+	/*
+	 * Ensure that this is a waiter sitting in futex_wait_requeue_pi()
+	 * and waiting on the 'waitqueue' futex which is always !PI.
+	 */
+	if (!top_waiter->rt_waiter || top_waiter->pi_state)
+		return -EINVAL;
+
+	/* Ensure we requeue to the expected futex. */
+	if (!futex_match(top_waiter->requeue_pi_key, key2))
+		return -EINVAL;
+
+	/* Ensure that this does not race against an early wakeup */
+	if (!futex_requeue_pi_prepare(top_waiter, NULL))
+		return -EAGAIN;
+
+	/*
+	 * Try to take the lock for top_waiter and set the FUTEX_WAITERS bit
+	 * in the contended case or if @set_waiters is true.
+	 *
+	 * In the contended case PI state is attached to the lock owner. If
+	 * the user space lock can be acquired then PI state is attached to
+	 * the new owner (@top_waiter->task) when @set_waiters is true.
+	 */
+	ret = futex_lock_pi_atomic(pifutex, hb2, key2, ps, top_waiter->task,
+				   exiting, set_waiters);
+	if (ret == 1) {
+		/*
+		 * Lock was acquired in user space and PI state was
+		 * attached to @top_waiter->task. That means state is fully
+		 * consistent and the waiter can return to user space
+		 * immediately after the wakeup.
+		 */
+		requeue_pi_wake_futex(top_waiter, key2, hb2);
+	} else if (ret < 0) {
+		/* Rewind top_waiter::requeue_state */
+		futex_requeue_pi_complete(top_waiter, ret);
+	} else {
+		/*
+		 * futex_lock_pi_atomic() did not acquire the user space
+		 * futex, but managed to establish the proxy lock and pi
+		 * state. top_waiter::requeue_state cannot be fixed up here
+		 * because the waiter is not enqueued on the rtmutex
+		 * yet. This is handled at the callsite depending on the
+		 * result of rt_mutex_start_proxy_lock() which is
+		 * guaranteed to be reached with this function returning 0.
+		 */
+	}
+	return ret;
+}
+SYSCALL_DEFINE4(futex_requeue,
+		struct futex_waitv __user *, waiters,
+		unsigned int, flags,
+		int, nr_wake,
+		int, nr_requeue)
+{
+	struct futex_vector futexes[2];
+	u32 cmpval;
+	int ret;
+
+	if (flags)
+		return -EINVAL;
+
+	if (!waiters)
+		return -EINVAL;
+
+	ret = futex_parse_waitv(futexes, waiters, 2, futex_wake_mark, NULL);
+	if (ret)
+		return ret;
+
+	cmpval = futexes[0].w.val;
+
+	return futex_requeue(u64_to_user_ptr(futexes[0].w.uaddr), futexes[0].w.flags,
+			     u64_to_user_ptr(futexes[1].w.uaddr), futexes[1].w.flags,
+			     nr_wake, nr_requeue, &cmpval, 0);
+}
+long do_futex(u32 __user *uaddr, int op, u32 val, ktime_t *timeout,
+		u32 __user *uaddr2, u32 val2, u32 val3)
+{
+	unsigned int flags = futex_to_flags(op);
+	int cmd = op & FUTEX_CMD_MASK;
+
+	if (flags & FLAGS_CLOCKRT) {
+		if (cmd != FUTEX_WAIT_BITSET &&
+		    cmd != FUTEX_WAIT_REQUEUE_PI &&
+		    cmd != FUTEX_LOCK_PI2)
+			return -ENOSYS;
+	}
+
+	switch (cmd) {
+	case FUTEX_WAIT:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		fallthrough;
+	case FUTEX_WAIT_BITSET:
+		return futex_wait(uaddr, flags, val, timeout, val3);
+	case FUTEX_WAKE:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		fallthrough;
+	case FUTEX_WAKE_BITSET:
+		return futex_wake(uaddr, flags, val, val3);
+	case FUTEX_REQUEUE:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, NULL, 0);
+	case FUTEX_CMP_REQUEUE:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, &val3, 0);
+	case FUTEX_WAKE_OP:
+		return futex_wake_op(uaddr, flags, uaddr2, val, val2, val3);
+	case FUTEX_LOCK_PI:
+		flags |= FLAGS_CLOCKRT;
+		fallthrough;
+	case FUTEX_LOCK_PI2:
+		return futex_lock_pi(uaddr, flags, timeout, 0);
+	case FUTEX_UNLOCK_PI:
+		return futex_unlock_pi(uaddr, flags);
+	case FUTEX_TRYLOCK_PI:
+		return futex_lock_pi(uaddr, flags, NULL, 1);
+	case FUTEX_WAIT_REQUEUE_PI:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		return futex_wait_requeue_pi(uaddr, flags, val, timeout, val3,
+					     uaddr2);
+	case FUTEX_CMP_REQUEUE_PI:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, &val3, 1);
+	}
+	return -ENOSYS;
+}
+SYSCALL_DEFINE4(futex_requeue,
+		struct futex_waitv __user *, waiters,
+		unsigned int, flags,
+		int, nr_wake,
+		int, nr_requeue)
+{
+	struct futex_vector futexes[2];
+	u32 cmpval;
+	int ret;
+
+	if (flags)
+		return -EINVAL;
+
+	if (!waiters)
+		return -EINVAL;
+
+	ret = futex_parse_waitv(futexes, waiters, 2, futex_wake_mark, NULL);
+	if (ret)
+		return ret;
+
+	cmpval = futexes[0].w.val;
+
+	return futex_requeue(u64_to_user_ptr(futexes[0].w.uaddr), futexes[0].w.flags,
+			     u64_to_user_ptr(futexes[1].w.uaddr), futexes[1].w.flags,
+			     nr_wake, nr_requeue, &cmpval, 0);
+}
+futex_proxy_trylock_atomic(u32 __user *pifutex, struct futex_hash_bucket *hb1,
+			   struct futex_hash_bucket *hb2, union futex_key *key1,
+			   union futex_key *key2, struct futex_pi_state **ps,
+			   struct task_struct **exiting, int set_waiters)
+{
+	struct futex_q *top_waiter;
+	u32 curval;
+	int ret;
+
+	if (futex_get_value_locked(&curval, pifutex))
+		return -EFAULT;
+
+	if (unlikely(should_fail_futex(true)))
+		return -EFAULT;
+
+	/*
+	 * Find the top_waiter and determine if there are additional waiters.
+	 * If the caller intends to requeue more than 1 waiter to pifutex,
+	 * force futex_lock_pi_atomic() to set the FUTEX_WAITERS bit now,
+	 * as we have means to handle the possible fault.  If not, don't set
+	 * the bit unnecessarily as it will force the subsequent unlock to enter
+	 * the kernel.
+	 */
+	top_waiter = futex_top_waiter(hb1, key1);
+
+	/* There are no waiters, nothing for us to do. */
+	if (!top_waiter)
+		return 0;
+
+	/*
+	 * Ensure that this is a waiter sitting in futex_wait_requeue_pi()
+	 * and waiting on the 'waitqueue' futex which is always !PI.
+	 */
+	if (!top_waiter->rt_waiter || top_waiter->pi_state)
+		return -EINVAL;
+
+	/* Ensure we requeue to the expected futex. */
+	if (!futex_match(top_waiter->requeue_pi_key, key2))
+		return -EINVAL;
+
+	/* Ensure that this does not race against an early wakeup */
+	if (!futex_requeue_pi_prepare(top_waiter, NULL))
+		return -EAGAIN;
+
+	/*
+	 * Try to take the lock for top_waiter and set the FUTEX_WAITERS bit
+	 * in the contended case or if @set_waiters is true.
+	 *
+	 * In the contended case PI state is attached to the lock owner. If
+	 * the user space lock can be acquired then PI state is attached to
+	 * the new owner (@top_waiter->task) when @set_waiters is true.
+	 */
+	ret = futex_lock_pi_atomic(pifutex, hb2, key2, ps, top_waiter->task,
+				   exiting, set_waiters);
+	if (ret == 1) {
+		/*
+		 * Lock was acquired in user space and PI state was
+		 * attached to @top_waiter->task. That means state is fully
+		 * consistent and the waiter can return to user space
+		 * immediately after the wakeup.
+		 */
+		requeue_pi_wake_futex(top_waiter, key2, hb2);
+	} else if (ret < 0) {
+		/* Rewind top_waiter::requeue_state */
+		futex_requeue_pi_complete(top_waiter, ret);
+	} else {
+		/*
+		 * futex_lock_pi_atomic() did not acquire the user space
+		 * futex, but managed to establish the proxy lock and pi
+		 * state. top_waiter::requeue_state cannot be fixed up here
+		 * because the waiter is not enqueued on the rtmutex
+		 * yet. This is handled at the callsite depending on the
+		 * result of rt_mutex_start_proxy_lock() which is
+		 * guaranteed to be reached with this function returning 0.
+		 */
+	}
+	return ret;
+}
+SYSCALL_DEFINE6(futex_time32, u32 __user *, uaddr, int, op, u32, val,
+		const struct old_timespec32 __user *, utime, u32 __user *, uaddr2,
+		u32, val3)
+{
+	int ret, cmd = op & FUTEX_CMD_MASK;
+	ktime_t t, *tp = NULL;
+	struct timespec64 ts;
+
+	if (utime && futex_cmd_has_timeout(cmd)) {
+		if (get_old_timespec32(&ts, utime))
+			return -EFAULT;
+		ret = futex_init_timeout(cmd, op, &ts, &t);
+		if (ret)
+			return ret;
+		tp = &t;
+	}
+
+	return do_futex(uaddr, op, val, tp, uaddr2, (unsigned long)utime, val3);
+}
+long do_futex(u32 __user *uaddr, int op, u32 val, ktime_t *timeout,
+		u32 __user *uaddr2, u32 val2, u32 val3)
+{
+	unsigned int flags = futex_to_flags(op);
+	int cmd = op & FUTEX_CMD_MASK;
+
+	if (flags & FLAGS_CLOCKRT) {
+		if (cmd != FUTEX_WAIT_BITSET &&
+		    cmd != FUTEX_WAIT_REQUEUE_PI &&
+		    cmd != FUTEX_LOCK_PI2)
+			return -ENOSYS;
+	}
+
+	switch (cmd) {
+	case FUTEX_WAIT:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		fallthrough;
+	case FUTEX_WAIT_BITSET:
+		return futex_wait(uaddr, flags, val, timeout, val3);
+	case FUTEX_WAKE:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		fallthrough;
+	case FUTEX_WAKE_BITSET:
+		return futex_wake(uaddr, flags, val, val3);
+	case FUTEX_REQUEUE:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, NULL, 0);
+	case FUTEX_CMP_REQUEUE:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, &val3, 0);
+	case FUTEX_WAKE_OP:
+		return futex_wake_op(uaddr, flags, uaddr2, val, val2, val3);
+	case FUTEX_LOCK_PI:
+		flags |= FLAGS_CLOCKRT;
+		fallthrough;
+	case FUTEX_LOCK_PI2:
+		return futex_lock_pi(uaddr, flags, timeout, 0);
+	case FUTEX_UNLOCK_PI:
+		return futex_unlock_pi(uaddr, flags);
+	case FUTEX_TRYLOCK_PI:
+		return futex_lock_pi(uaddr, flags, NULL, 1);
+	case FUTEX_WAIT_REQUEUE_PI:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		return futex_wait_requeue_pi(uaddr, flags, val, timeout, val3,
+					     uaddr2);
+	case FUTEX_CMP_REQUEUE_PI:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, &val3, 1);
+	}
+	return -ENOSYS;
+}
+SYSCALL_DEFINE4(futex_requeue,
+		struct futex_waitv __user *, waiters,
+		unsigned int, flags,
+		int, nr_wake,
+		int, nr_requeue)
+{
+	struct futex_vector futexes[2];
+	u32 cmpval;
+	int ret;
+
+	if (flags)
+		return -EINVAL;
+
+	if (!waiters)
+		return -EINVAL;
+
+	ret = futex_parse_waitv(futexes, waiters, 2, futex_wake_mark, NULL);
+	if (ret)
+		return ret;
+
+	cmpval = futexes[0].w.val;
+
+	return futex_requeue(u64_to_user_ptr(futexes[0].w.uaddr), futexes[0].w.flags,
+			     u64_to_user_ptr(futexes[1].w.uaddr), futexes[1].w.flags,
+			     nr_wake, nr_requeue, &cmpval, 0);
+}
+futex_proxy_trylock_atomic(u32 __user *pifutex, struct futex_hash_bucket *hb1,
+			   struct futex_hash_bucket *hb2, union futex_key *key1,
+			   union futex_key *key2, struct futex_pi_state **ps,
+			   struct task_struct **exiting, int set_waiters)
+{
+	struct futex_q *top_waiter;
+	u32 curval;
+	int ret;
+
+	if (futex_get_value_locked(&curval, pifutex))
+		return -EFAULT;
+
+	if (unlikely(should_fail_futex(true)))
+		return -EFAULT;
+
+	/*
+	 * Find the top_waiter and determine if there are additional waiters.
+	 * If the caller intends to requeue more than 1 waiter to pifutex,
+	 * force futex_lock_pi_atomic() to set the FUTEX_WAITERS bit now,
+	 * as we have means to handle the possible fault.  If not, don't set
+	 * the bit unnecessarily as it will force the subsequent unlock to enter
+	 * the kernel.
+	 */
+	top_waiter = futex_top_waiter(hb1, key1);
+
+	/* There are no waiters, nothing for us to do. */
+	if (!top_waiter)
+		return 0;
+
+	/*
+	 * Ensure that this is a waiter sitting in futex_wait_requeue_pi()
+	 * and waiting on the 'waitqueue' futex which is always !PI.
+	 */
+	if (!top_waiter->rt_waiter || top_waiter->pi_state)
+		return -EINVAL;
+
+	/* Ensure we requeue to the expected futex. */
+	if (!futex_match(top_waiter->requeue_pi_key, key2))
+		return -EINVAL;
+
+	/* Ensure that this does not race against an early wakeup */
+	if (!futex_requeue_pi_prepare(top_waiter, NULL))
+		return -EAGAIN;
+
+	/*
+	 * Try to take the lock for top_waiter and set the FUTEX_WAITERS bit
+	 * in the contended case or if @set_waiters is true.
+	 *
+	 * In the contended case PI state is attached to the lock owner. If
+	 * the user space lock can be acquired then PI state is attached to
+	 * the new owner (@top_waiter->task) when @set_waiters is true.
+	 */
+	ret = futex_lock_pi_atomic(pifutex, hb2, key2, ps, top_waiter->task,
+				   exiting, set_waiters);
+	if (ret == 1) {
+		/*
+		 * Lock was acquired in user space and PI state was
+		 * attached to @top_waiter->task. That means state is fully
+		 * consistent and the waiter can return to user space
+		 * immediately after the wakeup.
+		 */
+		requeue_pi_wake_futex(top_waiter, key2, hb2);
+	} else if (ret < 0) {
+		/* Rewind top_waiter::requeue_state */
+		futex_requeue_pi_complete(top_waiter, ret);
+	} else {
+		/*
+		 * futex_lock_pi_atomic() did not acquire the user space
+		 * futex, but managed to establish the proxy lock and pi
+		 * state. top_waiter::requeue_state cannot be fixed up here
+		 * because the waiter is not enqueued on the rtmutex
+		 * yet. This is handled at the callsite depending on the
+		 * result of rt_mutex_start_proxy_lock() which is
+		 * guaranteed to be reached with this function returning 0.
+		 */
+	}
+	return ret;
+}
+SYSCALL_DEFINE4(futex_requeue,
+		struct futex_waitv __user *, waiters,
+		unsigned int, flags,
+		int, nr_wake,
+		int, nr_requeue)
+{
+	struct futex_vector futexes[2];
+	u32 cmpval;
+	int ret;
+
+	if (flags)
+		return -EINVAL;
+
+	if (!waiters)
+		return -EINVAL;
+
+	ret = futex_parse_waitv(futexes, waiters, 2, futex_wake_mark, NULL);
+	if (ret)
+		return ret;
+
+	cmpval = futexes[0].w.val;
+
+	return futex_requeue(u64_to_user_ptr(futexes[0].w.uaddr), futexes[0].w.flags,
+			     u64_to_user_ptr(futexes[1].w.uaddr), futexes[1].w.flags,
+			     nr_wake, nr_requeue, &cmpval, 0);
+}
+SYSCALL_DEFINE4(futex_requeue,
+		struct futex_waitv __user *, waiters,
+		unsigned int, flags,
+		int, nr_wake,
+		int, nr_requeue)
+{
+	struct futex_vector futexes[2];
+	u32 cmpval;
+	int ret;
+
+	if (flags)
+		return -EINVAL;
+
+	if (!waiters)
+		return -EINVAL;
+
+	ret = futex_parse_waitv(futexes, waiters, 2, futex_wake_mark, NULL);
+	if (ret)
+		return ret;
+
+	cmpval = futexes[0].w.val;
+
+	return futex_requeue(u64_to_user_ptr(futexes[0].w.uaddr), futexes[0].w.flags,
+			     u64_to_user_ptr(futexes[1].w.uaddr), futexes[1].w.flags,
+			     nr_wake, nr_requeue, &cmpval, 0);
+}
+SYSCALL_DEFINE4(futex_requeue,
+		struct futex_waitv __user *, waiters,
+		unsigned int, flags,
+		int, nr_wake,
+		int, nr_requeue)
+{
+	struct futex_vector futexes[2];
+	u32 cmpval;
+	int ret;
+
+	if (flags)
+		return -EINVAL;
+
+	if (!waiters)
+		return -EINVAL;
+
+	ret = futex_parse_waitv(futexes, waiters, 2, futex_wake_mark, NULL);
+	if (ret)
+		return ret;
+
+	cmpval = futexes[0].w.val;
+
+	return futex_requeue(u64_to_user_ptr(futexes[0].w.uaddr), futexes[0].w.flags,
+			     u64_to_user_ptr(futexes[1].w.uaddr), futexes[1].w.flags,
+			     nr_wake, nr_requeue, &cmpval, 0);
+}
+long do_futex(u32 __user *uaddr, int op, u32 val, ktime_t *timeout,
+		u32 __user *uaddr2, u32 val2, u32 val3)
+{
+	unsigned int flags = futex_to_flags(op);
+	int cmd = op & FUTEX_CMD_MASK;
+
+	if (flags & FLAGS_CLOCKRT) {
+		if (cmd != FUTEX_WAIT_BITSET &&
+		    cmd != FUTEX_WAIT_REQUEUE_PI &&
+		    cmd != FUTEX_LOCK_PI2)
+			return -ENOSYS;
+	}
+
+	switch (cmd) {
+	case FUTEX_WAIT:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		fallthrough;
+	case FUTEX_WAIT_BITSET:
+		return futex_wait(uaddr, flags, val, timeout, val3);
+	case FUTEX_WAKE:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		fallthrough;
+	case FUTEX_WAKE_BITSET:
+		return futex_wake(uaddr, flags, val, val3);
+	case FUTEX_REQUEUE:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, NULL, 0);
+	case FUTEX_CMP_REQUEUE:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, &val3, 0);
+	case FUTEX_WAKE_OP:
+		return futex_wake_op(uaddr, flags, uaddr2, val, val2, val3);
+	case FUTEX_LOCK_PI:
+		flags |= FLAGS_CLOCKRT;
+		fallthrough;
+	case FUTEX_LOCK_PI2:
+		return futex_lock_pi(uaddr, flags, timeout, 0);
+	case FUTEX_UNLOCK_PI:
+		return futex_unlock_pi(uaddr, flags);
+	case FUTEX_TRYLOCK_PI:
+		return futex_lock_pi(uaddr, flags, NULL, 1);
+	case FUTEX_WAIT_REQUEUE_PI:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		return futex_wait_requeue_pi(uaddr, flags, val, timeout, val3,
+					     uaddr2);
+	case FUTEX_CMP_REQUEUE_PI:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, &val3, 1);
+	}
+	return -ENOSYS;
+}
+SYSCALL_DEFINE4(futex_requeue,
+		struct futex_waitv __user *, waiters,
+		unsigned int, flags,
+		int, nr_wake,
+		int, nr_requeue)
+{
+	struct futex_vector futexes[2];
+	u32 cmpval;
+	int ret;
+
+	if (flags)
+		return -EINVAL;
+
+	if (!waiters)
+		return -EINVAL;
+
+	ret = futex_parse_waitv(futexes, waiters, 2, futex_wake_mark, NULL);
+	if (ret)
+		return ret;
+
+	cmpval = futexes[0].w.val;
+
+	return futex_requeue(u64_to_user_ptr(futexes[0].w.uaddr), futexes[0].w.flags,
+			     u64_to_user_ptr(futexes[1].w.uaddr), futexes[1].w.flags,
+			     nr_wake, nr_requeue, &cmpval, 0);
+}
+SYSCALL_DEFINE6(futex_time32, u32 __user *, uaddr, int, op, u32, val,
+		const struct old_timespec32 __user *, utime, u32 __user *, uaddr2,
+		u32, val3)
+{
+	int ret, cmd = op & FUTEX_CMD_MASK;
+	ktime_t t, *tp = NULL;
+	struct timespec64 ts;
+
+	if (utime && futex_cmd_has_timeout(cmd)) {
+		if (get_old_timespec32(&ts, utime))
+			return -EFAULT;
+		ret = futex_init_timeout(cmd, op, &ts, &t);
+		if (ret)
+			return ret;
+		tp = &t;
+	}
+
+	return do_futex(uaddr, op, val, tp, uaddr2, (unsigned long)utime, val3);
+}
+long do_futex(u32 __user *uaddr, int op, u32 val, ktime_t *timeout,
+		u32 __user *uaddr2, u32 val2, u32 val3)
+{
+	unsigned int flags = futex_to_flags(op);
+	int cmd = op & FUTEX_CMD_MASK;
+
+	if (flags & FLAGS_CLOCKRT) {
+		if (cmd != FUTEX_WAIT_BITSET &&
+		    cmd != FUTEX_WAIT_REQUEUE_PI &&
+		    cmd != FUTEX_LOCK_PI2)
+			return -ENOSYS;
+	}
+
+	switch (cmd) {
+	case FUTEX_WAIT:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		fallthrough;
+	case FUTEX_WAIT_BITSET:
+		return futex_wait(uaddr, flags, val, timeout, val3);
+	case FUTEX_WAKE:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		fallthrough;
+	case FUTEX_WAKE_BITSET:
+		return futex_wake(uaddr, flags, val, val3);
+	case FUTEX_REQUEUE:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, NULL, 0);
+	case FUTEX_CMP_REQUEUE:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, &val3, 0);
+	case FUTEX_WAKE_OP:
+		return futex_wake_op(uaddr, flags, uaddr2, val, val2, val3);
+	case FUTEX_LOCK_PI:
+		flags |= FLAGS_CLOCKRT;
+		fallthrough;
+	case FUTEX_LOCK_PI2:
+		return futex_lock_pi(uaddr, flags, timeout, 0);
+	case FUTEX_UNLOCK_PI:
+		return futex_unlock_pi(uaddr, flags);
+	case FUTEX_TRYLOCK_PI:
+		return futex_lock_pi(uaddr, flags, NULL, 1);
+	case FUTEX_WAIT_REQUEUE_PI:
+		val3 = FUTEX_BITSET_MATCH_ANY;
+		return futex_wait_requeue_pi(uaddr, flags, val, timeout, val3,
+					     uaddr2);
+	case FUTEX_CMP_REQUEUE_PI:
+		return futex_requeue(uaddr, flags, uaddr2, flags, val, val2, &val3, 1);
+	}
+	return -ENOSYS;
+}
+SYSCALL_DEFINE4(futex_requeue,
+		struct futex_waitv __user *, waiters,
+		unsigned int, flags,
+		int, nr_wake,
+		int, nr_requeue)
+{
+	struct futex_vector futexes[2];
+	u32 cmpval;
+	int ret;
+
+	if (flags)
+		return -EINVAL;
+
+	if (!waiters)
+		return -EINVAL;
+
+	ret = futex_parse_waitv(futexes, waiters, 2, futex_wake_mark, NULL);
+	if (ret)
+		return ret;
+
+	cmpval = futexes[0].w.val;
+
+	return futex_requeue(u64_to_user_ptr(futexes[0].w.uaddr), futexes[0].w.flags,
+			     u64_to_user_ptr(futexes[1].w.uaddr), futexes[1].w.flags,
+			     nr_wake, nr_requeue, &cmpval, 0);
+}

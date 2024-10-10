@@ -1,0 +1,224 @@
+static void lo_release(struct gendisk *disk)
+{
+	struct loop_device *lo = disk->private_data;
+
+	if (disk_openers(disk) > 0)
+		return;
+
+	mutex_lock(&lo->lo_mutex);
+	if (lo->lo_state == Lo_bound && (lo->lo_flags & LO_FLAGS_AUTOCLEAR)) {
+		lo->lo_state = Lo_rundown;
+		mutex_unlock(&lo->lo_mutex);
+		/*
+		 * In autoclear mode, stop the loop thread
+		 * and remove configuration after last close.
+		 */
+		__loop_clr_fd(lo, true);
+		return;
+	}
+	mutex_unlock(&lo->lo_mutex);
+}
+static void __loop_clr_fd(struct loop_device *lo, bool release)
+{
+	struct file *filp;
+	gfp_t gfp = lo->old_gfp_mask;
+
+	if (test_bit(QUEUE_FLAG_WC, &lo->lo_queue->queue_flags))
+		blk_queue_write_cache(lo->lo_queue, false, false);
+
+	/*
+	 * Freeze the request queue when unbinding on a live file descriptor and
+	 * thus an open device.  When called from ->release we are guaranteed
+	 * that there is no I/O in progress already.
+	 */
+	if (!release)
+		blk_mq_freeze_queue(lo->lo_queue);
+
+	spin_lock_irq(&lo->lo_lock);
+	filp = lo->lo_backing_file;
+	lo->lo_backing_file = NULL;
+	spin_unlock_irq(&lo->lo_lock);
+
+	lo->lo_device = NULL;
+	lo->lo_offset = 0;
+	lo->lo_sizelimit = 0;
+	memset(lo->lo_file_name, 0, LO_NAME_SIZE);
+	loop_reconfigure_limits(lo, 512, false);
+	invalidate_disk(lo->lo_disk);
+	loop_sysfs_exit(lo);
+	/* let user-space know about this change */
+	kobject_uevent(&disk_to_dev(lo->lo_disk)->kobj, KOBJ_CHANGE);
+	mapping_set_gfp_mask(filp->f_mapping, gfp);
+	/* This is safe: open() is still holding a reference. */
+	module_put(THIS_MODULE);
+	if (!release)
+		blk_mq_unfreeze_queue(lo->lo_queue);
+
+	disk_force_media_change(lo->lo_disk);
+
+	if (lo->lo_flags & LO_FLAGS_PARTSCAN) {
+		int err;
+
+		/*
+		 * open_mutex has been held already in release path, so don't
+		 * acquire it if this function is called in such case.
+		 *
+		 * If the reread partition isn't from release path, lo_refcnt
+		 * must be at least one and it can only become zero when the
+		 * current holder is released.
+		 */
+		if (!release)
+			mutex_lock(&lo->lo_disk->open_mutex);
+		err = bdev_disk_changed(lo->lo_disk, false);
+		if (!release)
+			mutex_unlock(&lo->lo_disk->open_mutex);
+		if (err)
+			pr_warn("%s: partition scan of loop%d failed (rc=%d)\n",
+				__func__, lo->lo_number, err);
+		/* Device is gone, no point in returning error */
+	}
+
+	/*
+	 * lo->lo_state is set to Lo_unbound here after above partscan has
+	 * finished. There cannot be anybody else entering __loop_clr_fd() as
+	 * Lo_rundown state protects us from all the other places trying to
+	 * change the 'lo' device.
+	 */
+	lo->lo_flags = 0;
+	if (!part_shift)
+		set_bit(GD_SUPPRESS_PART_SCAN, &lo->lo_disk->state);
+	mutex_lock(&lo->lo_mutex);
+	lo->lo_state = Lo_unbound;
+	mutex_unlock(&lo->lo_mutex);
+
+	/*
+	 * Need not hold lo_mutex to fput backing file. Calling fput holding
+	 * lo_mutex triggers a circular lock dependency possibility warning as
+	 * fput can take open_mutex which is usually taken before lo_mutex.
+	 */
+	fput(filp);
+}
+int bdev_disk_changed(struct gendisk *disk, bool invalidate)
+{
+	struct block_device *part;
+	unsigned long idx;
+	int ret = 0;
+
+	lockdep_assert_held(&disk->open_mutex);
+
+	if (!disk_live(disk))
+		return -ENXIO;
+
+rescan:
+	if (disk->open_partitions)
+		return -EBUSY;
+	sync_blockdev(disk->part0);
+	invalidate_bdev(disk->part0);
+
+	xa_for_each_start(&disk->part_tbl, idx, part, 1) {
+		/*
+		 * Remove the block device from the inode hash, so that
+		 * it cannot be looked up any more even when openers
+		 * still hold references.
+		 */
+		remove_inode_hash(part->bd_inode);
+
+		/*
+		 * If @disk->open_partitions isn't elevated but there's
+		 * still an active holder of that block device things
+		 * are broken.
+		 */
+		WARN_ON_ONCE(atomic_read(&part->bd_openers));
+		invalidate_bdev(part);
+		drop_partition(part);
+	}
+	clear_bit(GD_NEED_PART_SCAN, &disk->state);
+
+	/*
+	 * Historically we only set the capacity to zero for devices that
+	 * support partitions (independ of actually having partitions created).
+	 * Doing that is rather inconsistent, but changing it broke legacy
+	 * udisks polling for legacy ide-cdrom devices.  Use the crude check
+	 * below to get the sane behavior for most device while not breaking
+	 * userspace for this particular setup.
+	 */
+	if (invalidate) {
+		if (!(disk->flags & GENHD_FL_NO_PART) ||
+		    !(disk->flags & GENHD_FL_REMOVABLE))
+			set_capacity(disk, 0);
+	}
+
+	if (get_capacity(disk)) {
+		ret = blk_add_partitions(disk);
+		if (ret == -EAGAIN)
+			goto rescan;
+	} else if (invalidate) {
+		/*
+		 * Tell userspace that the media / partition table may have
+		 * changed.
+		 */
+		kobject_uevent(&disk_to_dev(disk)->kobj, KOBJ_CHANGE);
+	}
+
+	return ret;
+}
+static int blk_add_partitions(struct gendisk *disk)
+{
+	struct parsed_partitions *state;
+	int ret = -EAGAIN, p;
+
+	if (!disk_has_partscan(disk))
+		return 0;
+
+	state = check_partition(disk);
+	if (!state)
+		return 0;
+	if (IS_ERR(state)) {
+		/*
+		 * I/O error reading the partition table.  If we tried to read
+		 * beyond EOD, retry after unlocking the native capacity.
+		 */
+		if (PTR_ERR(state) == -ENOSPC) {
+			printk(KERN_WARNING "%s: partition table beyond EOD, ",
+			       disk->disk_name);
+			if (disk_unlock_native_capacity(disk))
+				return -EAGAIN;
+		}
+		return -EIO;
+	}
+
+	/*
+	 * Partitions are not supported on host managed zoned block devices.
+	 */
+	if (bdev_is_zoned(disk->part0)) {
+		pr_warn("%s: ignoring partition table on host managed zoned block device\n",
+			disk->disk_name);
+		ret = 0;
+		goto out_free_state;
+	}
+
+	/*
+	 * If we read beyond EOD, try unlocking native capacity even if the
+	 * partition table was successfully read as we could be missing some
+	 * partitions.
+	 */
+	if (state->access_beyond_eod) {
+		printk(KERN_WARNING
+		       "%s: partition table partially beyond EOD, ",
+		       disk->disk_name);
+		if (disk_unlock_native_capacity(disk))
+			goto out_free_state;
+	}
+
+	/* tell userspace that the media / partition table may have changed */
+	kobject_uevent(&disk_to_dev(disk)->kobj, KOBJ_CHANGE);
+
+	for (p = 1; p < state->limit; p++)
+		if (!blk_add_partition(disk, state, p))
+			goto out_free_state;
+
+	ret = 0;
+out_free_state:
+	free_partitions(state);
+	return ret;
+}

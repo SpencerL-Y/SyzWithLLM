@@ -1,0 +1,741 @@
+__always_inline unsigned long exit_to_user_mode_loop(struct pt_regs *regs,
+						     unsigned long ti_work)
+{
+	/*
+	 * Before returning to user space ensure that all pending work
+	 * items have been completed.
+	 */
+	while (ti_work & EXIT_TO_USER_MODE_WORK) {
+
+		local_irq_enable_exit_to_user(ti_work);
+
+		if (ti_work & _TIF_NEED_RESCHED)
+			schedule();
+
+		if (ti_work & _TIF_UPROBE)
+			uprobe_notify_resume(regs);
+
+		if (ti_work & _TIF_PATCH_PENDING)
+			klp_update_patch_state(current);
+
+		if (ti_work & (_TIF_SIGPENDING | _TIF_NOTIFY_SIGNAL))
+			arch_do_signal_or_restart(regs);
+
+		if (ti_work & _TIF_NOTIFY_RESUME)
+			resume_user_mode_work(regs);
+
+		/* Architecture specific TIF work */
+		arch_exit_to_user_mode_work(regs, ti_work);
+
+		/*
+		 * Disable interrupts and reevaluate the work flags as they
+		 * might have changed while interrupts and preemption was
+		 * enabled above.
+		 */
+		local_irq_disable_exit_to_user();
+
+		/* Check if any of the above work has queued a deferred wakeup */
+		tick_nohz_user_enter_prepare();
+
+		ti_work = read_thread_flags();
+	}
+
+	/* Return the latest work state for arch_exit_to_user_mode() */
+	return ti_work;
+}
+void uprobe_notify_resume(struct pt_regs *regs)
+{
+	struct uprobe_task *utask;
+
+	clear_thread_flag(TIF_UPROBE);
+
+	utask = current->utask;
+	if (utask && utask->active_uprobe)
+		handle_singlestep(utask, regs);
+	else
+		handle_swbp(regs);
+}
+static void handle_singlestep(struct uprobe_task *utask, struct pt_regs *regs)
+{
+	struct uprobe *uprobe;
+	int err = 0;
+
+	uprobe = utask->active_uprobe;
+	if (utask->state == UTASK_SSTEP_ACK)
+		err = arch_uprobe_post_xol(&uprobe->arch, regs);
+	else if (utask->state == UTASK_SSTEP_TRAPPED)
+		arch_uprobe_abort_xol(&uprobe->arch, regs);
+	else
+		WARN_ON_ONCE(1);
+
+	put_uprobe(uprobe);
+	utask->active_uprobe = NULL;
+	utask->state = UTASK_RUNNING;
+	xol_free_insn_slot(current);
+
+	spin_lock_irq(&current->sighand->siglock);
+	recalc_sigpending(); /* see uprobe_deny_signal() */
+	spin_unlock_irq(&current->sighand->siglock);
+
+	if (unlikely(err)) {
+		uprobe_warn(current, "execute the probed insn, sending SIGILL.");
+		force_sig(SIGILL);
+	}
+}
+NOT FOUNDnoinstr void irqentry_exit_to_user_mode(struct pt_regs *regs)
+{
+	instrumentation_begin();
+	exit_to_user_mode_prepare(regs);
+	instrumentation_end();
+	exit_to_user_mode();
+}
+void uprobe_notify_resume(struct pt_regs *regs)
+{
+	struct uprobe_task *utask;
+
+	clear_thread_flag(TIF_UPROBE);
+
+	utask = current->utask;
+	if (utask && utask->active_uprobe)
+		handle_singlestep(utask, regs);
+	else
+		handle_swbp(regs);
+}
+static void handle_singlestep(struct uprobe_task *utask, struct pt_regs *regs)
+{
+	struct uprobe *uprobe;
+	int err = 0;
+
+	uprobe = utask->active_uprobe;
+	if (utask->state == UTASK_SSTEP_ACK)
+		err = arch_uprobe_post_xol(&uprobe->arch, regs);
+	else if (utask->state == UTASK_SSTEP_TRAPPED)
+		arch_uprobe_abort_xol(&uprobe->arch, regs);
+	else
+		WARN_ON_ONCE(1);
+
+	put_uprobe(uprobe);
+	utask->active_uprobe = NULL;
+	utask->state = UTASK_RUNNING;
+	xol_free_insn_slot(current);
+
+	spin_lock_irq(&current->sighand->siglock);
+	recalc_sigpending(); /* see uprobe_deny_signal() */
+	spin_unlock_irq(&current->sighand->siglock);
+
+	if (unlikely(err)) {
+		uprobe_warn(current, "execute the probed insn, sending SIGILL.");
+		force_sig(SIGILL);
+	}
+}
+NOT FOUNDnoinstr void irqentry_exit_to_user_mode(struct pt_regs *regs)
+{
+	instrumentation_begin();
+	exit_to_user_mode_prepare(regs);
+	instrumentation_end();
+	exit_to_user_mode();
+}
+void uprobe_notify_resume(struct pt_regs *regs)
+{
+	struct uprobe_task *utask;
+
+	clear_thread_flag(TIF_UPROBE);
+
+	utask = current->utask;
+	if (utask && utask->active_uprobe)
+		handle_singlestep(utask, regs);
+	else
+		handle_swbp(regs);
+}
+static void handle_singlestep(struct uprobe_task *utask, struct pt_regs *regs)
+{
+	struct uprobe *uprobe;
+	int err = 0;
+
+	uprobe = utask->active_uprobe;
+	if (utask->state == UTASK_SSTEP_ACK)
+		err = arch_uprobe_post_xol(&uprobe->arch, regs);
+	else if (utask->state == UTASK_SSTEP_TRAPPED)
+		arch_uprobe_abort_xol(&uprobe->arch, regs);
+	else
+		WARN_ON_ONCE(1);
+
+	put_uprobe(uprobe);
+	utask->active_uprobe = NULL;
+	utask->state = UTASK_RUNNING;
+	xol_free_insn_slot(current);
+
+	spin_lock_irq(&current->sighand->siglock);
+	recalc_sigpending(); /* see uprobe_deny_signal() */
+	spin_unlock_irq(&current->sighand->siglock);
+
+	if (unlikely(err)) {
+		uprobe_warn(current, "execute the probed insn, sending SIGILL.");
+		force_sig(SIGILL);
+	}
+}
+__visible noinstr void do_int80_emulation(struct pt_regs *regs)
+{
+	int nr;
+
+	/* Kernel does not use INT $0x80! */
+	if (unlikely(!user_mode(regs))) {
+		irqentry_enter(regs);
+		instrumentation_begin();
+		panic("Unexpected external interrupt 0x80\n");
+	}
+
+	/*
+	 * Establish kernel context for instrumentation, including for
+	 * int80_is_external() below which calls into the APIC driver.
+	 * Identical for soft and external interrupts.
+	 */
+	enter_from_user_mode(regs);
+
+	instrumentation_begin();
+	add_random_kstack_offset();
+
+	/* Validate that this is a soft interrupt to the extent possible */
+	if (unlikely(int80_is_external()))
+		panic("Unexpected external interrupt 0x80\n");
+
+	/*
+	 * The low level idtentry code pushed -1 into regs::orig_ax
+	 * and regs::ax contains the syscall number.
+	 *
+	 * User tracing code (ptrace or signal handlers) might assume
+	 * that the regs::orig_ax contains a 32-bit number on invoking
+	 * a 32-bit syscall.
+	 *
+	 * Establish the syscall convention by saving the 32bit truncated
+	 * syscall number in regs::orig_ax and by invalidating regs::ax.
+	 */
+	regs->orig_ax = regs->ax & GENMASK(31, 0);
+	regs->ax = -ENOSYS;
+
+	nr = syscall_32_enter(regs);
+
+	local_irq_enable();
+	nr = syscall_enter_from_user_mode_work(regs, nr);
+	do_syscall_32_irqs_on(regs, nr);
+
+	instrumentation_end();
+	syscall_exit_to_user_mode(regs);
+}
+__visible noinstr void syscall_exit_to_user_mode(struct pt_regs *regs)
+{
+	instrumentation_begin();
+	__syscall_exit_to_user_mode_work(regs);
+	instrumentation_end();
+	exit_to_user_mode();
+}
+void uprobe_notify_resume(struct pt_regs *regs)
+{
+	struct uprobe_task *utask;
+
+	clear_thread_flag(TIF_UPROBE);
+
+	utask = current->utask;
+	if (utask && utask->active_uprobe)
+		handle_singlestep(utask, regs);
+	else
+		handle_swbp(regs);
+}
+static void handle_singlestep(struct uprobe_task *utask, struct pt_regs *regs)
+{
+	struct uprobe *uprobe;
+	int err = 0;
+
+	uprobe = utask->active_uprobe;
+	if (utask->state == UTASK_SSTEP_ACK)
+		err = arch_uprobe_post_xol(&uprobe->arch, regs);
+	else if (utask->state == UTASK_SSTEP_TRAPPED)
+		arch_uprobe_abort_xol(&uprobe->arch, regs);
+	else
+		WARN_ON_ONCE(1);
+
+	put_uprobe(uprobe);
+	utask->active_uprobe = NULL;
+	utask->state = UTASK_RUNNING;
+	xol_free_insn_slot(current);
+
+	spin_lock_irq(&current->sighand->siglock);
+	recalc_sigpending(); /* see uprobe_deny_signal() */
+	spin_unlock_irq(&current->sighand->siglock);
+
+	if (unlikely(err)) {
+		uprobe_warn(current, "execute the probed insn, sending SIGILL.");
+		force_sig(SIGILL);
+	}
+}
+__visible noinstr bool do_syscall_64(struct pt_regs *regs, int nr)
+{
+	add_random_kstack_offset();
+	nr = syscall_enter_from_user_mode(regs, nr);
+
+	instrumentation_begin();
+
+	if (!do_syscall_x64(regs, nr) && !do_syscall_x32(regs, nr) && nr != -1) {
+		/* Invalid system call, but still a system call. */
+		regs->ax = __x64_sys_ni_syscall(regs);
+	}
+
+	instrumentation_end();
+	syscall_exit_to_user_mode(regs);
+
+	/*
+	 * Check that the register state is valid for using SYSRET to exit
+	 * to userspace.  Otherwise use the slower but fully capable IRET
+	 * exit path.
+	 */
+
+	/* XEN PV guests always use the IRET path */
+	if (cpu_feature_enabled(X86_FEATURE_XENPV))
+		return false;
+
+	/* SYSRET requires RCX == RIP and R11 == EFLAGS */
+	if (unlikely(regs->cx != regs->ip || regs->r11 != regs->flags))
+		return false;
+
+	/* CS and SS must match the values set in MSR_STAR */
+	if (unlikely(regs->cs != __USER_CS || regs->ss != __USER_DS))
+		return false;
+
+	/*
+	 * On Intel CPUs, SYSRET with non-canonical RCX/RIP will #GP
+	 * in kernel space.  This essentially lets the user take over
+	 * the kernel, since userspace controls RSP.
+	 *
+	 * TASK_SIZE_MAX covers all user-accessible addresses other than
+	 * the deprecated vsyscall page.
+	 */
+	if (unlikely(regs->ip >= TASK_SIZE_MAX))
+		return false;
+
+	/*
+	 * SYSRET cannot restore RF.  It can restore TF, but unlike IRET,
+	 * restoring TF results in a trap from userspace immediately after
+	 * SYSRET.
+	 */
+	if (unlikely(regs->flags & (X86_EFLAGS_RF | X86_EFLAGS_TF)))
+		return false;
+
+	/* Use SYSRET to exit to userspace */
+	return true;
+}
+__visible noinstr void syscall_exit_to_user_mode(struct pt_regs *regs)
+{
+	instrumentation_begin();
+	__syscall_exit_to_user_mode_work(regs);
+	instrumentation_end();
+	exit_to_user_mode();
+}
+void uprobe_notify_resume(struct pt_regs *regs)
+{
+	struct uprobe_task *utask;
+
+	clear_thread_flag(TIF_UPROBE);
+
+	utask = current->utask;
+	if (utask && utask->active_uprobe)
+		handle_singlestep(utask, regs);
+	else
+		handle_swbp(regs);
+}
+static void handle_singlestep(struct uprobe_task *utask, struct pt_regs *regs)
+{
+	struct uprobe *uprobe;
+	int err = 0;
+
+	uprobe = utask->active_uprobe;
+	if (utask->state == UTASK_SSTEP_ACK)
+		err = arch_uprobe_post_xol(&uprobe->arch, regs);
+	else if (utask->state == UTASK_SSTEP_TRAPPED)
+		arch_uprobe_abort_xol(&uprobe->arch, regs);
+	else
+		WARN_ON_ONCE(1);
+
+	put_uprobe(uprobe);
+	utask->active_uprobe = NULL;
+	utask->state = UTASK_RUNNING;
+	xol_free_insn_slot(current);
+
+	spin_lock_irq(&current->sighand->siglock);
+	recalc_sigpending(); /* see uprobe_deny_signal() */
+	spin_unlock_irq(&current->sighand->siglock);
+
+	if (unlikely(err)) {
+		uprobe_warn(current, "execute the probed insn, sending SIGILL.");
+		force_sig(SIGILL);
+	}
+}
+__visible void ret_from_fork(struct task_struct *prev, struct pt_regs *regs,
+				     int (*fn)(void *), void *fn_arg)
+{
+	schedule_tail(prev);
+
+	/* Is this a kernel thread? */
+	if (unlikely(fn)) {
+		fn(fn_arg);
+		/*
+		 * A kernel thread is allowed to return here after successfully
+		 * calling kernel_execve().  Exit to userspace to complete the
+		 * execve() syscall.
+		 */
+		regs->ax = 0;
+	}
+
+	syscall_exit_to_user_mode(regs);
+}
+__visible noinstr void syscall_exit_to_user_mode(struct pt_regs *regs)
+{
+	instrumentation_begin();
+	__syscall_exit_to_user_mode_work(regs);
+	instrumentation_end();
+	exit_to_user_mode();
+}
+void uprobe_notify_resume(struct pt_regs *regs)
+{
+	struct uprobe_task *utask;
+
+	clear_thread_flag(TIF_UPROBE);
+
+	utask = current->utask;
+	if (utask && utask->active_uprobe)
+		handle_singlestep(utask, regs);
+	else
+		handle_swbp(regs);
+}
+static void handle_singlestep(struct uprobe_task *utask, struct pt_regs *regs)
+{
+	struct uprobe *uprobe;
+	int err = 0;
+
+	uprobe = utask->active_uprobe;
+	if (utask->state == UTASK_SSTEP_ACK)
+		err = arch_uprobe_post_xol(&uprobe->arch, regs);
+	else if (utask->state == UTASK_SSTEP_TRAPPED)
+		arch_uprobe_abort_xol(&uprobe->arch, regs);
+	else
+		WARN_ON_ONCE(1);
+
+	put_uprobe(uprobe);
+	utask->active_uprobe = NULL;
+	utask->state = UTASK_RUNNING;
+	xol_free_insn_slot(current);
+
+	spin_lock_irq(&current->sighand->siglock);
+	recalc_sigpending(); /* see uprobe_deny_signal() */
+	spin_unlock_irq(&current->sighand->siglock);
+
+	if (unlikely(err)) {
+		uprobe_warn(current, "execute the probed insn, sending SIGILL.");
+		force_sig(SIGILL);
+	}
+}
+void syscall_exit_to_user_mode_work(struct pt_regs *regs)
+{
+	__syscall_exit_to_user_mode_work(regs);
+}
+void uprobe_notify_resume(struct pt_regs *regs)
+{
+	struct uprobe_task *utask;
+
+	clear_thread_flag(TIF_UPROBE);
+
+	utask = current->utask;
+	if (utask && utask->active_uprobe)
+		handle_singlestep(utask, regs);
+	else
+		handle_swbp(regs);
+}
+static void handle_singlestep(struct uprobe_task *utask, struct pt_regs *regs)
+{
+	struct uprobe *uprobe;
+	int err = 0;
+
+	uprobe = utask->active_uprobe;
+	if (utask->state == UTASK_SSTEP_ACK)
+		err = arch_uprobe_post_xol(&uprobe->arch, regs);
+	else if (utask->state == UTASK_SSTEP_TRAPPED)
+		arch_uprobe_abort_xol(&uprobe->arch, regs);
+	else
+		WARN_ON_ONCE(1);
+
+	put_uprobe(uprobe);
+	utask->active_uprobe = NULL;
+	utask->state = UTASK_RUNNING;
+	xol_free_insn_slot(current);
+
+	spin_lock_irq(&current->sighand->siglock);
+	recalc_sigpending(); /* see uprobe_deny_signal() */
+	spin_unlock_irq(&current->sighand->siglock);
+
+	if (unlikely(err)) {
+		uprobe_warn(current, "execute the probed insn, sending SIGILL.");
+		force_sig(SIGILL);
+	}
+}
+__always_inline unsigned long exit_to_user_mode_loop(struct pt_regs *regs,
+						     unsigned long ti_work)
+{
+	/*
+	 * Before returning to user space ensure that all pending work
+	 * items have been completed.
+	 */
+	while (ti_work & EXIT_TO_USER_MODE_WORK) {
+
+		local_irq_enable_exit_to_user(ti_work);
+
+		if (ti_work & _TIF_NEED_RESCHED)
+			schedule();
+
+		if (ti_work & _TIF_UPROBE)
+			uprobe_notify_resume(regs);
+
+		if (ti_work & _TIF_PATCH_PENDING)
+			klp_update_patch_state(current);
+
+		if (ti_work & (_TIF_SIGPENDING | _TIF_NOTIFY_SIGNAL))
+			arch_do_signal_or_restart(regs);
+
+		if (ti_work & _TIF_NOTIFY_RESUME)
+			resume_user_mode_work(regs);
+
+		/* Architecture specific TIF work */
+		arch_exit_to_user_mode_work(regs, ti_work);
+
+		/*
+		 * Disable interrupts and reevaluate the work flags as they
+		 * might have changed while interrupts and preemption was
+		 * enabled above.
+		 */
+		local_irq_disable_exit_to_user();
+
+		/* Check if any of the above work has queued a deferred wakeup */
+		tick_nohz_user_enter_prepare();
+
+		ti_work = read_thread_flags();
+	}
+
+	/* Return the latest work state for arch_exit_to_user_mode() */
+	return ti_work;
+}
+void uprobe_notify_resume(struct pt_regs *regs)
+{
+	struct uprobe_task *utask;
+
+	clear_thread_flag(TIF_UPROBE);
+
+	utask = current->utask;
+	if (utask && utask->active_uprobe)
+		handle_singlestep(utask, regs);
+	else
+		handle_swbp(regs);
+}
+static void handle_swbp(struct pt_regs *regs)
+{
+	struct uprobe *uprobe;
+	unsigned long bp_vaddr;
+	int is_swbp;
+
+	bp_vaddr = uprobe_get_swbp_addr(regs);
+	if (bp_vaddr == get_trampoline_vaddr())
+		return handle_trampoline(regs);
+
+	uprobe = find_active_uprobe(bp_vaddr, &is_swbp);
+	if (!uprobe) {
+		if (is_swbp > 0) {
+			/* No matching uprobe; signal SIGTRAP. */
+			force_sig(SIGTRAP);
+		} else {
+			/*
+			 * Either we raced with uprobe_unregister() or we can't
+			 * access this memory. The latter is only possible if
+			 * another thread plays with our ->mm. In both cases
+			 * we can simply restart. If this vma was unmapped we
+			 * can pretend this insn was not executed yet and get
+			 * the (correct) SIGSEGV after restart.
+			 */
+			instruction_pointer_set(regs, bp_vaddr);
+		}
+		return;
+	}
+
+	/* change it in advance for ->handler() and restart */
+	instruction_pointer_set(regs, bp_vaddr);
+
+	/*
+	 * TODO: move copy_insn/etc into _register and remove this hack.
+	 * After we hit the bp, _unregister + _register can install the
+	 * new and not-yet-analyzed uprobe at the same address, restart.
+	 */
+	if (unlikely(!test_bit(UPROBE_COPY_INSN, &uprobe->flags)))
+		goto out;
+
+	/*
+	 * Pairs with the smp_wmb() in prepare_uprobe().
+	 *
+	 * Guarantees that if we see the UPROBE_COPY_INSN bit set, then
+	 * we must also see the stores to &uprobe->arch performed by the
+	 * prepare_uprobe() call.
+	 */
+	smp_rmb();
+
+	/* Tracing handlers use ->utask to communicate with fetch methods */
+	if (!get_utask())
+		goto out;
+
+	if (arch_uprobe_ignore(&uprobe->arch, regs))
+		goto out;
+
+	handler_chain(uprobe, regs);
+
+	if (arch_uprobe_skip_sstep(&uprobe->arch, regs))
+		goto out;
+
+	if (!pre_ssout(uprobe, regs, bp_vaddr))
+		return;
+
+	/* arch_uprobe_skip_sstep() succeeded, or restart if can't singlestep */
+out:
+	put_uprobe(uprobe);
+}
+pre_ssout(struct uprobe *uprobe, struct pt_regs *regs, unsigned long bp_vaddr)
+{
+	struct uprobe_task *utask;
+	unsigned long xol_vaddr;
+	int err;
+
+	utask = get_utask();
+	if (!utask)
+		return -ENOMEM;
+
+	xol_vaddr = xol_get_insn_slot(uprobe);
+	if (!xol_vaddr)
+		return -ENOMEM;
+
+	utask->xol_vaddr = xol_vaddr;
+	utask->vaddr = bp_vaddr;
+
+	err = arch_uprobe_pre_xol(&uprobe->arch, regs);
+	if (unlikely(err)) {
+		xol_free_insn_slot(current);
+		return err;
+	}
+
+	utask->active_uprobe = uprobe;
+	utask->state = UTASK_SSTEP;
+	return 0;
+}
+void syscall_exit_to_user_mode_work(struct pt_regs *regs)
+{
+	__syscall_exit_to_user_mode_work(regs);
+}
+void uprobe_notify_resume(struct pt_regs *regs)
+{
+	struct uprobe_task *utask;
+
+	clear_thread_flag(TIF_UPROBE);
+
+	utask = current->utask;
+	if (utask && utask->active_uprobe)
+		handle_singlestep(utask, regs);
+	else
+		handle_swbp(regs);
+}
+static void handle_swbp(struct pt_regs *regs)
+{
+	struct uprobe *uprobe;
+	unsigned long bp_vaddr;
+	int is_swbp;
+
+	bp_vaddr = uprobe_get_swbp_addr(regs);
+	if (bp_vaddr == get_trampoline_vaddr())
+		return handle_trampoline(regs);
+
+	uprobe = find_active_uprobe(bp_vaddr, &is_swbp);
+	if (!uprobe) {
+		if (is_swbp > 0) {
+			/* No matching uprobe; signal SIGTRAP. */
+			force_sig(SIGTRAP);
+		} else {
+			/*
+			 * Either we raced with uprobe_unregister() or we can't
+			 * access this memory. The latter is only possible if
+			 * another thread plays with our ->mm. In both cases
+			 * we can simply restart. If this vma was unmapped we
+			 * can pretend this insn was not executed yet and get
+			 * the (correct) SIGSEGV after restart.
+			 */
+			instruction_pointer_set(regs, bp_vaddr);
+		}
+		return;
+	}
+
+	/* change it in advance for ->handler() and restart */
+	instruction_pointer_set(regs, bp_vaddr);
+
+	/*
+	 * TODO: move copy_insn/etc into _register and remove this hack.
+	 * After we hit the bp, _unregister + _register can install the
+	 * new and not-yet-analyzed uprobe at the same address, restart.
+	 */
+	if (unlikely(!test_bit(UPROBE_COPY_INSN, &uprobe->flags)))
+		goto out;
+
+	/*
+	 * Pairs with the smp_wmb() in prepare_uprobe().
+	 *
+	 * Guarantees that if we see the UPROBE_COPY_INSN bit set, then
+	 * we must also see the stores to &uprobe->arch performed by the
+	 * prepare_uprobe() call.
+	 */
+	smp_rmb();
+
+	/* Tracing handlers use ->utask to communicate with fetch methods */
+	if (!get_utask())
+		goto out;
+
+	if (arch_uprobe_ignore(&uprobe->arch, regs))
+		goto out;
+
+	handler_chain(uprobe, regs);
+
+	if (arch_uprobe_skip_sstep(&uprobe->arch, regs))
+		goto out;
+
+	if (!pre_ssout(uprobe, regs, bp_vaddr))
+		return;
+
+	/* arch_uprobe_skip_sstep() succeeded, or restart if can't singlestep */
+out:
+	put_uprobe(uprobe);
+}
+pre_ssout(struct uprobe *uprobe, struct pt_regs *regs, unsigned long bp_vaddr)
+{
+	struct uprobe_task *utask;
+	unsigned long xol_vaddr;
+	int err;
+
+	utask = get_utask();
+	if (!utask)
+		return -ENOMEM;
+
+	xol_vaddr = xol_get_insn_slot(uprobe);
+	if (!xol_vaddr)
+		return -ENOMEM;
+
+	utask->xol_vaddr = xol_vaddr;
+	utask->vaddr = bp_vaddr;
+
+	err = arch_uprobe_pre_xol(&uprobe->arch, regs);
+	if (unlikely(err)) {
+		xol_free_insn_slot(current);
+		return err;
+	}
+
+	utask->active_uprobe = uprobe;
+	utask->state = UTASK_SSTEP;
+	return 0;
+}

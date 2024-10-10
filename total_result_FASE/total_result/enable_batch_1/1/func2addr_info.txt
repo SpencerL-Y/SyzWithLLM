@@ -1,0 +1,759 @@
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+{
+----- addresses:
+ffffffff8192d2e8
+ffffffff8192d2d4
+ffffffff8192d2d0
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+const unsigned long max_dump_pfn = get_max_dump_pfn();
+----- addresses:
+ffffffff8192d2d4
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u64 __user *out = (u64 __user *)buf;
+----- addresses:
+ffffffff8192d33a
+ffffffff8192d397
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+unsigned long src = *ppos;
+----- addresses:
+ffffffff8192d321
+ffffffff8192d344
+ffffffff8192d33a
+ffffffff8192d6b7
+ffffffff8192d318
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+unsigned long pfn;
+----- addresses:
+ffffffff8192d34c
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+ssize_t ret = 0;
+----- addresses:
+ffffffff8192d34c
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+pfn = src / KPMSIZE;
+----- addresses:
+ffffffff8192d34c
+ffffffff8192d393
+ffffffff8192d387
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (src & KPMMASK || count & KPMMASK)
+----- addresses:
+ffffffff8192d34c
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+return -EINVAL;
+----- addresses:
+ffffffff8192d672
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (src >= max_dump_pfn * KPMSIZE)
+----- addresses:
+ffffffff8192d35a
+ffffffff8192d366
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+return 0;
+----- addresses:
+ffffffff8192d363
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+count = min_t(unsigned long, count, (max_dump_pfn * KPMSIZE) - src);
+----- addresses:
+ffffffff8192d377
+ffffffff8192d374
+ffffffff8192d37e
+ffffffff8192d36f
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+while (count > 0) {
+----- addresses:
+ffffffff8192d45d
+ffffffff8192d37e
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+struct page *page = pfn_to_online_page(pfn);
+----- addresses:
+ffffffff8192d5f6
+ffffffff8192d3b0
+ffffffff8192d5cd
+ffffffff8192d42e
+ffffffff8192d42c
+ffffffff8192d70a
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (put_user(stable_page_flags(page), out)) {
+----- addresses:
+ffffffff8192d42e
+ffffffff8192d43b
+ffffffff8192d443
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+pfn++;
+----- addresses:
+ffffffff8192d454
+ffffffff8192d44b
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+out++;
+----- addresses:
+ffffffff8192d458
+ffffffff8192d450
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+count -= KPMSIZE;
+----- addresses:
+ffffffff8192d458
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+cond_resched();
+----- addresses:
+ffffffff8192d458
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+*ppos += (char __user *)out - buf;
+----- addresses:
+ffffffff8192d725
+ffffffff8192d46a
+ffffffff8192d494
+ffffffff8192d6a8
+ffffffff8192d683
+ffffffff8192d48c
+ffffffff8192d497
+ffffffff8192d49a
+ffffffff8192d6a5
+ffffffff8192d6ab
+ffffffff8192d734
+ffffffff8192d6a0
+ffffffff8192d491
+ffffffff8192d752
+ffffffff8192d743
+ffffffff8192d67e
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (!ret)
+----- addresses:
+ffffffff8192d6ab
+ffffffff8192d4c4
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+ret = (char __user *)out - buf;
+----- addresses:
+ffffffff8192d4c4
+----- funcname:
+kpageflags_read
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+}
+----- addresses:
+ffffffff8192d4c9
+ffffffff8192d4d8
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+{
+----- addresses:
+ffffffff8192c934
+ffffffff8192c930
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+const struct folio *folio;
+----- addresses:
+ffffffff8192c934
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+unsigned long k;
+----- addresses:
+ffffffff8192c934
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+unsigned long mapping;
+----- addresses:
+ffffffff8192c934
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+bool is_anon;
+----- addresses:
+ffffffff8192c934
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u64 u = 0;
+----- addresses:
+ffffffff8192c934
+ffffffff8192caa0
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (!page)
+----- addresses:
+ffffffff8192c945
+ffffffff8192c934
+ffffffff8192c94a
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+return 1 << KPF_NOPAGE;
+----- addresses:
+ffffffff8192d128
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+folio = page_folio(page);
+----- addresses:
+ffffffff8192c953
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+k = folio->flags;
+----- addresses:
+ffffffff8192c99f
+ffffffff8192c9c3
+ffffffff8192d20d
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+mapping = (unsigned long)folio->mapping;
+----- addresses:
+ffffffff8192c9bf
+ffffffff8192c9e2
+ffffffff8192d1f6
+ffffffff8192c9c7
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+is_anon = mapping & PAGE_MAPPING_ANON;
+----- addresses:
+ffffffff8192c9ea
+ffffffff8192c9e6
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (page_mapped(page))
+----- addresses:
+ffffffff8192ce77
+ffffffff8192c9f4
+ffffffff8192ce60
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (is_anon) {
+----- addresses:
+ffffffff8192caaf
+ffffffff8192ce7b
+ffffffff8192ce72
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_ANON;
+----- addresses:
+ffffffff8192cd35
+ffffffff8192cd26
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (mapping & PAGE_MAPPING_KSM)
+----- addresses:
+ffffffff8192cd2f
+ffffffff8192cd2b
+ffffffff8192cd26
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_KSM;
+----- addresses:
+ffffffff8192d073
+ffffffff8192d067
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (page == &folio->page)
+----- addresses:
+ffffffff8192cabf
+ffffffff8192cd41
+ffffffff8192cf9d
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_COMPOUND_HEAD, PG_head);
+----- addresses:
+ffffffff8192cd63
+ffffffff8192cd4f
+ffffffff8192cd60
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_COMPOUND_TAIL;
+----- addresses:
+ffffffff8192cacd
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (folio_test_hugetlb(folio))
+----- addresses:
+ffffffff8192cad9
+ffffffff8192cb0c
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_HUGE;
+----- addresses:
+ffffffff8192cb17
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+else if (folio_test_large(folio)) {
+----- addresses:
+ffffffff8192cd68
+ffffffff8192cd99
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if ((k & (1 << PG_lru)) || is_anon)
+----- addresses:
+ffffffff8192d083
+ffffffff8192d078
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_THP;
+----- addresses:
+ffffffff8192d08d
+ffffffff8192d099
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+} else if (is_zero_pfn(page_to_pfn(page)))
+----- addresses:
+ffffffff8192cdcc
+ffffffff8192cdf2
+ffffffff8192cdd9
+ffffffff8192d263
+ffffffff8192cda1
+ffffffff8192cde4
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_ZERO_PAGE;
+----- addresses:
+ffffffff8192cdff
+ffffffff8192ce0b
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (PageBuddy(page))
+----- addresses:
+ffffffff8192cb59
+ffffffff8192cb23
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_BUDDY;
+----- addresses:
+ffffffff8192d17b
+ffffffff8192cb64
+ffffffff8192d183
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+else if (page_count(page) == 0 && is_free_buddy_page(page))
+----- addresses:
+ffffffff8192d133
+ffffffff8192d030
+ffffffff8192d140
+ffffffff8192cfa5
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (PageOffline(page))
+----- addresses:
+ffffffff8192cb70
+ffffffff8192cb7d
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_OFFLINE;
+----- addresses:
+ffffffff8192cb84
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (PageTable(page))
+----- addresses:
+ffffffff8192cb9c
+ffffffff8192cb90
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_PGTABLE;
+----- addresses:
+ffffffff8192cba5
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (folio_test_slab(folio))
+----- addresses:
+ffffffff8192cbbf
+ffffffff8192cbb1
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_SLAB;
+----- addresses:
+ffffffff8192cbc6
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if (folio_test_idle(folio))
+----- addresses:
+ffffffff8192cbcf
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_LOCKED,	PG_locked);
+----- addresses:
+ffffffff8192cbcf
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_ERROR,		PG_error);
+----- addresses:
+ffffffff8192cbcf
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_DIRTY,		PG_dirty);
+----- addresses:
+ffffffff8192cbd4
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_UPTODATE,	PG_uptodate);
+----- addresses:
+ffffffff8192cbd4
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_WRITEBACK,	PG_writeback);
+----- addresses:
+ffffffff8192cbd4
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_LRU,		PG_lru);
+----- addresses:
+ffffffff8192cbd4
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_REFERENCED,	PG_referenced);
+----- addresses:
+ffffffff8192cbd4
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_ACTIVE,	PG_active);
+----- addresses:
+ffffffff8192cbd4
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_RECLAIM,	PG_reclaim);
+----- addresses:
+ffffffff8192cc10
+ffffffff8192cc1b
+ffffffff8192cbd4
+ffffffff8192cbeb
+ffffffff8192cc01
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+if ((k & SWAPCACHE) == SWAPCACHE)
+----- addresses:
+ffffffff8192cc1e
+ffffffff8192cc13
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= 1 << KPF_SWAPCACHE;
+----- addresses:
+ffffffff8192cc26
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_SWAPBACKED,	PG_swapbacked);
+----- addresses:
+ffffffff8192cc32
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_UNEVICTABLE,	PG_unevictable);
+----- addresses:
+ffffffff8192cc37
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_MLOCKED,	PG_mlocked);
+----- addresses:
+ffffffff8192cc37
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_UNCACHED,	PG_uncached);
+----- addresses:
+ffffffff8192cc37
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_RESERVED,	PG_reserved);
+----- addresses:
+ffffffff8192cc37
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_MAPPEDTODISK,	PG_mappedtodisk);
+----- addresses:
+ffffffff8192cc37
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_PRIVATE,	PG_private);
+----- addresses:
+ffffffff8192cc37
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_PRIVATE_2,	PG_private_2);
+----- addresses:
+ffffffff8192cc37
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_OWNER_PRIVATE,	PG_owner_priv_1);
+----- addresses:
+ffffffff8192cc37
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+u |= kpf_copy_bit(k, KPF_ARCH,		PG_arch_1);
+----- addresses:
+ffffffff8192cccd
+ffffffff8192cc88
+ffffffff8192cce4
+ffffffff8192cc37
+ffffffff8192cc5a
+ffffffff8192ccf5
+ffffffff8192ccb6
+ffffffff8192cc71
+ffffffff8192cc9f
+ffffffff8192cd05
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+return u;
+----- addresses:
+ffffffff8192cd0b
+----- funcname:
+stable_page_flags
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/proc/page.c
+----- source:
+};
+----- addresses:
+ffffffff8192cd10

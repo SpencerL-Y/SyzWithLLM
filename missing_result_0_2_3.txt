@@ -1,0 +1,19 @@
+mkdir in /home/clexma/Desktop/fox3/fuzzing
+mkdir ./experiment_result/temp/4
+cp -rf ./ChatAnalyzer/pathsFile.txt ./ChatAnalyzer/path_source_code.txt ./target_functions.txt ./ChatAnalyzer/syz_comm_content.txt ./ChatAnalyzer/syz_comm_sig.txt ./linuxRepo/line2addr/input_functions.txt ./linuxRepo/line2addr/func2addr_info.txt ./linuxRepo/line2addr/result_addr_info.txt  ./experiment_result/temp/4
+cp ./target_functions.txt ./experiment_result/temp/4
+cp ./syzkaller/experiment_output_llmenabled.txt ./experiment_result/temp/4
+START EXP
+----- target functions
+
+security_inode_setxattr
+
+is llm enable: 0
+close range: 2
+4 CURRENT TARGET FUNCTIONS: 
+security_inode_setxattr
+write target_functions.txt
+b'close function: __vfs_setxattr_locked\nclose function: security_inode_setxattr\nclose function: vfs_setxattr\ncurrent function name file path: /home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c\nline range: \nfrom: 2285 to: 2303\ncurrent function name file path: /home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/xattr.c\nline range: \nfrom: 304 to: 334\ncurrent function name file path: /home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/xattr.c\nline range: \nfrom: 275 to: 300\nLLM DISABLED\nCLOSE RANGE: 2\n/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer\npython3 chat_interface.py close security_inode_setxattr 2\n/home/clexma/Desktop/fox3/fuzzing/linuxRepo/line2addr\npython3 ./addr_extractor.py ./input_functions.txt\nfuzzing terminate, time bound reach\n'
+b'close function: __vfs_setxattr_locked\nclose function: security_inode_setxattr\nclose function: vfs_setxattr\ncurrent function name file path: /home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/security/security.c\nline range: \nfrom: 2285 to: 2303\ncurrent function name file path: /home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/xattr.c\nline range: \nfrom: 304 to: 334\ncurrent function name file path: /home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/fs/xattr.c\nline range: \nfrom: 275 to: 300\nLLM DISABLED\nCLOSE RANGE: 2\n/home/clexma/Desktop/fox3/fuzzing/ChatAnalyzer\npython3 chat_interface.py close security_inode_setxattr 2\n/home/clexma/Desktop/fox3/fuzzing/linuxRepo/line2addr\npython3 ./addr_extractor.py ./input_functions.txt\nfuzzing terminate, time bound reach\n'
+b'Traceback (most recent call last):\n  File "/home/clexma/Desktop/fox3/fuzzing/./run_experiment.py", line 128, in <module>\n    syzkaller_proc.wait(timeout=syzkaller_time_out)\n  File "/usr/lib/python3.10/subprocess.py", line 1209, in wait\n    return self._wait(timeout=timeout)\n  File "/usr/lib/python3.10/subprocess.py", line 1951, in _wait\n    raise TimeoutExpired(self.args, timeout)\nsubprocess.TimeoutExpired: Command \'[\'sudo\', \'-s\', \'./bin/syz-manager\', \'-config\', \'./my.cfg\']\' timed out after 7200 seconds\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File "/home/clexma/Desktop/fox3/fuzzing/./run_experiment.py", line 132, in <module>\n    kill_process_tree(syzkaller_proc.pid)\n  File "/home/clexma/Desktop/fox3/fuzzing/./run_experiment.py", line 14, in kill_process_tree\n    os.kill(child.pid, sig)\nPermissionError: [Errno 1] Operation not permitted\n'
+python3 ./run_experiment.py copy 4

@@ -1,0 +1,895 @@
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
+----- addresses:
+ffffffff836d3573
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+int nlen = skb->len - len;
+----- addresses:
+ffffffff836d3573
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+struct sk_buff *buff;
+----- addresses:
+ffffffff836d3573
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+u8 flags;
+----- addresses:
+ffffffff836d3573
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+DEBUG_NET_WARN_ON_ONCE(skb->len != skb->data_len);
+----- addresses:
+ffffffff836d3573
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+buff = tcp_stream_alloc_skb(sk, gfp, true);
+----- addresses:
+ffffffff836d3573
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+if (unlikely(!buff))
+----- addresses:
+ffffffff836d358f
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+skb_copy_decrypted(buff, skb);
+----- addresses:
+ffffffff836d3598
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+mptcp_skb_ext_copy(buff, skb);
+----- addresses:
+ffffffff836d3598
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+sk_wmem_queued_add(sk, buff->truesize);
+----- addresses:
+ffffffff836d35c3
+ffffffff836d359d
+ffffffff836d3598
+ffffffff836d5693
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+sk_mem_charge(sk, buff->truesize);
+----- addresses:
+ffffffff836d35fa
+ffffffff836d35f7
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+buff->truesize += nlen;
+----- addresses:
+ffffffff836d367c
+ffffffff836d3681
+ffffffff836d3675
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+skb->truesize -= nlen;
+----- addresses:
+ffffffff836d3691
+ffffffff836d36ba
+ffffffff836d5750
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(buff)->seq = TCP_SKB_CB(skb)->seq + len;
+----- addresses:
+ffffffff836d5746
+ffffffff836d36e8
+ffffffff836d36df
+ffffffff836d36c3
+ffffffff836d36db
+ffffffff836d3704
+ffffffff836d36b6
+ffffffff836d577d
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(buff)->end_seq = TCP_SKB_CB(skb)->end_seq;
+----- addresses:
+ffffffff836d3729
+ffffffff836d3756
+ffffffff836d3731
+ffffffff836d3700
+ffffffff836d372d
+ffffffff836d5773
+ffffffff836d5769
+ffffffff836d3708
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(skb)->end_seq = TCP_SKB_CB(buff)->seq;
+----- addresses:
+ffffffff836d375a
+ffffffff836d375d
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+flags = TCP_SKB_CB(skb)->tcp_flags;
+----- addresses:
+ffffffff836d375a
+ffffffff836d3752
+ffffffff836d575f
+ffffffff836d3761
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(skb)->tcp_flags = flags & ~(TCPHDR_FIN | TCPHDR_PSH);
+----- addresses:
+ffffffff836d3788
+ffffffff836d3781
+ffffffff836d378e
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(buff)->tcp_flags = flags;
+----- addresses:
+ffffffff836d3781
+ffffffff836d3794
+ffffffff836d378b
+ffffffff836d5689
+ffffffff836d37b0
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_skb_fragment_eor(skb, buff);
+----- addresses:
+ffffffff836d37b4
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+skb_split(skb, buff, len);
+----- addresses:
+ffffffff836d3822
+ffffffff836d3812
+ffffffff836d3808
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_fragment_tstamp(skb, buff);
+----- addresses:
+ffffffff836d3827
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_set_skb_tso_segs(skb, mss_now);
+----- addresses:
+ffffffff836d3832
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_set_skb_tso_segs(buff, mss_now);
+----- addresses:
+ffffffff836d38c2
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+__skb_header_release(buff);
+----- addresses:
+ffffffff836d3951
+----- funcname:
+tso_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_insert_write_queue_after(skb, buff, sk, TCP_FRAG_IN_WRITE_QUEUE);
+----- addresses:
+ffffffff836d3a00
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+{
+----- addresses:
+ffffffff836c7ca0
+ffffffff836c7cbd
+ffffffff836c7cc1
+ffffffff836c7ca4
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+struct tcp_sock *tp = tcp_sk(sk);
+----- addresses:
+ffffffff836c7cbd
+ffffffff836c7ca4
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+struct sk_buff *buff;
+----- addresses:
+ffffffff836c7cbd
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+int old_factor;
+----- addresses:
+ffffffff836c7cbd
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+long limit;
+----- addresses:
+ffffffff836c7cbd
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+int nlen;
+----- addresses:
+ffffffff836c7cbd
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+u8 flags;
+----- addresses:
+ffffffff836c7cbd
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+if (WARN_ON(len > skb->len))
+----- addresses:
+ffffffff836c7cfe
+ffffffff836c8963
+ffffffff836c7cc5
+ffffffff836c88a7
+ffffffff836c7cf4
+ffffffff836c88b0
+ffffffff836c7cca
+ffffffff836c88ad
+ffffffff836c7cbd
+ffffffff836c88ac
+ffffffff836c88af
+ffffffff836c8972
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+return -EINVAL;
+----- addresses:
+ffffffff836c88b6
+ffffffff836c88b0
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+DEBUG_NET_WARN_ON_ONCE(skb_headlen(skb));
+----- addresses:
+ffffffff836c7cfe
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+limit = sk->sk_sndbuf + 2 * SKB_TRUESIZE(GSO_LEGACY_MAX_SIZE);
+----- addresses:
+ffffffff836c7cfe
+ffffffff836c7d03
+ffffffff836c7d53
+ffffffff836c7d3b
+ffffffff836c899b
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+if (unlikely((sk->sk_wmem_queued >> 1) > limit &&
+----- addresses:
+ffffffff836c88e1
+ffffffff836c8992
+ffffffff836c7d5a
+ffffffff836c7d74
+ffffffff836c88bb
+ffffffff836c88f8
+ffffffff836c8986
+ffffffff836c7d34
+ffffffff836c7d6a
+ffffffff836c7d42
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPWQUEUETOOBIG);
+----- addresses:
+ffffffff836c8958
+ffffffff836c8bc9
+ffffffff836c8928
+ffffffff836c8901
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+return -ENOMEM;
+----- addresses:
+ffffffff836c895e
+ffffffff836c8884
+ffffffff836c8958
+ffffffff836c888a
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+if (skb_unclone_keeptruesize(skb, gfp))
+----- addresses:
+ffffffff836c7d7d
+ffffffff836c887c
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+buff = tcp_stream_alloc_skb(sk, gfp, true);
+----- addresses:
+ffffffff836c7dca
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+if (!buff)
+----- addresses:
+ffffffff836c7de2
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+skb_copy_decrypted(buff, skb);
+----- addresses:
+ffffffff836c7deb
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+mptcp_skb_ext_copy(buff, skb);
+----- addresses:
+ffffffff836c7deb
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+sk_wmem_queued_add(sk, buff->truesize);
+----- addresses:
+ffffffff836c8ab9
+ffffffff836c7df0
+ffffffff836c7deb
+ffffffff836c7e1b
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+sk_mem_charge(sk, buff->truesize);
+----- addresses:
+ffffffff836c7e59
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+nlen = skb->len - len;
+----- addresses:
+ffffffff836c7ef6
+ffffffff836c8a97
+ffffffff836c7f2c
+ffffffff836c7f33
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+buff->truesize += nlen;
+----- addresses:
+ffffffff836c7f22
+ffffffff836c7f36
+ffffffff836c7f39
+ffffffff836c7eec
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+skb->truesize -= nlen;
+----- addresses:
+ffffffff836c7f22
+ffffffff836c8a8d
+ffffffff836c7f2f
+ffffffff836c7f64
+ffffffff836c7f40
+ffffffff836c7f5e
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(buff)->seq = TCP_SKB_CB(skb)->seq + len;
+----- addresses:
+ffffffff836c8a83
+ffffffff836c7f5a
+ffffffff836c7fbc
+ffffffff836c7f90
+ffffffff836c7f6e
+ffffffff836c7fa5
+ffffffff836c7fa8
+ffffffff836c8a79
+ffffffff836c7f61
+ffffffff836c7f94
+ffffffff836c7f8c
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(buff)->end_seq = TCP_SKB_CB(skb)->end_seq;
+----- addresses:
+ffffffff836c7ff2
+ffffffff836c8a6f
+ffffffff836c7fb8
+ffffffff836c8a5a
+ffffffff836c7fea
+ffffffff836c8024
+ffffffff836c7fee
+ffffffff836c7fc0
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(skb)->end_seq = TCP_SKB_CB(buff)->seq;
+----- addresses:
+ffffffff836c8035
+ffffffff836c8028
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+flags = TCP_SKB_CB(skb)->tcp_flags;
+----- addresses:
+ffffffff836c8039
+ffffffff836c8028
+ffffffff836c8a50
+ffffffff836c8020
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(skb)->tcp_flags = flags & ~(TCPHDR_FIN | TCPHDR_PSH);
+----- addresses:
+ffffffff836c805f
+ffffffff836c8058
+ffffffff836c8066
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(buff)->tcp_flags = flags;
+----- addresses:
+ffffffff836c806d
+ffffffff836c8062
+ffffffff836c8091
+ffffffff836c8058
+ffffffff836c8a46
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(buff)->sacked = TCP_SKB_CB(skb)->sacked;
+----- addresses:
+ffffffff836c808d
+ffffffff836c80f0
+ffffffff836c8a32
+ffffffff836c80b4
+ffffffff836c80c0
+ffffffff836c8095
+ffffffff836c80bc
+ffffffff836c8a3c
+ffffffff836c80c5
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_skb_fragment_eor(skb, buff);
+----- addresses:
+ffffffff836c80f4
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+skb_split(skb, buff, len);
+----- addresses:
+ffffffff836c8176
+ffffffff836c815b
+ffffffff836c8164
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+skb_set_delivery_time(buff, skb->tstamp, true);
+----- addresses:
+ffffffff836c8ae9
+ffffffff836c819e
+ffffffff836c817b
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_fragment_tstamp(skb, buff);
+----- addresses:
+ffffffff836c8232
+ffffffff836c8245
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+old_factor = tcp_skb_pcount(skb);
+----- addresses:
+ffffffff836c824a
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_set_skb_tso_segs(skb, mss_now);
+----- addresses:
+ffffffff836c827e
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_set_skb_tso_segs(buff, mss_now);
+----- addresses:
+ffffffff836c830b
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+TCP_SKB_CB(buff)->tx = TCP_SKB_CB(skb)->tx;
+----- addresses:
+ffffffff836c83a5
+ffffffff836c839c
+ffffffff836c844b
+ffffffff836c845a
+ffffffff836c8b39
+ffffffff836c8b0c
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+if (!before(tp->snd_nxt, TCP_SKB_CB(buff)->end_seq)) {
+----- addresses:
+ffffffff836c8466
+ffffffff836c8447
+ffffffff836c8453
+ffffffff836c89c6
+ffffffff836c84be
+ffffffff836c89d0
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+int diff = old_factor - tcp_skb_pcount(skb) -
+----- addresses:
+ffffffff836c84d6
+ffffffff836c84c6
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+if (diff)
+----- addresses:
+ffffffff836c84e1
+ffffffff836c84e7
+ffffffff836c84de
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_adjust_pcount(sk, skb, diff);
+----- addresses:
+ffffffff836c88a7
+ffffffff836c888f
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+__skb_header_release(buff);
+----- addresses:
+ffffffff836c84e7
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_insert_write_queue_after(skb, buff, sk, tcp_queue);
+----- addresses:
+ffffffff836c85c6
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+if (tcp_queue == TCP_FRAG_IN_RTX_QUEUE)
+----- addresses:
+ffffffff836c86ea
+ffffffff836c86ae
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+list_add(&buff->tcp_tsorted_anchor, &skb->tcp_tsorted_anchor);
+----- addresses:
+ffffffff836c86f5
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+return 0;
+----- addresses:
+ffffffff836c8bc1
+ffffffff836c8786
+ffffffff836c86a2
+----- funcname:
+tcp_fragment
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+}
+----- addresses:
+ffffffff836c86c9
+ffffffff836c86b3
+ffffffff836c86d6
+ffffffff836c86d1
+ffffffff836c86c2
+----- funcname:
+skb_queue_head
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+{
+----- addresses:
+ffffffff83373614
+ffffffff83373600
+ffffffff83373604
+----- funcname:
+skb_queue_head
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+unsigned long flags;
+----- addresses:
+ffffffff83373604
+----- funcname:
+skb_queue_head
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+spin_lock_irqsave(&list->lock, flags);
+----- addresses:
+ffffffff8337362b
+ffffffff8337361d
+ffffffff83373628
+ffffffff83373604
+----- funcname:
+skb_queue_head
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+__skb_queue_head(list, newsk);
+----- addresses:
+ffffffff8337362b
+----- funcname:
+skb_queue_head
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+spin_unlock_irqrestore(&list->lock, flags);
+----- addresses:
+ffffffff833736f0
+----- funcname:
+skb_queue_head
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+}
+----- addresses:
+ffffffff833736f5
+ffffffff833736f6
+ffffffff833736f0
+----- funcname:
+skb_append
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+{
+----- addresses:
+ffffffff83373a5a
+ffffffff83373a53
+ffffffff83373a40
+----- funcname:
+skb_append
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+unsigned long flags;
+----- addresses:
+ffffffff83373a5a
+----- funcname:
+skb_append
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+spin_lock_irqsave(&list->lock, flags);
+----- addresses:
+ffffffff83373a5a
+ffffffff83373a71
+ffffffff83373a6e
+ffffffff83373a63
+----- funcname:
+skb_append
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+__skb_queue_after(list, old, newsk);
+----- addresses:
+ffffffff83373a71
+----- funcname:
+skb_append
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+spin_unlock_irqrestore(&list->lock, flags);
+----- addresses:
+ffffffff83373b3e
+----- funcname:
+skb_append
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/core/skbuff.c
+----- source:
+}
+----- addresses:
+ffffffff83373b44
+ffffffff83373b46
+ffffffff83373b43
+ffffffff83373b3e
+----- funcname:
+tcp_insert_write_queue_after
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+static void tcp_insert_write_queue_after(struct sk_buff *skb,
+----- addresses:
+ffffffff836c85ce
+ffffffff836c85c6
+ffffffff836d3a00
+----- funcname:
+tcp_insert_write_queue_after
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+if (tcp_queue == TCP_FRAG_IN_WRITE_QUEUE)
+----- addresses:
+ffffffff836c85bb
+ffffffff836c85c6
+ffffffff836d3a00
+----- funcname:
+tcp_insert_write_queue_after
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+__skb_queue_after(&sk->sk_write_queue, skb, buff);
+----- addresses:
+ffffffff836c85ce
+ffffffff836d3a00
+----- funcname:
+tcp_insert_write_queue_after
+----- filepath:
+/home/clexma/Desktop/fox3/fuzzing/linuxRepo//linux_new/net/ipv4/tcp_output.c
+----- source:
+tcp_rbtree_insert(&sk->tcp_rtx_queue, buff);
+----- addresses:
+ffffffff836c86d6
+ffffffff836c86db
+ffffffff836c86ea

@@ -1,0 +1,6954 @@
+static int selinux_bprm_creds_for_exec(struct linux_binprm *bprm)
+{
+	const struct task_security_struct *old_tsec;
+	struct task_security_struct *new_tsec;
+	struct inode_security_struct *isec;
+	struct common_audit_data ad;
+	struct inode *inode = file_inode(bprm->file);
+	int rc;
+
+	/* SELinux context only depends on initial program or script and not
+	 * the script interpreter */
+
+	old_tsec = selinux_cred(current_cred());
+	new_tsec = selinux_cred(bprm->cred);
+	isec = inode_security(inode);
+
+	/* Default to the current task SID. */
+	new_tsec->sid = old_tsec->sid;
+	new_tsec->osid = old_tsec->sid;
+
+	/* Reset fs, key, and sock SIDs on execve. */
+	new_tsec->create_sid = 0;
+	new_tsec->keycreate_sid = 0;
+	new_tsec->sockcreate_sid = 0;
+
+	/*
+	 * Before policy is loaded, label any task outside kernel space
+	 * as SECINITSID_INIT, so that any userspace tasks surviving from
+	 * early boot end up with a label different from SECINITSID_KERNEL
+	 * (if the policy chooses to set SECINITSID_INIT != SECINITSID_KERNEL).
+	 */
+	if (!selinux_initialized()) {
+		new_tsec->sid = SECINITSID_INIT;
+		/* also clear the exec_sid just in case */
+		new_tsec->exec_sid = 0;
+		return 0;
+	}
+
+	if (old_tsec->exec_sid) {
+		new_tsec->sid = old_tsec->exec_sid;
+		/* Reset exec SID on execve. */
+		new_tsec->exec_sid = 0;
+
+		/* Fail on NNP or nosuid if not an allowed transition. */
+		rc = check_nnp_nosuid(bprm, old_tsec, new_tsec);
+		if (rc)
+			return rc;
+	} else {
+		/* Check for a default transition on this program. */
+		rc = security_transition_sid(old_tsec->sid,
+					     isec->sid, SECCLASS_PROCESS, NULL,
+					     &new_tsec->sid);
+		if (rc)
+			return rc;
+
+		/*
+		 * Fallback to old SID on NNP or nosuid if not an allowed
+		 * transition.
+		 */
+		rc = check_nnp_nosuid(bprm, old_tsec, new_tsec);
+		if (rc)
+			new_tsec->sid = old_tsec->sid;
+	}
+
+	ad.type = LSM_AUDIT_DATA_FILE;
+	ad.u.file = bprm->file;
+
+	if (new_tsec->sid == old_tsec->sid) {
+		rc = avc_has_perm(old_tsec->sid, isec->sid,
+				  SECCLASS_FILE, FILE__EXECUTE_NO_TRANS, &ad);
+		if (rc)
+			return rc;
+	} else {
+		/* Check permissions for the transition. */
+		rc = avc_has_perm(old_tsec->sid, new_tsec->sid,
+				  SECCLASS_PROCESS, PROCESS__TRANSITION, &ad);
+		if (rc)
+			return rc;
+
+		rc = avc_has_perm(new_tsec->sid, isec->sid,
+				  SECCLASS_FILE, FILE__ENTRYPOINT, &ad);
+		if (rc)
+			return rc;
+
+		/* Check for shared state */
+		if (bprm->unsafe & LSM_UNSAFE_SHARE) {
+			rc = avc_has_perm(old_tsec->sid, new_tsec->sid,
+					  SECCLASS_PROCESS, PROCESS__SHARE,
+					  NULL);
+			if (rc)
+				return -EPERM;
+		}
+
+		/* Make sure that anyone attempting to ptrace over a task that
+		 * changes its SID has the appropriate permit */
+		if (bprm->unsafe & LSM_UNSAFE_PTRACE) {
+			u32 ptsid = ptrace_parent_sid();
+			if (ptsid != 0) {
+				rc = avc_has_perm(ptsid, new_tsec->sid,
+						  SECCLASS_PROCESS,
+						  PROCESS__PTRACE, NULL);
+				if (rc)
+					return -EPERM;
+			}
+		}
+
+		/* Clear any possibly unsafe personality bits on exec: */
+		bprm->per_clear |= PER_CLEAR_ON_SETID;
+
+		/* Enable secure mode for SIDs transitions unless
+		   the noatsecure permission is granted between
+		   the two SIDs, i.e. ahp returns 0. */
+		rc = avc_has_perm(old_tsec->sid, new_tsec->sid,
+				  SECCLASS_PROCESS, PROCESS__NOATSECURE,
+				  NULL);
+		bprm->secureexec |= !!rc;
+	}
+
+	return 0;
+}
+static int check_nnp_nosuid(const struct linux_binprm *bprm,
+			    const struct task_security_struct *old_tsec,
+			    const struct task_security_struct *new_tsec)
+{
+	int nnp = (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS);
+	int nosuid = !mnt_may_suid(bprm->file->f_path.mnt);
+	int rc;
+	u32 av;
+
+	if (!nnp && !nosuid)
+		return 0; /* neither NNP nor nosuid */
+
+	if (new_tsec->sid == old_tsec->sid)
+		return 0; /* No change in credentials */
+
+	/*
+	 * If the policy enables the nnp_nosuid_transition policy capability,
+	 * then we permit transitions under NNP or nosuid if the
+	 * policy allows the corresponding permission between
+	 * the old and new contexts.
+	 */
+	if (selinux_policycap_nnp_nosuid_transition()) {
+		av = 0;
+		if (nnp)
+			av |= PROCESS2__NNP_TRANSITION;
+		if (nosuid)
+			av |= PROCESS2__NOSUID_TRANSITION;
+		rc = avc_has_perm(old_tsec->sid, new_tsec->sid,
+				  SECCLASS_PROCESS2, av, NULL);
+		if (!rc)
+			return 0;
+	}
+
+	/*
+	 * We also permit NNP or nosuid transitions to bounded SIDs,
+	 * i.e. SIDs that are guaranteed to only be allowed a subset
+	 * of the permissions of the current SID.
+	 */
+	rc = security_bounded_transition(old_tsec->sid,
+					 new_tsec->sid);
+	if (!rc)
+		return 0;
+
+	/*
+	 * On failure, preserve the errno values for NNP vs nosuid.
+	 * NNP:  Operation not permitted for caller.
+	 * nosuid:  Permission denied to file.
+	 */
+	if (nnp)
+		return -EPERM;
+	return -EACCES;
+}
+int security_bounded_transition(u32 old_sid, u32 new_sid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *old_entry, *new_entry;
+	struct type_datum *type;
+	u32 index;
+	int rc;
+
+	if (!selinux_initialized())
+		return 0;
+
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	rc = -EINVAL;
+	old_entry = sidtab_search_entry(sidtab, old_sid);
+	if (!old_entry) {
+		pr_err("SELinux: %s: unrecognized SID %u\n",
+		       __func__, old_sid);
+		goto out;
+	}
+
+	rc = -EINVAL;
+	new_entry = sidtab_search_entry(sidtab, new_sid);
+	if (!new_entry) {
+		pr_err("SELinux: %s: unrecognized SID %u\n",
+		       __func__, new_sid);
+		goto out;
+	}
+
+	rc = 0;
+	/* type/domain unchanged */
+	if (old_entry->context.type == new_entry->context.type)
+		goto out;
+
+	index = new_entry->context.type;
+	while (true) {
+		type = policydb->type_val_to_struct[index - 1];
+		BUG_ON(!type);
+
+		/* not bounded anymore */
+		rc = -EPERM;
+		if (!type->bounds)
+			break;
+
+		/* @newsid is bounded by @oldsid */
+		rc = 0;
+		if (type->bounds == old_entry->context.type)
+			break;
+
+		index = type->bounds;
+	}
+
+	if (rc) {
+		char *old_name = NULL;
+		char *new_name = NULL;
+		u32 length;
+
+		if (!sidtab_entry_to_string(policydb, sidtab, old_entry,
+					    &old_name, &length) &&
+		    !sidtab_entry_to_string(policydb, sidtab, new_entry,
+					    &new_name, &length)) {
+			audit_log(audit_context(),
+				  GFP_ATOMIC, AUDIT_SELINUX_ERR,
+				  "op=security_bounded_transition "
+				  "seresult=denied "
+				  "oldcontext=%s newcontext=%s",
+				  old_name, new_name);
+		}
+		kfree(new_name);
+		kfree(old_name);
+	}
+out:
+	rcu_read_unlock();
+
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_setprocattr(const char *name, void *value, size_t size)
+{
+	int attr = lsm_name_to_attr(name);
+
+	if (attr)
+		return selinux_lsm_setattr(attr, value, size);
+	return -EINVAL;
+}
+static int selinux_lsm_setattr(u64 attr, void *value, size_t size)
+{
+	struct task_security_struct *tsec;
+	struct cred *new;
+	u32 mysid = current_sid(), sid = 0, ptsid;
+	int error;
+	char *str = value;
+
+	/*
+	 * Basic control over ability to set these attributes at all.
+	 */
+	switch (attr) {
+	case LSM_ATTR_EXEC:
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETEXEC, NULL);
+		break;
+	case LSM_ATTR_FSCREATE:
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETFSCREATE, NULL);
+		break;
+	case LSM_ATTR_KEYCREATE:
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETKEYCREATE, NULL);
+		break;
+	case LSM_ATTR_SOCKCREATE:
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETSOCKCREATE, NULL);
+		break;
+	case LSM_ATTR_CURRENT:
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETCURRENT, NULL);
+		break;
+	default:
+		error = -EOPNOTSUPP;
+		break;
+	}
+	if (error)
+		return error;
+
+	/* Obtain a SID for the context, if one was specified. */
+	if (size && str[0] && str[0] != '\n') {
+		if (str[size-1] == '\n') {
+			str[size-1] = 0;
+			size--;
+		}
+		error = security_context_to_sid(value, size,
+						&sid, GFP_KERNEL);
+		if (error == -EINVAL && attr == LSM_ATTR_FSCREATE) {
+			if (!has_cap_mac_admin(true)) {
+				struct audit_buffer *ab;
+				size_t audit_size;
+
+				/* We strip a nul only if it is at the end,
+				 * otherwise the context contains a nul and
+				 * we should audit that */
+				if (str[size - 1] == '\0')
+					audit_size = size - 1;
+				else
+					audit_size = size;
+				ab = audit_log_start(audit_context(),
+						     GFP_ATOMIC,
+						     AUDIT_SELINUX_ERR);
+				if (!ab)
+					return error;
+				audit_log_format(ab, "op=fscreate invalid_context=");
+				audit_log_n_untrustedstring(ab, value,
+							    audit_size);
+				audit_log_end(ab);
+
+				return error;
+			}
+			error = security_context_to_sid_force(value, size,
+							&sid);
+		}
+		if (error)
+			return error;
+	}
+
+	new = prepare_creds();
+	if (!new)
+		return -ENOMEM;
+
+	/* Permission checking based on the specified context is
+	   performed during the actual operation (execve,
+	   open/mkdir/...), when we know the full context of the
+	   operation.  See selinux_bprm_creds_for_exec for the execve
+	   checks and may_create for the file creation checks. The
+	   operation will then fail if the context is not permitted. */
+	tsec = selinux_cred(new);
+	if (attr == LSM_ATTR_EXEC) {
+		tsec->exec_sid = sid;
+	} else if (attr == LSM_ATTR_FSCREATE) {
+		tsec->create_sid = sid;
+	} else if (attr == LSM_ATTR_KEYCREATE) {
+		if (sid) {
+			error = avc_has_perm(mysid, sid,
+					     SECCLASS_KEY, KEY__CREATE, NULL);
+			if (error)
+				goto abort_change;
+		}
+		tsec->keycreate_sid = sid;
+	} else if (attr == LSM_ATTR_SOCKCREATE) {
+		tsec->sockcreate_sid = sid;
+	} else if (attr == LSM_ATTR_CURRENT) {
+		error = -EINVAL;
+		if (sid == 0)
+			goto abort_change;
+
+		if (!current_is_single_threaded()) {
+			error = security_bounded_transition(tsec->sid, sid);
+			if (error)
+				goto abort_change;
+		}
+
+		/* Check permissions for the transition. */
+		error = avc_has_perm(tsec->sid, sid, SECCLASS_PROCESS,
+				     PROCESS__DYNTRANSITION, NULL);
+		if (error)
+			goto abort_change;
+
+		/* Check for ptracing, and update the task SID if ok.
+		   Otherwise, leave SID unchanged and fail. */
+		ptsid = ptrace_parent_sid();
+		if (ptsid != 0) {
+			error = avc_has_perm(ptsid, sid, SECCLASS_PROCESS,
+					     PROCESS__PTRACE, NULL);
+			if (error)
+				goto abort_change;
+		}
+
+		tsec->sid = sid;
+	} else {
+		error = -EINVAL;
+		goto abort_change;
+	}
+
+	commit_creds(new);
+	return size;
+
+abort_change:
+	abort_creds(new);
+	return error;
+}
+int security_bounded_transition(u32 old_sid, u32 new_sid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *old_entry, *new_entry;
+	struct type_datum *type;
+	u32 index;
+	int rc;
+
+	if (!selinux_initialized())
+		return 0;
+
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	rc = -EINVAL;
+	old_entry = sidtab_search_entry(sidtab, old_sid);
+	if (!old_entry) {
+		pr_err("SELinux: %s: unrecognized SID %u\n",
+		       __func__, old_sid);
+		goto out;
+	}
+
+	rc = -EINVAL;
+	new_entry = sidtab_search_entry(sidtab, new_sid);
+	if (!new_entry) {
+		pr_err("SELinux: %s: unrecognized SID %u\n",
+		       __func__, new_sid);
+		goto out;
+	}
+
+	rc = 0;
+	/* type/domain unchanged */
+	if (old_entry->context.type == new_entry->context.type)
+		goto out;
+
+	index = new_entry->context.type;
+	while (true) {
+		type = policydb->type_val_to_struct[index - 1];
+		BUG_ON(!type);
+
+		/* not bounded anymore */
+		rc = -EPERM;
+		if (!type->bounds)
+			break;
+
+		/* @newsid is bounded by @oldsid */
+		rc = 0;
+		if (type->bounds == old_entry->context.type)
+			break;
+
+		index = type->bounds;
+	}
+
+	if (rc) {
+		char *old_name = NULL;
+		char *new_name = NULL;
+		u32 length;
+
+		if (!sidtab_entry_to_string(policydb, sidtab, old_entry,
+					    &old_name, &length) &&
+		    !sidtab_entry_to_string(policydb, sidtab, new_entry,
+					    &new_name, &length)) {
+			audit_log(audit_context(),
+				  GFP_ATOMIC, AUDIT_SELINUX_ERR,
+				  "op=security_bounded_transition "
+				  "seresult=denied "
+				  "oldcontext=%s newcontext=%s",
+				  old_name, new_name);
+		}
+		kfree(new_name);
+		kfree(old_name);
+	}
+out:
+	rcu_read_unlock();
+
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_setselfattr(unsigned int attr, struct lsm_ctx *ctx,
+			       u32 size, u32 flags)
+{
+	int rc;
+
+	rc = selinux_lsm_setattr(attr, ctx->ctx, ctx->ctx_len);
+	if (rc > 0)
+		return 0;
+	return rc;
+}
+static int selinux_lsm_setattr(u64 attr, void *value, size_t size)
+{
+	struct task_security_struct *tsec;
+	struct cred *new;
+	u32 mysid = current_sid(), sid = 0, ptsid;
+	int error;
+	char *str = value;
+
+	/*
+	 * Basic control over ability to set these attributes at all.
+	 */
+	switch (attr) {
+	case LSM_ATTR_EXEC:
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETEXEC, NULL);
+		break;
+	case LSM_ATTR_FSCREATE:
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETFSCREATE, NULL);
+		break;
+	case LSM_ATTR_KEYCREATE:
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETKEYCREATE, NULL);
+		break;
+	case LSM_ATTR_SOCKCREATE:
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETSOCKCREATE, NULL);
+		break;
+	case LSM_ATTR_CURRENT:
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETCURRENT, NULL);
+		break;
+	default:
+		error = -EOPNOTSUPP;
+		break;
+	}
+	if (error)
+		return error;
+
+	/* Obtain a SID for the context, if one was specified. */
+	if (size && str[0] && str[0] != '\n') {
+		if (str[size-1] == '\n') {
+			str[size-1] = 0;
+			size--;
+		}
+		error = security_context_to_sid(value, size,
+						&sid, GFP_KERNEL);
+		if (error == -EINVAL && attr == LSM_ATTR_FSCREATE) {
+			if (!has_cap_mac_admin(true)) {
+				struct audit_buffer *ab;
+				size_t audit_size;
+
+				/* We strip a nul only if it is at the end,
+				 * otherwise the context contains a nul and
+				 * we should audit that */
+				if (str[size - 1] == '\0')
+					audit_size = size - 1;
+				else
+					audit_size = size;
+				ab = audit_log_start(audit_context(),
+						     GFP_ATOMIC,
+						     AUDIT_SELINUX_ERR);
+				if (!ab)
+					return error;
+				audit_log_format(ab, "op=fscreate invalid_context=");
+				audit_log_n_untrustedstring(ab, value,
+							    audit_size);
+				audit_log_end(ab);
+
+				return error;
+			}
+			error = security_context_to_sid_force(value, size,
+							&sid);
+		}
+		if (error)
+			return error;
+	}
+
+	new = prepare_creds();
+	if (!new)
+		return -ENOMEM;
+
+	/* Permission checking based on the specified context is
+	   performed during the actual operation (execve,
+	   open/mkdir/...), when we know the full context of the
+	   operation.  See selinux_bprm_creds_for_exec for the execve
+	   checks and may_create for the file creation checks. The
+	   operation will then fail if the context is not permitted. */
+	tsec = selinux_cred(new);
+	if (attr == LSM_ATTR_EXEC) {
+		tsec->exec_sid = sid;
+	} else if (attr == LSM_ATTR_FSCREATE) {
+		tsec->create_sid = sid;
+	} else if (attr == LSM_ATTR_KEYCREATE) {
+		if (sid) {
+			error = avc_has_perm(mysid, sid,
+					     SECCLASS_KEY, KEY__CREATE, NULL);
+			if (error)
+				goto abort_change;
+		}
+		tsec->keycreate_sid = sid;
+	} else if (attr == LSM_ATTR_SOCKCREATE) {
+		tsec->sockcreate_sid = sid;
+	} else if (attr == LSM_ATTR_CURRENT) {
+		error = -EINVAL;
+		if (sid == 0)
+			goto abort_change;
+
+		if (!current_is_single_threaded()) {
+			error = security_bounded_transition(tsec->sid, sid);
+			if (error)
+				goto abort_change;
+		}
+
+		/* Check permissions for the transition. */
+		error = avc_has_perm(tsec->sid, sid, SECCLASS_PROCESS,
+				     PROCESS__DYNTRANSITION, NULL);
+		if (error)
+			goto abort_change;
+
+		/* Check for ptracing, and update the task SID if ok.
+		   Otherwise, leave SID unchanged and fail. */
+		ptsid = ptrace_parent_sid();
+		if (ptsid != 0) {
+			error = avc_has_perm(ptsid, sid, SECCLASS_PROCESS,
+					     PROCESS__PTRACE, NULL);
+			if (error)
+				goto abort_change;
+		}
+
+		tsec->sid = sid;
+	} else {
+		error = -EINVAL;
+		goto abort_change;
+	}
+
+	commit_creds(new);
+	return size;
+
+abort_change:
+	abort_creds(new);
+	return error;
+}
+int security_bounded_transition(u32 old_sid, u32 new_sid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *old_entry, *new_entry;
+	struct type_datum *type;
+	u32 index;
+	int rc;
+
+	if (!selinux_initialized())
+		return 0;
+
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	rc = -EINVAL;
+	old_entry = sidtab_search_entry(sidtab, old_sid);
+	if (!old_entry) {
+		pr_err("SELinux: %s: unrecognized SID %u\n",
+		       __func__, old_sid);
+		goto out;
+	}
+
+	rc = -EINVAL;
+	new_entry = sidtab_search_entry(sidtab, new_sid);
+	if (!new_entry) {
+		pr_err("SELinux: %s: unrecognized SID %u\n",
+		       __func__, new_sid);
+		goto out;
+	}
+
+	rc = 0;
+	/* type/domain unchanged */
+	if (old_entry->context.type == new_entry->context.type)
+		goto out;
+
+	index = new_entry->context.type;
+	while (true) {
+		type = policydb->type_val_to_struct[index - 1];
+		BUG_ON(!type);
+
+		/* not bounded anymore */
+		rc = -EPERM;
+		if (!type->bounds)
+			break;
+
+		/* @newsid is bounded by @oldsid */
+		rc = 0;
+		if (type->bounds == old_entry->context.type)
+			break;
+
+		index = type->bounds;
+	}
+
+	if (rc) {
+		char *old_name = NULL;
+		char *new_name = NULL;
+		u32 length;
+
+		if (!sidtab_entry_to_string(policydb, sidtab, old_entry,
+					    &old_name, &length) &&
+		    !sidtab_entry_to_string(policydb, sidtab, new_entry,
+					    &new_name, &length)) {
+			audit_log(audit_context(),
+				  GFP_ATOMIC, AUDIT_SELINUX_ERR,
+				  "op=security_bounded_transition "
+				  "seresult=denied "
+				  "oldcontext=%s newcontext=%s",
+				  old_name, new_name);
+		}
+		kfree(new_name);
+		kfree(old_name);
+	}
+out:
+	rcu_read_unlock();
+
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_relabel(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	u32 ssid, tsid, newsid;
+	u16 tclass;
+	ssize_t length;
+	char *newcon = NULL;
+	u32 len;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_RELABEL,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass) != 3)
+		goto out;
+
+	length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_change_sid(ssid, tsid, tclass, &newsid);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(newsid, &newcon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT)
+		goto out;
+
+	memcpy(buf, newcon, len);
+	length = len;
+out:
+	kfree(newcon);
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+int security_change_sid(u32 ssid,
+			u32 tsid,
+			u16 tclass,
+			u32 *out_sid)
+{
+	return security_compute_sid(ssid, tsid, tclass, AVTAB_CHANGE, NULL,
+				    out_sid, false);
+}
+static int security_compute_sid(u32 ssid,
+				u32 tsid,
+				u16 orig_tclass,
+				u16 specified,
+				const char *objname,
+				u32 *out_sid,
+				bool kern)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct class_datum *cladatum;
+	struct context *scontext, *tcontext, newcontext;
+	struct sidtab_entry *sentry, *tentry;
+	struct avtab_key avkey;
+	struct avtab_node *avnode, *node;
+	u16 tclass;
+	int rc = 0;
+	bool sock;
+
+	if (!selinux_initialized()) {
+		switch (orig_tclass) {
+		case SECCLASS_PROCESS: /* kernel value */
+			*out_sid = ssid;
+			break;
+		default:
+			*out_sid = tsid;
+			break;
+		}
+		goto out;
+	}
+
+retry:
+	cladatum = NULL;
+	context_init(&newcontext);
+
+	rcu_read_lock();
+
+	policy = rcu_dereference(selinux_state.policy);
+
+	if (kern) {
+		tclass = unmap_class(&policy->map, orig_tclass);
+		sock = security_is_socket_class(orig_tclass);
+	} else {
+		tclass = orig_tclass;
+		sock = security_is_socket_class(map_class(&policy->map,
+							  tclass));
+	}
+
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	sentry = sidtab_search_entry(sidtab, ssid);
+	if (!sentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, ssid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	tentry = sidtab_search_entry(sidtab, tsid);
+	if (!tentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, tsid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	scontext = &sentry->context;
+	tcontext = &tentry->context;
+
+	if (tclass && tclass <= policydb->p_classes.nprim)
+		cladatum = policydb->class_val_to_struct[tclass - 1];
+
+	/* Set the user identity. */
+	switch (specified) {
+	case AVTAB_TRANSITION:
+	case AVTAB_CHANGE:
+		if (cladatum && cladatum->default_user == DEFAULT_TARGET) {
+			newcontext.user = tcontext->user;
+		} else {
+			/* notice this gets both DEFAULT_SOURCE and unset */
+			/* Use the process user identity. */
+			newcontext.user = scontext->user;
+		}
+		break;
+	case AVTAB_MEMBER:
+		/* Use the related object owner. */
+		newcontext.user = tcontext->user;
+		break;
+	}
+
+	/* Set the role to default values. */
+	if (cladatum && cladatum->default_role == DEFAULT_SOURCE) {
+		newcontext.role = scontext->role;
+	} else if (cladatum && cladatum->default_role == DEFAULT_TARGET) {
+		newcontext.role = tcontext->role;
+	} else {
+		if ((tclass == policydb->process_class) || sock)
+			newcontext.role = scontext->role;
+		else
+			newcontext.role = OBJECT_R_VAL;
+	}
+
+	/* Set the type to default values. */
+	if (cladatum && cladatum->default_type == DEFAULT_SOURCE) {
+		newcontext.type = scontext->type;
+	} else if (cladatum && cladatum->default_type == DEFAULT_TARGET) {
+		newcontext.type = tcontext->type;
+	} else {
+		if ((tclass == policydb->process_class) || sock) {
+			/* Use the type of process. */
+			newcontext.type = scontext->type;
+		} else {
+			/* Use the type of the related object. */
+			newcontext.type = tcontext->type;
+		}
+	}
+
+	/* Look for a type transition/member/change rule. */
+	avkey.source_type = scontext->type;
+	avkey.target_type = tcontext->type;
+	avkey.target_class = tclass;
+	avkey.specified = specified;
+	avnode = avtab_search_node(&policydb->te_avtab, &avkey);
+
+	/* If no permanent rule, also check for enabled conditional rules */
+	if (!avnode) {
+		node = avtab_search_node(&policydb->te_cond_avtab, &avkey);
+		for (; node; node = avtab_search_node_next(node, specified)) {
+			if (node->key.specified & AVTAB_ENABLED) {
+				avnode = node;
+				break;
+			}
+		}
+	}
+
+	if (avnode) {
+		/* Use the type from the type transition/member/change rule. */
+		newcontext.type = avnode->datum.u.data;
+	}
+
+	/* if we have a objname this is a file trans check so check those rules */
+	if (objname)
+		filename_compute_type(policydb, &newcontext, scontext->type,
+				      tcontext->type, tclass, objname);
+
+	/* Check for class-specific changes. */
+	if (specified & AVTAB_TRANSITION) {
+		/* Look for a role transition rule. */
+		struct role_trans_datum *rtd;
+		struct role_trans_key rtk = {
+			.role = scontext->role,
+			.type = tcontext->type,
+			.tclass = tclass,
+		};
+
+		rtd = policydb_roletr_search(policydb, &rtk);
+		if (rtd)
+			newcontext.role = rtd->new_role;
+	}
+
+	/* Set the MLS attributes.
+	   This is done last because it may allocate memory. */
+	rc = mls_compute_sid(policydb, scontext, tcontext, tclass, specified,
+			     &newcontext, sock);
+	if (rc)
+		goto out_unlock;
+
+	/* Check the validity of the context. */
+	if (!policydb_context_isvalid(policydb, &newcontext)) {
+		rc = compute_sid_handle_invalid_context(policy, sentry,
+							tentry, tclass,
+							&newcontext);
+		if (rc)
+			goto out_unlock;
+	}
+	/* Obtain the sid for the context. */
+	rc = sidtab_context_to_sid(sidtab, &newcontext, out_sid);
+	if (rc == -ESTALE) {
+		rcu_read_unlock();
+		context_destroy(&newcontext);
+		goto retry;
+	}
+out_unlock:
+	rcu_read_unlock();
+	context_destroy(&newcontext);
+out:
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_member(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	u32 ssid, tsid, newsid;
+	u16 tclass;
+	ssize_t length;
+	char *newcon = NULL;
+	u32 len;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_MEMBER,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass) != 3)
+		goto out;
+
+	length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_member_sid(ssid, tsid, tclass, &newsid);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(newsid, &newcon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT) {
+		pr_err("SELinux: %s:  context size (%u) exceeds "
+			"payload max\n", __func__, len);
+		goto out;
+	}
+
+	memcpy(buf, newcon, len);
+	length = len;
+out:
+	kfree(newcon);
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+int security_member_sid(u32 ssid,
+			u32 tsid,
+			u16 tclass,
+			u32 *out_sid)
+{
+	return security_compute_sid(ssid, tsid, tclass,
+				    AVTAB_MEMBER, NULL,
+				    out_sid, false);
+}
+static int security_compute_sid(u32 ssid,
+				u32 tsid,
+				u16 orig_tclass,
+				u16 specified,
+				const char *objname,
+				u32 *out_sid,
+				bool kern)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct class_datum *cladatum;
+	struct context *scontext, *tcontext, newcontext;
+	struct sidtab_entry *sentry, *tentry;
+	struct avtab_key avkey;
+	struct avtab_node *avnode, *node;
+	u16 tclass;
+	int rc = 0;
+	bool sock;
+
+	if (!selinux_initialized()) {
+		switch (orig_tclass) {
+		case SECCLASS_PROCESS: /* kernel value */
+			*out_sid = ssid;
+			break;
+		default:
+			*out_sid = tsid;
+			break;
+		}
+		goto out;
+	}
+
+retry:
+	cladatum = NULL;
+	context_init(&newcontext);
+
+	rcu_read_lock();
+
+	policy = rcu_dereference(selinux_state.policy);
+
+	if (kern) {
+		tclass = unmap_class(&policy->map, orig_tclass);
+		sock = security_is_socket_class(orig_tclass);
+	} else {
+		tclass = orig_tclass;
+		sock = security_is_socket_class(map_class(&policy->map,
+							  tclass));
+	}
+
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	sentry = sidtab_search_entry(sidtab, ssid);
+	if (!sentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, ssid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	tentry = sidtab_search_entry(sidtab, tsid);
+	if (!tentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, tsid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	scontext = &sentry->context;
+	tcontext = &tentry->context;
+
+	if (tclass && tclass <= policydb->p_classes.nprim)
+		cladatum = policydb->class_val_to_struct[tclass - 1];
+
+	/* Set the user identity. */
+	switch (specified) {
+	case AVTAB_TRANSITION:
+	case AVTAB_CHANGE:
+		if (cladatum && cladatum->default_user == DEFAULT_TARGET) {
+			newcontext.user = tcontext->user;
+		} else {
+			/* notice this gets both DEFAULT_SOURCE and unset */
+			/* Use the process user identity. */
+			newcontext.user = scontext->user;
+		}
+		break;
+	case AVTAB_MEMBER:
+		/* Use the related object owner. */
+		newcontext.user = tcontext->user;
+		break;
+	}
+
+	/* Set the role to default values. */
+	if (cladatum && cladatum->default_role == DEFAULT_SOURCE) {
+		newcontext.role = scontext->role;
+	} else if (cladatum && cladatum->default_role == DEFAULT_TARGET) {
+		newcontext.role = tcontext->role;
+	} else {
+		if ((tclass == policydb->process_class) || sock)
+			newcontext.role = scontext->role;
+		else
+			newcontext.role = OBJECT_R_VAL;
+	}
+
+	/* Set the type to default values. */
+	if (cladatum && cladatum->default_type == DEFAULT_SOURCE) {
+		newcontext.type = scontext->type;
+	} else if (cladatum && cladatum->default_type == DEFAULT_TARGET) {
+		newcontext.type = tcontext->type;
+	} else {
+		if ((tclass == policydb->process_class) || sock) {
+			/* Use the type of process. */
+			newcontext.type = scontext->type;
+		} else {
+			/* Use the type of the related object. */
+			newcontext.type = tcontext->type;
+		}
+	}
+
+	/* Look for a type transition/member/change rule. */
+	avkey.source_type = scontext->type;
+	avkey.target_type = tcontext->type;
+	avkey.target_class = tclass;
+	avkey.specified = specified;
+	avnode = avtab_search_node(&policydb->te_avtab, &avkey);
+
+	/* If no permanent rule, also check for enabled conditional rules */
+	if (!avnode) {
+		node = avtab_search_node(&policydb->te_cond_avtab, &avkey);
+		for (; node; node = avtab_search_node_next(node, specified)) {
+			if (node->key.specified & AVTAB_ENABLED) {
+				avnode = node;
+				break;
+			}
+		}
+	}
+
+	if (avnode) {
+		/* Use the type from the type transition/member/change rule. */
+		newcontext.type = avnode->datum.u.data;
+	}
+
+	/* if we have a objname this is a file trans check so check those rules */
+	if (objname)
+		filename_compute_type(policydb, &newcontext, scontext->type,
+				      tcontext->type, tclass, objname);
+
+	/* Check for class-specific changes. */
+	if (specified & AVTAB_TRANSITION) {
+		/* Look for a role transition rule. */
+		struct role_trans_datum *rtd;
+		struct role_trans_key rtk = {
+			.role = scontext->role,
+			.type = tcontext->type,
+			.tclass = tclass,
+		};
+
+		rtd = policydb_roletr_search(policydb, &rtk);
+		if (rtd)
+			newcontext.role = rtd->new_role;
+	}
+
+	/* Set the MLS attributes.
+	   This is done last because it may allocate memory. */
+	rc = mls_compute_sid(policydb, scontext, tcontext, tclass, specified,
+			     &newcontext, sock);
+	if (rc)
+		goto out_unlock;
+
+	/* Check the validity of the context. */
+	if (!policydb_context_isvalid(policydb, &newcontext)) {
+		rc = compute_sid_handle_invalid_context(policy, sentry,
+							tentry, tclass,
+							&newcontext);
+		if (rc)
+			goto out_unlock;
+	}
+	/* Obtain the sid for the context. */
+	rc = sidtab_context_to_sid(sidtab, &newcontext, out_sid);
+	if (rc == -ESTALE) {
+		rcu_read_unlock();
+		context_destroy(&newcontext);
+		goto retry;
+	}
+out_unlock:
+	rcu_read_unlock();
+	context_destroy(&newcontext);
+out:
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_bprm_creds_for_exec(struct linux_binprm *bprm)
+{
+	const struct task_security_struct *old_tsec;
+	struct task_security_struct *new_tsec;
+	struct inode_security_struct *isec;
+	struct common_audit_data ad;
+	struct inode *inode = file_inode(bprm->file);
+	int rc;
+
+	/* SELinux context only depends on initial program or script and not
+	 * the script interpreter */
+
+	old_tsec = selinux_cred(current_cred());
+	new_tsec = selinux_cred(bprm->cred);
+	isec = inode_security(inode);
+
+	/* Default to the current task SID. */
+	new_tsec->sid = old_tsec->sid;
+	new_tsec->osid = old_tsec->sid;
+
+	/* Reset fs, key, and sock SIDs on execve. */
+	new_tsec->create_sid = 0;
+	new_tsec->keycreate_sid = 0;
+	new_tsec->sockcreate_sid = 0;
+
+	/*
+	 * Before policy is loaded, label any task outside kernel space
+	 * as SECINITSID_INIT, so that any userspace tasks surviving from
+	 * early boot end up with a label different from SECINITSID_KERNEL
+	 * (if the policy chooses to set SECINITSID_INIT != SECINITSID_KERNEL).
+	 */
+	if (!selinux_initialized()) {
+		new_tsec->sid = SECINITSID_INIT;
+		/* also clear the exec_sid just in case */
+		new_tsec->exec_sid = 0;
+		return 0;
+	}
+
+	if (old_tsec->exec_sid) {
+		new_tsec->sid = old_tsec->exec_sid;
+		/* Reset exec SID on execve. */
+		new_tsec->exec_sid = 0;
+
+		/* Fail on NNP or nosuid if not an allowed transition. */
+		rc = check_nnp_nosuid(bprm, old_tsec, new_tsec);
+		if (rc)
+			return rc;
+	} else {
+		/* Check for a default transition on this program. */
+		rc = security_transition_sid(old_tsec->sid,
+					     isec->sid, SECCLASS_PROCESS, NULL,
+					     &new_tsec->sid);
+		if (rc)
+			return rc;
+
+		/*
+		 * Fallback to old SID on NNP or nosuid if not an allowed
+		 * transition.
+		 */
+		rc = check_nnp_nosuid(bprm, old_tsec, new_tsec);
+		if (rc)
+			new_tsec->sid = old_tsec->sid;
+	}
+
+	ad.type = LSM_AUDIT_DATA_FILE;
+	ad.u.file = bprm->file;
+
+	if (new_tsec->sid == old_tsec->sid) {
+		rc = avc_has_perm(old_tsec->sid, isec->sid,
+				  SECCLASS_FILE, FILE__EXECUTE_NO_TRANS, &ad);
+		if (rc)
+			return rc;
+	} else {
+		/* Check permissions for the transition. */
+		rc = avc_has_perm(old_tsec->sid, new_tsec->sid,
+				  SECCLASS_PROCESS, PROCESS__TRANSITION, &ad);
+		if (rc)
+			return rc;
+
+		rc = avc_has_perm(new_tsec->sid, isec->sid,
+				  SECCLASS_FILE, FILE__ENTRYPOINT, &ad);
+		if (rc)
+			return rc;
+
+		/* Check for shared state */
+		if (bprm->unsafe & LSM_UNSAFE_SHARE) {
+			rc = avc_has_perm(old_tsec->sid, new_tsec->sid,
+					  SECCLASS_PROCESS, PROCESS__SHARE,
+					  NULL);
+			if (rc)
+				return -EPERM;
+		}
+
+		/* Make sure that anyone attempting to ptrace over a task that
+		 * changes its SID has the appropriate permit */
+		if (bprm->unsafe & LSM_UNSAFE_PTRACE) {
+			u32 ptsid = ptrace_parent_sid();
+			if (ptsid != 0) {
+				rc = avc_has_perm(ptsid, new_tsec->sid,
+						  SECCLASS_PROCESS,
+						  PROCESS__PTRACE, NULL);
+				if (rc)
+					return -EPERM;
+			}
+		}
+
+		/* Clear any possibly unsafe personality bits on exec: */
+		bprm->per_clear |= PER_CLEAR_ON_SETID;
+
+		/* Enable secure mode for SIDs transitions unless
+		   the noatsecure permission is granted between
+		   the two SIDs, i.e. ahp returns 0. */
+		rc = avc_has_perm(old_tsec->sid, new_tsec->sid,
+				  SECCLASS_PROCESS, PROCESS__NOATSECURE,
+				  NULL);
+		bprm->secureexec |= !!rc;
+	}
+
+	return 0;
+}
+int security_transition_sid(u32 ssid, u32 tsid, u16 tclass,
+			    const struct qstr *qstr, u32 *out_sid)
+{
+	return security_compute_sid(ssid, tsid, tclass,
+				    AVTAB_TRANSITION,
+				    qstr ? qstr->name : NULL, out_sid, true);
+}
+static int security_compute_sid(u32 ssid,
+				u32 tsid,
+				u16 orig_tclass,
+				u16 specified,
+				const char *objname,
+				u32 *out_sid,
+				bool kern)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct class_datum *cladatum;
+	struct context *scontext, *tcontext, newcontext;
+	struct sidtab_entry *sentry, *tentry;
+	struct avtab_key avkey;
+	struct avtab_node *avnode, *node;
+	u16 tclass;
+	int rc = 0;
+	bool sock;
+
+	if (!selinux_initialized()) {
+		switch (orig_tclass) {
+		case SECCLASS_PROCESS: /* kernel value */
+			*out_sid = ssid;
+			break;
+		default:
+			*out_sid = tsid;
+			break;
+		}
+		goto out;
+	}
+
+retry:
+	cladatum = NULL;
+	context_init(&newcontext);
+
+	rcu_read_lock();
+
+	policy = rcu_dereference(selinux_state.policy);
+
+	if (kern) {
+		tclass = unmap_class(&policy->map, orig_tclass);
+		sock = security_is_socket_class(orig_tclass);
+	} else {
+		tclass = orig_tclass;
+		sock = security_is_socket_class(map_class(&policy->map,
+							  tclass));
+	}
+
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	sentry = sidtab_search_entry(sidtab, ssid);
+	if (!sentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, ssid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	tentry = sidtab_search_entry(sidtab, tsid);
+	if (!tentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, tsid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	scontext = &sentry->context;
+	tcontext = &tentry->context;
+
+	if (tclass && tclass <= policydb->p_classes.nprim)
+		cladatum = policydb->class_val_to_struct[tclass - 1];
+
+	/* Set the user identity. */
+	switch (specified) {
+	case AVTAB_TRANSITION:
+	case AVTAB_CHANGE:
+		if (cladatum && cladatum->default_user == DEFAULT_TARGET) {
+			newcontext.user = tcontext->user;
+		} else {
+			/* notice this gets both DEFAULT_SOURCE and unset */
+			/* Use the process user identity. */
+			newcontext.user = scontext->user;
+		}
+		break;
+	case AVTAB_MEMBER:
+		/* Use the related object owner. */
+		newcontext.user = tcontext->user;
+		break;
+	}
+
+	/* Set the role to default values. */
+	if (cladatum && cladatum->default_role == DEFAULT_SOURCE) {
+		newcontext.role = scontext->role;
+	} else if (cladatum && cladatum->default_role == DEFAULT_TARGET) {
+		newcontext.role = tcontext->role;
+	} else {
+		if ((tclass == policydb->process_class) || sock)
+			newcontext.role = scontext->role;
+		else
+			newcontext.role = OBJECT_R_VAL;
+	}
+
+	/* Set the type to default values. */
+	if (cladatum && cladatum->default_type == DEFAULT_SOURCE) {
+		newcontext.type = scontext->type;
+	} else if (cladatum && cladatum->default_type == DEFAULT_TARGET) {
+		newcontext.type = tcontext->type;
+	} else {
+		if ((tclass == policydb->process_class) || sock) {
+			/* Use the type of process. */
+			newcontext.type = scontext->type;
+		} else {
+			/* Use the type of the related object. */
+			newcontext.type = tcontext->type;
+		}
+	}
+
+	/* Look for a type transition/member/change rule. */
+	avkey.source_type = scontext->type;
+	avkey.target_type = tcontext->type;
+	avkey.target_class = tclass;
+	avkey.specified = specified;
+	avnode = avtab_search_node(&policydb->te_avtab, &avkey);
+
+	/* If no permanent rule, also check for enabled conditional rules */
+	if (!avnode) {
+		node = avtab_search_node(&policydb->te_cond_avtab, &avkey);
+		for (; node; node = avtab_search_node_next(node, specified)) {
+			if (node->key.specified & AVTAB_ENABLED) {
+				avnode = node;
+				break;
+			}
+		}
+	}
+
+	if (avnode) {
+		/* Use the type from the type transition/member/change rule. */
+		newcontext.type = avnode->datum.u.data;
+	}
+
+	/* if we have a objname this is a file trans check so check those rules */
+	if (objname)
+		filename_compute_type(policydb, &newcontext, scontext->type,
+				      tcontext->type, tclass, objname);
+
+	/* Check for class-specific changes. */
+	if (specified & AVTAB_TRANSITION) {
+		/* Look for a role transition rule. */
+		struct role_trans_datum *rtd;
+		struct role_trans_key rtk = {
+			.role = scontext->role,
+			.type = tcontext->type,
+			.tclass = tclass,
+		};
+
+		rtd = policydb_roletr_search(policydb, &rtk);
+		if (rtd)
+			newcontext.role = rtd->new_role;
+	}
+
+	/* Set the MLS attributes.
+	   This is done last because it may allocate memory. */
+	rc = mls_compute_sid(policydb, scontext, tcontext, tclass, specified,
+			     &newcontext, sock);
+	if (rc)
+		goto out_unlock;
+
+	/* Check the validity of the context. */
+	if (!policydb_context_isvalid(policydb, &newcontext)) {
+		rc = compute_sid_handle_invalid_context(policy, sentry,
+							tentry, tclass,
+							&newcontext);
+		if (rc)
+			goto out_unlock;
+	}
+	/* Obtain the sid for the context. */
+	rc = sidtab_context_to_sid(sidtab, &newcontext, out_sid);
+	if (rc == -ESTALE) {
+		rcu_read_unlock();
+		context_destroy(&newcontext);
+		goto retry;
+	}
+out_unlock:
+	rcu_read_unlock();
+	context_destroy(&newcontext);
+out:
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_inode_init_security_anon(struct inode *inode,
+					    const struct qstr *name,
+					    const struct inode *context_inode)
+{
+	u32 sid = current_sid();
+	struct common_audit_data ad;
+	struct inode_security_struct *isec;
+	int rc;
+
+	if (unlikely(!selinux_initialized()))
+		return 0;
+
+	isec = selinux_inode(inode);
+
+	/*
+	 * We only get here once per ephemeral inode.  The inode has
+	 * been initialized via inode_alloc_security but is otherwise
+	 * untouched.
+	 */
+
+	if (context_inode) {
+		struct inode_security_struct *context_isec =
+			selinux_inode(context_inode);
+		if (context_isec->initialized != LABEL_INITIALIZED) {
+			pr_err("SELinux:  context_inode is not initialized\n");
+			return -EACCES;
+		}
+
+		isec->sclass = context_isec->sclass;
+		isec->sid = context_isec->sid;
+	} else {
+		isec->sclass = SECCLASS_ANON_INODE;
+		rc = security_transition_sid(
+			sid, sid,
+			isec->sclass, name, &isec->sid);
+		if (rc)
+			return rc;
+	}
+
+	isec->initialized = LABEL_INITIALIZED;
+	/*
+	 * Now that we've initialized security, check whether we're
+	 * allowed to actually create this type of anonymous inode.
+	 */
+
+	ad.type = LSM_AUDIT_DATA_ANONINODE;
+	ad.u.anonclass = name ? (const char *)name->name : "?";
+
+	return avc_has_perm(sid,
+			    isec->sid,
+			    isec->sclass,
+			    FILE__CREATE,
+			    &ad);
+}
+int security_transition_sid(u32 ssid, u32 tsid, u16 tclass,
+			    const struct qstr *qstr, u32 *out_sid)
+{
+	return security_compute_sid(ssid, tsid, tclass,
+				    AVTAB_TRANSITION,
+				    qstr ? qstr->name : NULL, out_sid, true);
+}
+static int security_compute_sid(u32 ssid,
+				u32 tsid,
+				u16 orig_tclass,
+				u16 specified,
+				const char *objname,
+				u32 *out_sid,
+				bool kern)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct class_datum *cladatum;
+	struct context *scontext, *tcontext, newcontext;
+	struct sidtab_entry *sentry, *tentry;
+	struct avtab_key avkey;
+	struct avtab_node *avnode, *node;
+	u16 tclass;
+	int rc = 0;
+	bool sock;
+
+	if (!selinux_initialized()) {
+		switch (orig_tclass) {
+		case SECCLASS_PROCESS: /* kernel value */
+			*out_sid = ssid;
+			break;
+		default:
+			*out_sid = tsid;
+			break;
+		}
+		goto out;
+	}
+
+retry:
+	cladatum = NULL;
+	context_init(&newcontext);
+
+	rcu_read_lock();
+
+	policy = rcu_dereference(selinux_state.policy);
+
+	if (kern) {
+		tclass = unmap_class(&policy->map, orig_tclass);
+		sock = security_is_socket_class(orig_tclass);
+	} else {
+		tclass = orig_tclass;
+		sock = security_is_socket_class(map_class(&policy->map,
+							  tclass));
+	}
+
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	sentry = sidtab_search_entry(sidtab, ssid);
+	if (!sentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, ssid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	tentry = sidtab_search_entry(sidtab, tsid);
+	if (!tentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, tsid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	scontext = &sentry->context;
+	tcontext = &tentry->context;
+
+	if (tclass && tclass <= policydb->p_classes.nprim)
+		cladatum = policydb->class_val_to_struct[tclass - 1];
+
+	/* Set the user identity. */
+	switch (specified) {
+	case AVTAB_TRANSITION:
+	case AVTAB_CHANGE:
+		if (cladatum && cladatum->default_user == DEFAULT_TARGET) {
+			newcontext.user = tcontext->user;
+		} else {
+			/* notice this gets both DEFAULT_SOURCE and unset */
+			/* Use the process user identity. */
+			newcontext.user = scontext->user;
+		}
+		break;
+	case AVTAB_MEMBER:
+		/* Use the related object owner. */
+		newcontext.user = tcontext->user;
+		break;
+	}
+
+	/* Set the role to default values. */
+	if (cladatum && cladatum->default_role == DEFAULT_SOURCE) {
+		newcontext.role = scontext->role;
+	} else if (cladatum && cladatum->default_role == DEFAULT_TARGET) {
+		newcontext.role = tcontext->role;
+	} else {
+		if ((tclass == policydb->process_class) || sock)
+			newcontext.role = scontext->role;
+		else
+			newcontext.role = OBJECT_R_VAL;
+	}
+
+	/* Set the type to default values. */
+	if (cladatum && cladatum->default_type == DEFAULT_SOURCE) {
+		newcontext.type = scontext->type;
+	} else if (cladatum && cladatum->default_type == DEFAULT_TARGET) {
+		newcontext.type = tcontext->type;
+	} else {
+		if ((tclass == policydb->process_class) || sock) {
+			/* Use the type of process. */
+			newcontext.type = scontext->type;
+		} else {
+			/* Use the type of the related object. */
+			newcontext.type = tcontext->type;
+		}
+	}
+
+	/* Look for a type transition/member/change rule. */
+	avkey.source_type = scontext->type;
+	avkey.target_type = tcontext->type;
+	avkey.target_class = tclass;
+	avkey.specified = specified;
+	avnode = avtab_search_node(&policydb->te_avtab, &avkey);
+
+	/* If no permanent rule, also check for enabled conditional rules */
+	if (!avnode) {
+		node = avtab_search_node(&policydb->te_cond_avtab, &avkey);
+		for (; node; node = avtab_search_node_next(node, specified)) {
+			if (node->key.specified & AVTAB_ENABLED) {
+				avnode = node;
+				break;
+			}
+		}
+	}
+
+	if (avnode) {
+		/* Use the type from the type transition/member/change rule. */
+		newcontext.type = avnode->datum.u.data;
+	}
+
+	/* if we have a objname this is a file trans check so check those rules */
+	if (objname)
+		filename_compute_type(policydb, &newcontext, scontext->type,
+				      tcontext->type, tclass, objname);
+
+	/* Check for class-specific changes. */
+	if (specified & AVTAB_TRANSITION) {
+		/* Look for a role transition rule. */
+		struct role_trans_datum *rtd;
+		struct role_trans_key rtk = {
+			.role = scontext->role,
+			.type = tcontext->type,
+			.tclass = tclass,
+		};
+
+		rtd = policydb_roletr_search(policydb, &rtk);
+		if (rtd)
+			newcontext.role = rtd->new_role;
+	}
+
+	/* Set the MLS attributes.
+	   This is done last because it may allocate memory. */
+	rc = mls_compute_sid(policydb, scontext, tcontext, tclass, specified,
+			     &newcontext, sock);
+	if (rc)
+		goto out_unlock;
+
+	/* Check the validity of the context. */
+	if (!policydb_context_isvalid(policydb, &newcontext)) {
+		rc = compute_sid_handle_invalid_context(policy, sentry,
+							tentry, tclass,
+							&newcontext);
+		if (rc)
+			goto out_unlock;
+	}
+	/* Obtain the sid for the context. */
+	rc = sidtab_context_to_sid(sidtab, &newcontext, out_sid);
+	if (rc == -ESTALE) {
+		rcu_read_unlock();
+		context_destroy(&newcontext);
+		goto retry;
+	}
+out_unlock:
+	rcu_read_unlock();
+	context_destroy(&newcontext);
+out:
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_kernfs_init_security(struct kernfs_node *kn_dir,
+					struct kernfs_node *kn)
+{
+	const struct task_security_struct *tsec = selinux_cred(current_cred());
+	u32 parent_sid, newsid, clen;
+	int rc;
+	char *context;
+
+	rc = kernfs_xattr_get(kn_dir, XATTR_NAME_SELINUX, NULL, 0);
+	if (rc == -ENODATA)
+		return 0;
+	else if (rc < 0)
+		return rc;
+
+	clen = (u32)rc;
+	context = kmalloc(clen, GFP_KERNEL);
+	if (!context)
+		return -ENOMEM;
+
+	rc = kernfs_xattr_get(kn_dir, XATTR_NAME_SELINUX, context, clen);
+	if (rc < 0) {
+		kfree(context);
+		return rc;
+	}
+
+	rc = security_context_to_sid(context, clen, &parent_sid,
+				     GFP_KERNEL);
+	kfree(context);
+	if (rc)
+		return rc;
+
+	if (tsec->create_sid) {
+		newsid = tsec->create_sid;
+	} else {
+		u16 secclass = inode_mode_to_security_class(kn->mode);
+		struct qstr q;
+
+		q.name = kn->name;
+		q.hash_len = hashlen_string(kn_dir, kn->name);
+
+		rc = security_transition_sid(tsec->sid,
+					     parent_sid, secclass, &q,
+					     &newsid);
+		if (rc)
+			return rc;
+	}
+
+	rc = security_sid_to_context_force(newsid,
+					   &context, &clen);
+	if (rc)
+		return rc;
+
+	rc = kernfs_xattr_set(kn, XATTR_NAME_SELINUX, context, clen,
+			      XATTR_CREATE);
+	kfree(context);
+	return rc;
+}
+int security_transition_sid(u32 ssid, u32 tsid, u16 tclass,
+			    const struct qstr *qstr, u32 *out_sid)
+{
+	return security_compute_sid(ssid, tsid, tclass,
+				    AVTAB_TRANSITION,
+				    qstr ? qstr->name : NULL, out_sid, true);
+}
+static int security_compute_sid(u32 ssid,
+				u32 tsid,
+				u16 orig_tclass,
+				u16 specified,
+				const char *objname,
+				u32 *out_sid,
+				bool kern)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct class_datum *cladatum;
+	struct context *scontext, *tcontext, newcontext;
+	struct sidtab_entry *sentry, *tentry;
+	struct avtab_key avkey;
+	struct avtab_node *avnode, *node;
+	u16 tclass;
+	int rc = 0;
+	bool sock;
+
+	if (!selinux_initialized()) {
+		switch (orig_tclass) {
+		case SECCLASS_PROCESS: /* kernel value */
+			*out_sid = ssid;
+			break;
+		default:
+			*out_sid = tsid;
+			break;
+		}
+		goto out;
+	}
+
+retry:
+	cladatum = NULL;
+	context_init(&newcontext);
+
+	rcu_read_lock();
+
+	policy = rcu_dereference(selinux_state.policy);
+
+	if (kern) {
+		tclass = unmap_class(&policy->map, orig_tclass);
+		sock = security_is_socket_class(orig_tclass);
+	} else {
+		tclass = orig_tclass;
+		sock = security_is_socket_class(map_class(&policy->map,
+							  tclass));
+	}
+
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	sentry = sidtab_search_entry(sidtab, ssid);
+	if (!sentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, ssid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	tentry = sidtab_search_entry(sidtab, tsid);
+	if (!tentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, tsid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	scontext = &sentry->context;
+	tcontext = &tentry->context;
+
+	if (tclass && tclass <= policydb->p_classes.nprim)
+		cladatum = policydb->class_val_to_struct[tclass - 1];
+
+	/* Set the user identity. */
+	switch (specified) {
+	case AVTAB_TRANSITION:
+	case AVTAB_CHANGE:
+		if (cladatum && cladatum->default_user == DEFAULT_TARGET) {
+			newcontext.user = tcontext->user;
+		} else {
+			/* notice this gets both DEFAULT_SOURCE and unset */
+			/* Use the process user identity. */
+			newcontext.user = scontext->user;
+		}
+		break;
+	case AVTAB_MEMBER:
+		/* Use the related object owner. */
+		newcontext.user = tcontext->user;
+		break;
+	}
+
+	/* Set the role to default values. */
+	if (cladatum && cladatum->default_role == DEFAULT_SOURCE) {
+		newcontext.role = scontext->role;
+	} else if (cladatum && cladatum->default_role == DEFAULT_TARGET) {
+		newcontext.role = tcontext->role;
+	} else {
+		if ((tclass == policydb->process_class) || sock)
+			newcontext.role = scontext->role;
+		else
+			newcontext.role = OBJECT_R_VAL;
+	}
+
+	/* Set the type to default values. */
+	if (cladatum && cladatum->default_type == DEFAULT_SOURCE) {
+		newcontext.type = scontext->type;
+	} else if (cladatum && cladatum->default_type == DEFAULT_TARGET) {
+		newcontext.type = tcontext->type;
+	} else {
+		if ((tclass == policydb->process_class) || sock) {
+			/* Use the type of process. */
+			newcontext.type = scontext->type;
+		} else {
+			/* Use the type of the related object. */
+			newcontext.type = tcontext->type;
+		}
+	}
+
+	/* Look for a type transition/member/change rule. */
+	avkey.source_type = scontext->type;
+	avkey.target_type = tcontext->type;
+	avkey.target_class = tclass;
+	avkey.specified = specified;
+	avnode = avtab_search_node(&policydb->te_avtab, &avkey);
+
+	/* If no permanent rule, also check for enabled conditional rules */
+	if (!avnode) {
+		node = avtab_search_node(&policydb->te_cond_avtab, &avkey);
+		for (; node; node = avtab_search_node_next(node, specified)) {
+			if (node->key.specified & AVTAB_ENABLED) {
+				avnode = node;
+				break;
+			}
+		}
+	}
+
+	if (avnode) {
+		/* Use the type from the type transition/member/change rule. */
+		newcontext.type = avnode->datum.u.data;
+	}
+
+	/* if we have a objname this is a file trans check so check those rules */
+	if (objname)
+		filename_compute_type(policydb, &newcontext, scontext->type,
+				      tcontext->type, tclass, objname);
+
+	/* Check for class-specific changes. */
+	if (specified & AVTAB_TRANSITION) {
+		/* Look for a role transition rule. */
+		struct role_trans_datum *rtd;
+		struct role_trans_key rtk = {
+			.role = scontext->role,
+			.type = tcontext->type,
+			.tclass = tclass,
+		};
+
+		rtd = policydb_roletr_search(policydb, &rtk);
+		if (rtd)
+			newcontext.role = rtd->new_role;
+	}
+
+	/* Set the MLS attributes.
+	   This is done last because it may allocate memory. */
+	rc = mls_compute_sid(policydb, scontext, tcontext, tclass, specified,
+			     &newcontext, sock);
+	if (rc)
+		goto out_unlock;
+
+	/* Check the validity of the context. */
+	if (!policydb_context_isvalid(policydb, &newcontext)) {
+		rc = compute_sid_handle_invalid_context(policy, sentry,
+							tentry, tclass,
+							&newcontext);
+		if (rc)
+			goto out_unlock;
+	}
+	/* Obtain the sid for the context. */
+	rc = sidtab_context_to_sid(sidtab, &newcontext, out_sid);
+	if (rc == -ESTALE) {
+		rcu_read_unlock();
+		context_destroy(&newcontext);
+		goto retry;
+	}
+out_unlock:
+	rcu_read_unlock();
+	context_destroy(&newcontext);
+out:
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_msg_queue_msgsnd(struct kern_ipc_perm *msq, struct msg_msg *msg, int msqflg)
+{
+	struct ipc_security_struct *isec;
+	struct msg_security_struct *msec;
+	struct common_audit_data ad;
+	u32 sid = current_sid();
+	int rc;
+
+	isec = selinux_ipc(msq);
+	msec = selinux_msg_msg(msg);
+
+	/*
+	 * First time through, need to assign label to the message
+	 */
+	if (msec->sid == SECINITSID_UNLABELED) {
+		/*
+		 * Compute new sid based on current process and
+		 * message queue this message will be stored in
+		 */
+		rc = security_transition_sid(sid, isec->sid,
+					     SECCLASS_MSG, NULL, &msec->sid);
+		if (rc)
+			return rc;
+	}
+
+	ad.type = LSM_AUDIT_DATA_IPC;
+	ad.u.ipc_id = msq->key;
+
+	/* Can this process write to the queue? */
+	rc = avc_has_perm(sid, isec->sid, SECCLASS_MSGQ,
+			  MSGQ__WRITE, &ad);
+	if (!rc)
+		/* Can this process send the message */
+		rc = avc_has_perm(sid, msec->sid, SECCLASS_MSG,
+				  MSG__SEND, &ad);
+	if (!rc)
+		/* Can the message be put in the queue? */
+		rc = avc_has_perm(msec->sid, isec->sid, SECCLASS_MSGQ,
+				  MSGQ__ENQUEUE, &ad);
+
+	return rc;
+}
+int security_transition_sid(u32 ssid, u32 tsid, u16 tclass,
+			    const struct qstr *qstr, u32 *out_sid)
+{
+	return security_compute_sid(ssid, tsid, tclass,
+				    AVTAB_TRANSITION,
+				    qstr ? qstr->name : NULL, out_sid, true);
+}
+static int security_compute_sid(u32 ssid,
+				u32 tsid,
+				u16 orig_tclass,
+				u16 specified,
+				const char *objname,
+				u32 *out_sid,
+				bool kern)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct class_datum *cladatum;
+	struct context *scontext, *tcontext, newcontext;
+	struct sidtab_entry *sentry, *tentry;
+	struct avtab_key avkey;
+	struct avtab_node *avnode, *node;
+	u16 tclass;
+	int rc = 0;
+	bool sock;
+
+	if (!selinux_initialized()) {
+		switch (orig_tclass) {
+		case SECCLASS_PROCESS: /* kernel value */
+			*out_sid = ssid;
+			break;
+		default:
+			*out_sid = tsid;
+			break;
+		}
+		goto out;
+	}
+
+retry:
+	cladatum = NULL;
+	context_init(&newcontext);
+
+	rcu_read_lock();
+
+	policy = rcu_dereference(selinux_state.policy);
+
+	if (kern) {
+		tclass = unmap_class(&policy->map, orig_tclass);
+		sock = security_is_socket_class(orig_tclass);
+	} else {
+		tclass = orig_tclass;
+		sock = security_is_socket_class(map_class(&policy->map,
+							  tclass));
+	}
+
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	sentry = sidtab_search_entry(sidtab, ssid);
+	if (!sentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, ssid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	tentry = sidtab_search_entry(sidtab, tsid);
+	if (!tentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, tsid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	scontext = &sentry->context;
+	tcontext = &tentry->context;
+
+	if (tclass && tclass <= policydb->p_classes.nprim)
+		cladatum = policydb->class_val_to_struct[tclass - 1];
+
+	/* Set the user identity. */
+	switch (specified) {
+	case AVTAB_TRANSITION:
+	case AVTAB_CHANGE:
+		if (cladatum && cladatum->default_user == DEFAULT_TARGET) {
+			newcontext.user = tcontext->user;
+		} else {
+			/* notice this gets both DEFAULT_SOURCE and unset */
+			/* Use the process user identity. */
+			newcontext.user = scontext->user;
+		}
+		break;
+	case AVTAB_MEMBER:
+		/* Use the related object owner. */
+		newcontext.user = tcontext->user;
+		break;
+	}
+
+	/* Set the role to default values. */
+	if (cladatum && cladatum->default_role == DEFAULT_SOURCE) {
+		newcontext.role = scontext->role;
+	} else if (cladatum && cladatum->default_role == DEFAULT_TARGET) {
+		newcontext.role = tcontext->role;
+	} else {
+		if ((tclass == policydb->process_class) || sock)
+			newcontext.role = scontext->role;
+		else
+			newcontext.role = OBJECT_R_VAL;
+	}
+
+	/* Set the type to default values. */
+	if (cladatum && cladatum->default_type == DEFAULT_SOURCE) {
+		newcontext.type = scontext->type;
+	} else if (cladatum && cladatum->default_type == DEFAULT_TARGET) {
+		newcontext.type = tcontext->type;
+	} else {
+		if ((tclass == policydb->process_class) || sock) {
+			/* Use the type of process. */
+			newcontext.type = scontext->type;
+		} else {
+			/* Use the type of the related object. */
+			newcontext.type = tcontext->type;
+		}
+	}
+
+	/* Look for a type transition/member/change rule. */
+	avkey.source_type = scontext->type;
+	avkey.target_type = tcontext->type;
+	avkey.target_class = tclass;
+	avkey.specified = specified;
+	avnode = avtab_search_node(&policydb->te_avtab, &avkey);
+
+	/* If no permanent rule, also check for enabled conditional rules */
+	if (!avnode) {
+		node = avtab_search_node(&policydb->te_cond_avtab, &avkey);
+		for (; node; node = avtab_search_node_next(node, specified)) {
+			if (node->key.specified & AVTAB_ENABLED) {
+				avnode = node;
+				break;
+			}
+		}
+	}
+
+	if (avnode) {
+		/* Use the type from the type transition/member/change rule. */
+		newcontext.type = avnode->datum.u.data;
+	}
+
+	/* if we have a objname this is a file trans check so check those rules */
+	if (objname)
+		filename_compute_type(policydb, &newcontext, scontext->type,
+				      tcontext->type, tclass, objname);
+
+	/* Check for class-specific changes. */
+	if (specified & AVTAB_TRANSITION) {
+		/* Look for a role transition rule. */
+		struct role_trans_datum *rtd;
+		struct role_trans_key rtk = {
+			.role = scontext->role,
+			.type = tcontext->type,
+			.tclass = tclass,
+		};
+
+		rtd = policydb_roletr_search(policydb, &rtk);
+		if (rtd)
+			newcontext.role = rtd->new_role;
+	}
+
+	/* Set the MLS attributes.
+	   This is done last because it may allocate memory. */
+	rc = mls_compute_sid(policydb, scontext, tcontext, tclass, specified,
+			     &newcontext, sock);
+	if (rc)
+		goto out_unlock;
+
+	/* Check the validity of the context. */
+	if (!policydb_context_isvalid(policydb, &newcontext)) {
+		rc = compute_sid_handle_invalid_context(policy, sentry,
+							tentry, tclass,
+							&newcontext);
+		if (rc)
+			goto out_unlock;
+	}
+	/* Obtain the sid for the context. */
+	rc = sidtab_context_to_sid(sidtab, &newcontext, out_sid);
+	if (rc == -ESTALE) {
+		rcu_read_unlock();
+		context_destroy(&newcontext);
+		goto retry;
+	}
+out_unlock:
+	rcu_read_unlock();
+	context_destroy(&newcontext);
+out:
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_create(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	char *namebuf = NULL, *objname = NULL;
+	u32 ssid, tsid, newsid;
+	u16 tclass;
+	ssize_t length;
+	char *newcon = NULL;
+	u32 len;
+	int nargs;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_CREATE,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -ENOMEM;
+	namebuf = kzalloc(size + 1, GFP_KERNEL);
+	if (!namebuf)
+		goto out;
+
+	length = -EINVAL;
+	nargs = sscanf(buf, "%s %s %hu %s", scon, tcon, &tclass, namebuf);
+	if (nargs < 3 || nargs > 4)
+		goto out;
+	if (nargs == 4) {
+		/*
+		 * If and when the name of new object to be queried contains
+		 * either whitespace or multibyte characters, they shall be
+		 * encoded based on the percentage-encoding rule.
+		 * If not encoded, the sscanf logic picks up only left-half
+		 * of the supplied name; split by a whitespace unexpectedly.
+		 */
+		char   *r, *w;
+		int     c1, c2;
+
+		r = w = namebuf;
+		do {
+			c1 = *r++;
+			if (c1 == '+')
+				c1 = ' ';
+			else if (c1 == '%') {
+				c1 = hex_to_bin(*r++);
+				if (c1 < 0)
+					goto out;
+				c2 = hex_to_bin(*r++);
+				if (c2 < 0)
+					goto out;
+				c1 = (c1 << 4) | c2;
+			}
+			*w++ = c1;
+		} while (c1 != '\0');
+
+		objname = namebuf;
+	}
+
+	length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_transition_sid_user(ssid, tsid, tclass,
+					      objname, &newsid);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(newsid, &newcon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT) {
+		pr_err("SELinux: %s:  context size (%u) exceeds "
+			"payload max\n", __func__, len);
+		goto out;
+	}
+
+	memcpy(buf, newcon, len);
+	length = len;
+out:
+	kfree(newcon);
+	kfree(namebuf);
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+int security_transition_sid_user(u32 ssid, u32 tsid, u16 tclass,
+				 const char *objname, u32 *out_sid)
+{
+	return security_compute_sid(ssid, tsid, tclass,
+				    AVTAB_TRANSITION,
+				    objname, out_sid, false);
+}
+static int security_compute_sid(u32 ssid,
+				u32 tsid,
+				u16 orig_tclass,
+				u16 specified,
+				const char *objname,
+				u32 *out_sid,
+				bool kern)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct class_datum *cladatum;
+	struct context *scontext, *tcontext, newcontext;
+	struct sidtab_entry *sentry, *tentry;
+	struct avtab_key avkey;
+	struct avtab_node *avnode, *node;
+	u16 tclass;
+	int rc = 0;
+	bool sock;
+
+	if (!selinux_initialized()) {
+		switch (orig_tclass) {
+		case SECCLASS_PROCESS: /* kernel value */
+			*out_sid = ssid;
+			break;
+		default:
+			*out_sid = tsid;
+			break;
+		}
+		goto out;
+	}
+
+retry:
+	cladatum = NULL;
+	context_init(&newcontext);
+
+	rcu_read_lock();
+
+	policy = rcu_dereference(selinux_state.policy);
+
+	if (kern) {
+		tclass = unmap_class(&policy->map, orig_tclass);
+		sock = security_is_socket_class(orig_tclass);
+	} else {
+		tclass = orig_tclass;
+		sock = security_is_socket_class(map_class(&policy->map,
+							  tclass));
+	}
+
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	sentry = sidtab_search_entry(sidtab, ssid);
+	if (!sentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, ssid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	tentry = sidtab_search_entry(sidtab, tsid);
+	if (!tentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, tsid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	scontext = &sentry->context;
+	tcontext = &tentry->context;
+
+	if (tclass && tclass <= policydb->p_classes.nprim)
+		cladatum = policydb->class_val_to_struct[tclass - 1];
+
+	/* Set the user identity. */
+	switch (specified) {
+	case AVTAB_TRANSITION:
+	case AVTAB_CHANGE:
+		if (cladatum && cladatum->default_user == DEFAULT_TARGET) {
+			newcontext.user = tcontext->user;
+		} else {
+			/* notice this gets both DEFAULT_SOURCE and unset */
+			/* Use the process user identity. */
+			newcontext.user = scontext->user;
+		}
+		break;
+	case AVTAB_MEMBER:
+		/* Use the related object owner. */
+		newcontext.user = tcontext->user;
+		break;
+	}
+
+	/* Set the role to default values. */
+	if (cladatum && cladatum->default_role == DEFAULT_SOURCE) {
+		newcontext.role = scontext->role;
+	} else if (cladatum && cladatum->default_role == DEFAULT_TARGET) {
+		newcontext.role = tcontext->role;
+	} else {
+		if ((tclass == policydb->process_class) || sock)
+			newcontext.role = scontext->role;
+		else
+			newcontext.role = OBJECT_R_VAL;
+	}
+
+	/* Set the type to default values. */
+	if (cladatum && cladatum->default_type == DEFAULT_SOURCE) {
+		newcontext.type = scontext->type;
+	} else if (cladatum && cladatum->default_type == DEFAULT_TARGET) {
+		newcontext.type = tcontext->type;
+	} else {
+		if ((tclass == policydb->process_class) || sock) {
+			/* Use the type of process. */
+			newcontext.type = scontext->type;
+		} else {
+			/* Use the type of the related object. */
+			newcontext.type = tcontext->type;
+		}
+	}
+
+	/* Look for a type transition/member/change rule. */
+	avkey.source_type = scontext->type;
+	avkey.target_type = tcontext->type;
+	avkey.target_class = tclass;
+	avkey.specified = specified;
+	avnode = avtab_search_node(&policydb->te_avtab, &avkey);
+
+	/* If no permanent rule, also check for enabled conditional rules */
+	if (!avnode) {
+		node = avtab_search_node(&policydb->te_cond_avtab, &avkey);
+		for (; node; node = avtab_search_node_next(node, specified)) {
+			if (node->key.specified & AVTAB_ENABLED) {
+				avnode = node;
+				break;
+			}
+		}
+	}
+
+	if (avnode) {
+		/* Use the type from the type transition/member/change rule. */
+		newcontext.type = avnode->datum.u.data;
+	}
+
+	/* if we have a objname this is a file trans check so check those rules */
+	if (objname)
+		filename_compute_type(policydb, &newcontext, scontext->type,
+				      tcontext->type, tclass, objname);
+
+	/* Check for class-specific changes. */
+	if (specified & AVTAB_TRANSITION) {
+		/* Look for a role transition rule. */
+		struct role_trans_datum *rtd;
+		struct role_trans_key rtk = {
+			.role = scontext->role,
+			.type = tcontext->type,
+			.tclass = tclass,
+		};
+
+		rtd = policydb_roletr_search(policydb, &rtk);
+		if (rtd)
+			newcontext.role = rtd->new_role;
+	}
+
+	/* Set the MLS attributes.
+	   This is done last because it may allocate memory. */
+	rc = mls_compute_sid(policydb, scontext, tcontext, tclass, specified,
+			     &newcontext, sock);
+	if (rc)
+		goto out_unlock;
+
+	/* Check the validity of the context. */
+	if (!policydb_context_isvalid(policydb, &newcontext)) {
+		rc = compute_sid_handle_invalid_context(policy, sentry,
+							tentry, tclass,
+							&newcontext);
+		if (rc)
+			goto out_unlock;
+	}
+	/* Obtain the sid for the context. */
+	rc = sidtab_context_to_sid(sidtab, &newcontext, out_sid);
+	if (rc == -ESTALE) {
+		rcu_read_unlock();
+		context_destroy(&newcontext);
+		goto retry;
+	}
+out_unlock:
+	rcu_read_unlock();
+	context_destroy(&newcontext);
+out:
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_inode_setxattr(struct mnt_idmap *idmap,
+				  struct dentry *dentry, const char *name,
+				  const void *value, size_t size, int flags)
+{
+	struct inode *inode = d_backing_inode(dentry);
+	struct inode_security_struct *isec;
+	struct superblock_security_struct *sbsec;
+	struct common_audit_data ad;
+	u32 newsid, sid = current_sid();
+	int rc = 0;
+
+	if (strcmp(name, XATTR_NAME_SELINUX)) {
+		rc = cap_inode_setxattr(dentry, name, value, size, flags);
+		if (rc)
+			return rc;
+
+		/* Not an attribute we recognize, so just check the
+		   ordinary setattr permission. */
+		return dentry_has_perm(current_cred(), dentry, FILE__SETATTR);
+	}
+
+	if (!selinux_initialized())
+		return (inode_owner_or_capable(idmap, inode) ? 0 : -EPERM);
+
+	sbsec = selinux_superblock(inode->i_sb);
+	if (!(sbsec->flags & SBLABEL_MNT))
+		return -EOPNOTSUPP;
+
+	if (!inode_owner_or_capable(idmap, inode))
+		return -EPERM;
+
+	ad.type = LSM_AUDIT_DATA_DENTRY;
+	ad.u.dentry = dentry;
+
+	isec = backing_inode_security(dentry);
+	rc = avc_has_perm(sid, isec->sid, isec->sclass,
+			  FILE__RELABELFROM, &ad);
+	if (rc)
+		return rc;
+
+	rc = security_context_to_sid(value, size, &newsid,
+				     GFP_KERNEL);
+	if (rc == -EINVAL) {
+		if (!has_cap_mac_admin(true)) {
+			struct audit_buffer *ab;
+			size_t audit_size;
+
+			/* We strip a nul only if it is at the end, otherwise the
+			 * context contains a nul and we should audit that */
+			if (value) {
+				const char *str = value;
+
+				if (str[size - 1] == '\0')
+					audit_size = size - 1;
+				else
+					audit_size = size;
+			} else {
+				audit_size = 0;
+			}
+			ab = audit_log_start(audit_context(),
+					     GFP_ATOMIC, AUDIT_SELINUX_ERR);
+			if (!ab)
+				return rc;
+			audit_log_format(ab, "op=setxattr invalid_context=");
+			audit_log_n_untrustedstring(ab, value, audit_size);
+			audit_log_end(ab);
+
+			return rc;
+		}
+		rc = security_context_to_sid_force(value,
+						   size, &newsid);
+	}
+	if (rc)
+		return rc;
+
+	rc = avc_has_perm(sid, newsid, isec->sclass,
+			  FILE__RELABELTO, &ad);
+	if (rc)
+		return rc;
+
+	rc = security_validate_transition(isec->sid, newsid,
+					  sid, isec->sclass);
+	if (rc)
+		return rc;
+
+	return avc_has_perm(newsid,
+			    sbsec->sid,
+			    SECCLASS_FILESYSTEM,
+			    FILESYSTEM__ASSOCIATE,
+			    &ad);
+}
+int security_validate_transition(u32 oldsid, u32 newsid, u32 tasksid,
+				 u16 orig_tclass)
+{
+	return security_compute_validatetrans(oldsid, newsid, tasksid,
+					      orig_tclass, false);
+}
+static int security_compute_validatetrans(u32 oldsid, u32 newsid, u32 tasksid,
+					  u16 orig_tclass, bool user)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *oentry;
+	struct sidtab_entry *nentry;
+	struct sidtab_entry *tentry;
+	struct class_datum *tclass_datum;
+	struct constraint_node *constraint;
+	u16 tclass;
+	int rc = 0;
+
+
+	if (!selinux_initialized())
+		return 0;
+
+	rcu_read_lock();
+
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (!user)
+		tclass = unmap_class(&policy->map, orig_tclass);
+	else
+		tclass = orig_tclass;
+
+	if (!tclass || tclass > policydb->p_classes.nprim) {
+		rc = -EINVAL;
+		goto out;
+	}
+	tclass_datum = policydb->class_val_to_struct[tclass - 1];
+
+	oentry = sidtab_search_entry(sidtab, oldsid);
+	if (!oentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, oldsid);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	nentry = sidtab_search_entry(sidtab, newsid);
+	if (!nentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, newsid);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	tentry = sidtab_search_entry(sidtab, tasksid);
+	if (!tentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, tasksid);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	constraint = tclass_datum->validatetrans;
+	while (constraint) {
+		if (!constraint_expr_eval(policydb, &oentry->context,
+					  &nentry->context, &tentry->context,
+					  constraint->expr)) {
+			if (user)
+				rc = -EPERM;
+			else
+				rc = security_validtrans_handle_fail(policy,
+								oentry,
+								nentry,
+								tentry,
+								tclass);
+			goto out;
+		}
+		constraint = constraint->next;
+	}
+
+out:
+	rcu_read_unlock();
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_validatetrans(struct file *file,
+					const char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char *oldcon = NULL, *newcon = NULL, *taskcon = NULL;
+	char *req = NULL;
+	u32 osid, nsid, tsid;
+	u16 tclass;
+	int rc;
+
+	rc = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			  SECCLASS_SECURITY, SECURITY__VALIDATE_TRANS, NULL);
+	if (rc)
+		goto out;
+
+	rc = -ENOMEM;
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	/* No partial writes. */
+	rc = -EINVAL;
+	if (*ppos != 0)
+		goto out;
+
+	req = memdup_user_nul(buf, count);
+	if (IS_ERR(req)) {
+		rc = PTR_ERR(req);
+		req = NULL;
+		goto out;
+	}
+
+	rc = -ENOMEM;
+	oldcon = kzalloc(count + 1, GFP_KERNEL);
+	if (!oldcon)
+		goto out;
+
+	newcon = kzalloc(count + 1, GFP_KERNEL);
+	if (!newcon)
+		goto out;
+
+	taskcon = kzalloc(count + 1, GFP_KERNEL);
+	if (!taskcon)
+		goto out;
+
+	rc = -EINVAL;
+	if (sscanf(req, "%s %s %hu %s", oldcon, newcon, &tclass, taskcon) != 4)
+		goto out;
+
+	rc = security_context_str_to_sid(oldcon, &osid, GFP_KERNEL);
+	if (rc)
+		goto out;
+
+	rc = security_context_str_to_sid(newcon, &nsid, GFP_KERNEL);
+	if (rc)
+		goto out;
+
+	rc = security_context_str_to_sid(taskcon, &tsid, GFP_KERNEL);
+	if (rc)
+		goto out;
+
+	rc = security_validate_transition_user(osid, nsid, tsid, tclass);
+	if (!rc)
+		rc = count;
+out:
+	kfree(req);
+	kfree(oldcon);
+	kfree(newcon);
+	kfree(taskcon);
+	return rc;
+}
+int security_validate_transition_user(u32 oldsid, u32 newsid, u32 tasksid,
+				      u16 tclass)
+{
+	return security_compute_validatetrans(oldsid, newsid, tasksid,
+					      tclass, true);
+}
+static int security_compute_validatetrans(u32 oldsid, u32 newsid, u32 tasksid,
+					  u16 orig_tclass, bool user)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *oentry;
+	struct sidtab_entry *nentry;
+	struct sidtab_entry *tentry;
+	struct class_datum *tclass_datum;
+	struct constraint_node *constraint;
+	u16 tclass;
+	int rc = 0;
+
+
+	if (!selinux_initialized())
+		return 0;
+
+	rcu_read_lock();
+
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (!user)
+		tclass = unmap_class(&policy->map, orig_tclass);
+	else
+		tclass = orig_tclass;
+
+	if (!tclass || tclass > policydb->p_classes.nprim) {
+		rc = -EINVAL;
+		goto out;
+	}
+	tclass_datum = policydb->class_val_to_struct[tclass - 1];
+
+	oentry = sidtab_search_entry(sidtab, oldsid);
+	if (!oentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, oldsid);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	nentry = sidtab_search_entry(sidtab, newsid);
+	if (!nentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, newsid);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	tentry = sidtab_search_entry(sidtab, tasksid);
+	if (!tentry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, tasksid);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	constraint = tclass_datum->validatetrans;
+	while (constraint) {
+		if (!constraint_expr_eval(policydb, &oentry->context,
+					  &nentry->context, &tentry->context,
+					  constraint->expr)) {
+			if (user)
+				rc = -EPERM;
+			else
+				rc = security_validtrans_handle_fail(policy,
+								oentry,
+								nentry,
+								tentry,
+								tclass);
+			goto out;
+		}
+		constraint = constraint->next;
+	}
+
+out:
+	rcu_read_unlock();
+	return rc;
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
+{
+	struct common_audit_data *ad = a;
+	struct selinux_audit_data *sad = ad->selinux_audit_data;
+	char *scontext = NULL;
+	char *tcontext = NULL;
+	const char *tclass = NULL;
+	u32 scontext_len;
+	u32 tcontext_len;
+	int rc;
+
+	rc = security_sid_to_context(sad->ssid, &scontext,
+				     &scontext_len);
+	if (rc)
+		audit_log_format(ab, " ssid=%d", sad->ssid);
+	else
+		audit_log_format(ab, " scontext=%s", scontext);
+
+	rc = security_sid_to_context(sad->tsid, &tcontext,
+				     &tcontext_len);
+	if (rc)
+		audit_log_format(ab, " tsid=%d", sad->tsid);
+	else
+		audit_log_format(ab, " tcontext=%s", tcontext);
+
+	tclass = secclass_map[sad->tclass-1].name;
+	audit_log_format(ab, " tclass=%s", tclass);
+
+	if (sad->denied)
+		audit_log_format(ab, " permissive=%u", sad->result ? 0 : 1);
+
+	trace_selinux_audited(sad, scontext, tcontext, tclass);
+	kfree(tcontext);
+	kfree(scontext);
+
+	/* in case of invalid context report also the actual context string */
+	rc = security_sid_to_context_inval(sad->ssid, &scontext,
+					   &scontext_len);
+	if (!rc && scontext) {
+		if (scontext_len && scontext[scontext_len - 1] == '\0')
+			scontext_len--;
+		audit_log_format(ab, " srawcon=");
+		audit_log_n_untrustedstring(ab, scontext, scontext_len);
+		kfree(scontext);
+	}
+
+	rc = security_sid_to_context_inval(sad->tsid, &scontext,
+					   &scontext_len);
+	if (!rc && scontext) {
+		if (scontext_len && scontext[scontext_len - 1] == '\0')
+			scontext_len--;
+		audit_log_format(ab, " trawcon=");
+		audit_log_n_untrustedstring(ab, scontext, scontext_len);
+		kfree(scontext);
+	}
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_read_initcon(struct file *file, char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	char *con;
+	u32 sid, len;
+	ssize_t ret;
+
+	sid = file_inode(file)->i_ino&SEL_INO_MASK;
+	ret = security_sid_to_context(sid, &con, &len);
+	if (ret)
+		return ret;
+
+	ret = simple_read_from_buffer(buf, count, ppos, con, len);
+	kfree(con);
+	return ret;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_context(struct file *file, char *buf, size_t size)
+{
+	char *canon = NULL;
+	u32 sid, len;
+	ssize_t length;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__CHECK_CONTEXT, NULL);
+	if (length)
+		goto out;
+
+	length = security_context_to_sid(buf, size, &sid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(sid, &canon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT) {
+		pr_err("SELinux: %s:  context size (%u) exceeds "
+			"payload max\n", __func__, len);
+		goto out;
+	}
+
+	memcpy(buf, canon, len);
+	length = len;
+out:
+	kfree(canon);
+	return length;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_create(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	char *namebuf = NULL, *objname = NULL;
+	u32 ssid, tsid, newsid;
+	u16 tclass;
+	ssize_t length;
+	char *newcon = NULL;
+	u32 len;
+	int nargs;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_CREATE,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -ENOMEM;
+	namebuf = kzalloc(size + 1, GFP_KERNEL);
+	if (!namebuf)
+		goto out;
+
+	length = -EINVAL;
+	nargs = sscanf(buf, "%s %s %hu %s", scon, tcon, &tclass, namebuf);
+	if (nargs < 3 || nargs > 4)
+		goto out;
+	if (nargs == 4) {
+		/*
+		 * If and when the name of new object to be queried contains
+		 * either whitespace or multibyte characters, they shall be
+		 * encoded based on the percentage-encoding rule.
+		 * If not encoded, the sscanf logic picks up only left-half
+		 * of the supplied name; split by a whitespace unexpectedly.
+		 */
+		char   *r, *w;
+		int     c1, c2;
+
+		r = w = namebuf;
+		do {
+			c1 = *r++;
+			if (c1 == '+')
+				c1 = ' ';
+			else if (c1 == '%') {
+				c1 = hex_to_bin(*r++);
+				if (c1 < 0)
+					goto out;
+				c2 = hex_to_bin(*r++);
+				if (c2 < 0)
+					goto out;
+				c1 = (c1 << 4) | c2;
+			}
+			*w++ = c1;
+		} while (c1 != '\0');
+
+		objname = namebuf;
+	}
+
+	length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_transition_sid_user(ssid, tsid, tclass,
+					      objname, &newsid);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(newsid, &newcon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT) {
+		pr_err("SELinux: %s:  context size (%u) exceeds "
+			"payload max\n", __func__, len);
+		goto out;
+	}
+
+	memcpy(buf, newcon, len);
+	length = len;
+out:
+	kfree(newcon);
+	kfree(namebuf);
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_member(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	u32 ssid, tsid, newsid;
+	u16 tclass;
+	ssize_t length;
+	char *newcon = NULL;
+	u32 len;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_MEMBER,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass) != 3)
+		goto out;
+
+	length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_member_sid(ssid, tsid, tclass, &newsid);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(newsid, &newcon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT) {
+		pr_err("SELinux: %s:  context size (%u) exceeds "
+			"payload max\n", __func__, len);
+		goto out;
+	}
+
+	memcpy(buf, newcon, len);
+	length = len;
+out:
+	kfree(newcon);
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_relabel(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	u32 ssid, tsid, newsid;
+	u16 tclass;
+	ssize_t length;
+	char *newcon = NULL;
+	u32 len;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_RELABEL,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass) != 3)
+		goto out;
+
+	length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_change_sid(ssid, tsid, tclass, &newsid);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(newsid, &newcon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT)
+		goto out;
+
+	memcpy(buf, newcon, len);
+	length = len;
+out:
+	kfree(newcon);
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_user(struct file *file, char *buf, size_t size)
+{
+	char *con = NULL, *user = NULL, *ptr;
+	u32 sid, *sids = NULL;
+	ssize_t length;
+	char *newcon;
+	int rc;
+	u32 i, len, nsids;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_USER,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	con = kzalloc(size + 1, GFP_KERNEL);
+	if (!con)
+		goto out;
+
+	length = -ENOMEM;
+	user = kzalloc(size + 1, GFP_KERNEL);
+	if (!user)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s", con, user) != 2)
+		goto out;
+
+	length = security_context_str_to_sid(con, &sid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_get_user_sids(sid, user, &sids, &nsids);
+	if (length)
+		goto out;
+
+	length = sprintf(buf, "%u", nsids) + 1;
+	ptr = buf + length;
+	for (i = 0; i < nsids; i++) {
+		rc = security_sid_to_context(sids[i], &newcon, &len);
+		if (rc) {
+			length = rc;
+			goto out;
+		}
+		if ((length + len) >= SIMPLE_TRANSACTION_LIMIT) {
+			kfree(newcon);
+			length = -ERANGE;
+			goto out;
+		}
+		memcpy(ptr, newcon, len);
+		kfree(newcon);
+		ptr += len;
+		length += len;
+	}
+out:
+	kfree(sids);
+	kfree(user);
+	kfree(con);
+	return length;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_dentry_init_security(struct dentry *dentry, int mode,
+					const struct qstr *name,
+					const char **xattr_name, void **ctx,
+					u32 *ctxlen)
+{
+	u32 newsid;
+	int rc;
+
+	rc = selinux_determine_inode_label(selinux_cred(current_cred()),
+					   d_inode(dentry->d_parent), name,
+					   inode_mode_to_security_class(mode),
+					   &newsid);
+	if (rc)
+		return rc;
+
+	if (xattr_name)
+		*xattr_name = XATTR_NAME_SELINUX;
+
+	return security_sid_to_context(newsid, (char **)ctx,
+				       ctxlen);
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_key_getsecurity(struct key *key, char **_buffer)
+{
+	struct key_security_struct *ksec = key->security;
+	char *context = NULL;
+	unsigned len;
+	int rc;
+
+	rc = security_sid_to_context(ksec->sid,
+				     &context, &len);
+	if (!rc)
+		rc = len;
+	*_buffer = context;
+	return rc;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
+{
+	return security_sid_to_context(secid,
+				       secdata, seclen);
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_socket_getpeersec_stream(struct socket *sock,
+					    sockptr_t optval, sockptr_t optlen,
+					    unsigned int len)
+{
+	int err = 0;
+	char *scontext = NULL;
+	u32 scontext_len;
+	struct sk_security_struct *sksec = sock->sk->sk_security;
+	u32 peer_sid = SECSID_NULL;
+
+	if (sksec->sclass == SECCLASS_UNIX_STREAM_SOCKET ||
+	    sksec->sclass == SECCLASS_TCP_SOCKET ||
+	    sksec->sclass == SECCLASS_SCTP_SOCKET)
+		peer_sid = sksec->peer_sid;
+	if (peer_sid == SECSID_NULL)
+		return -ENOPROTOOPT;
+
+	err = security_sid_to_context(peer_sid, &scontext,
+				      &scontext_len);
+	if (err)
+		return err;
+	if (scontext_len > len) {
+		err = -ERANGE;
+		goto out_len;
+	}
+
+	if (copy_to_sockptr(optval, scontext, scontext_len))
+		err = -EFAULT;
+out_len:
+	if (copy_to_sockptr(optlen, &scontext_len, sizeof(scontext_len)))
+		err = -EFAULT;
+	kfree(scontext);
+	return err;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_inode_init_security(struct inode *inode, struct inode *dir,
+				       const struct qstr *qstr,
+				       struct xattr *xattrs, int *xattr_count)
+{
+	const struct task_security_struct *tsec = selinux_cred(current_cred());
+	struct superblock_security_struct *sbsec;
+	struct xattr *xattr = lsm_get_xattr_slot(xattrs, xattr_count);
+	u32 newsid, clen;
+	u16 newsclass;
+	int rc;
+	char *context;
+
+	sbsec = selinux_superblock(dir->i_sb);
+
+	newsid = tsec->create_sid;
+	newsclass = inode_mode_to_security_class(inode->i_mode);
+	rc = selinux_determine_inode_label(tsec, dir, qstr, newsclass, &newsid);
+	if (rc)
+		return rc;
+
+	/* Possibly defer initialization to selinux_complete_init. */
+	if (sbsec->flags & SE_SBINITIALIZED) {
+		struct inode_security_struct *isec = selinux_inode(inode);
+		isec->sclass = newsclass;
+		isec->sid = newsid;
+		isec->initialized = LABEL_INITIALIZED;
+	}
+
+	if (!selinux_initialized() ||
+	    !(sbsec->flags & SBLABEL_MNT))
+		return -EOPNOTSUPP;
+
+	if (xattr) {
+		rc = security_sid_to_context_force(newsid,
+						   &context, &clen);
+		if (rc)
+			return rc;
+		xattr->value = context;
+		xattr->value_len = clen;
+		xattr->name = XATTR_SELINUX_SUFFIX;
+	}
+
+	return 0;
+}
+int security_sid_to_context_force(u32 sid,
+				  char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 1, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_kernfs_init_security(struct kernfs_node *kn_dir,
+					struct kernfs_node *kn)
+{
+	const struct task_security_struct *tsec = selinux_cred(current_cred());
+	u32 parent_sid, newsid, clen;
+	int rc;
+	char *context;
+
+	rc = kernfs_xattr_get(kn_dir, XATTR_NAME_SELINUX, NULL, 0);
+	if (rc == -ENODATA)
+		return 0;
+	else if (rc < 0)
+		return rc;
+
+	clen = (u32)rc;
+	context = kmalloc(clen, GFP_KERNEL);
+	if (!context)
+		return -ENOMEM;
+
+	rc = kernfs_xattr_get(kn_dir, XATTR_NAME_SELINUX, context, clen);
+	if (rc < 0) {
+		kfree(context);
+		return rc;
+	}
+
+	rc = security_context_to_sid(context, clen, &parent_sid,
+				     GFP_KERNEL);
+	kfree(context);
+	if (rc)
+		return rc;
+
+	if (tsec->create_sid) {
+		newsid = tsec->create_sid;
+	} else {
+		u16 secclass = inode_mode_to_security_class(kn->mode);
+		struct qstr q;
+
+		q.name = kn->name;
+		q.hash_len = hashlen_string(kn_dir, kn->name);
+
+		rc = security_transition_sid(tsec->sid,
+					     parent_sid, secclass, &q,
+					     &newsid);
+		if (rc)
+			return rc;
+	}
+
+	rc = security_sid_to_context_force(newsid,
+					   &context, &clen);
+	if (rc)
+		return rc;
+
+	rc = kernfs_xattr_set(kn, XATTR_NAME_SELINUX, context, clen,
+			      XATTR_CREATE);
+	kfree(context);
+	return rc;
+}
+int security_sid_to_context_force(u32 sid,
+				  char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 1, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
+{
+	struct common_audit_data *ad = a;
+	struct selinux_audit_data *sad = ad->selinux_audit_data;
+	char *scontext = NULL;
+	char *tcontext = NULL;
+	const char *tclass = NULL;
+	u32 scontext_len;
+	u32 tcontext_len;
+	int rc;
+
+	rc = security_sid_to_context(sad->ssid, &scontext,
+				     &scontext_len);
+	if (rc)
+		audit_log_format(ab, " ssid=%d", sad->ssid);
+	else
+		audit_log_format(ab, " scontext=%s", scontext);
+
+	rc = security_sid_to_context(sad->tsid, &tcontext,
+				     &tcontext_len);
+	if (rc)
+		audit_log_format(ab, " tsid=%d", sad->tsid);
+	else
+		audit_log_format(ab, " tcontext=%s", tcontext);
+
+	tclass = secclass_map[sad->tclass-1].name;
+	audit_log_format(ab, " tclass=%s", tclass);
+
+	if (sad->denied)
+		audit_log_format(ab, " permissive=%u", sad->result ? 0 : 1);
+
+	trace_selinux_audited(sad, scontext, tcontext, tclass);
+	kfree(tcontext);
+	kfree(scontext);
+
+	/* in case of invalid context report also the actual context string */
+	rc = security_sid_to_context_inval(sad->ssid, &scontext,
+					   &scontext_len);
+	if (!rc && scontext) {
+		if (scontext_len && scontext[scontext_len - 1] == '\0')
+			scontext_len--;
+		audit_log_format(ab, " srawcon=");
+		audit_log_n_untrustedstring(ab, scontext, scontext_len);
+		kfree(scontext);
+	}
+
+	rc = security_sid_to_context_inval(sad->tsid, &scontext,
+					   &scontext_len);
+	if (!rc && scontext) {
+		if (scontext_len && scontext[scontext_len - 1] == '\0')
+			scontext_len--;
+		audit_log_format(ab, " trawcon=");
+		audit_log_n_untrustedstring(ab, scontext, scontext_len);
+		kfree(scontext);
+	}
+}
+int security_sid_to_context_inval(u32 sid,
+				  char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 1, 1);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_access(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	u32 ssid, tsid;
+	u16 tclass;
+	struct av_decision avd;
+	ssize_t length;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_AV, NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass) != 3)
+		goto out;
+
+	length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	security_compute_av_user(ssid, tsid, tclass, &avd);
+
+	length = scnprintf(buf, SIMPLE_TRANSACTION_LIMIT,
+			  "%x %x %x %x %u %x",
+			  avd.allowed, 0xffffffff,
+			  avd.auditallow, avd.auditdeny,
+			  avd.seqno, avd.flags);
+out:
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+void security_compute_av_user(u32 ssid,
+			      u32 tsid,
+			      u16 tclass,
+			      struct av_decision *avd)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct context *scontext = NULL, *tcontext = NULL;
+
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	avd_init(policy, avd);
+	if (!selinux_initialized())
+		goto allow;
+
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	scontext = sidtab_search(sidtab, ssid);
+	if (!scontext) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, ssid);
+		goto out;
+	}
+
+	/* permissive domain? */
+	if (ebitmap_get_bit(&policydb->permissive_map, scontext->type))
+		avd->flags |= AVD_FLAGS_PERMISSIVE;
+
+	tcontext = sidtab_search(sidtab, tsid);
+	if (!tcontext) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+		       __func__, tsid);
+		goto out;
+	}
+
+	if (unlikely(!tclass)) {
+		if (policydb->allow_unknown)
+			goto allow;
+		goto out;
+	}
+
+	context_struct_compute_av(policydb, scontext, tcontext, tclass, avd,
+				  NULL);
+ out:
+	rcu_read_unlock();
+	return;
+allow:
+	avd->allowed = 0xffffffff;
+	goto out;
+}
+NOT FOUNDstruct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static ssize_t sel_write_user(struct file *file, char *buf, size_t size)
+{
+	char *con = NULL, *user = NULL, *ptr;
+	u32 sid, *sids = NULL;
+	ssize_t length;
+	char *newcon;
+	int rc;
+	u32 i, len, nsids;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_USER,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	con = kzalloc(size + 1, GFP_KERNEL);
+	if (!con)
+		goto out;
+
+	length = -ENOMEM;
+	user = kzalloc(size + 1, GFP_KERNEL);
+	if (!user)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s", con, user) != 2)
+		goto out;
+
+	length = security_context_str_to_sid(con, &sid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_get_user_sids(sid, user, &sids, &nsids);
+	if (length)
+		goto out;
+
+	length = sprintf(buf, "%u", nsids) + 1;
+	ptr = buf + length;
+	for (i = 0; i < nsids; i++) {
+		rc = security_sid_to_context(sids[i], &newcon, &len);
+		if (rc) {
+			length = rc;
+			goto out;
+		}
+		if ((length + len) >= SIMPLE_TRANSACTION_LIMIT) {
+			kfree(newcon);
+			length = -ERANGE;
+			goto out;
+		}
+		memcpy(ptr, newcon, len);
+		kfree(newcon);
+		ptr += len;
+		length += len;
+	}
+out:
+	kfree(sids);
+	kfree(user);
+	kfree(con);
+	return length;
+}
+int security_get_user_sids(u32 fromsid,
+			   char *username,
+			   u32 **sids,
+			   u32 *nel)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct context *fromcon, usercon;
+	u32 *mysids = NULL, *mysids2, sid;
+	u32 i, j, mynel, maxnel = SIDS_NEL;
+	struct user_datum *user;
+	struct role_datum *role;
+	struct ebitmap_node *rnode, *tnode;
+	int rc;
+
+	*sids = NULL;
+	*nel = 0;
+
+	if (!selinux_initialized())
+		return 0;
+
+	mysids = kcalloc(maxnel, sizeof(*mysids), GFP_KERNEL);
+	if (!mysids)
+		return -ENOMEM;
+
+retry:
+	mynel = 0;
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	context_init(&usercon);
+
+	rc = -EINVAL;
+	fromcon = sidtab_search(sidtab, fromsid);
+	if (!fromcon)
+		goto out_unlock;
+
+	rc = -EINVAL;
+	user = symtab_search(&policydb->p_users, username);
+	if (!user)
+		goto out_unlock;
+
+	usercon.user = user->value;
+
+	ebitmap_for_each_positive_bit(&user->roles, rnode, i) {
+		role = policydb->role_val_to_struct[i];
+		usercon.role = i + 1;
+		ebitmap_for_each_positive_bit(&role->types, tnode, j) {
+			usercon.type = j + 1;
+
+			if (mls_setup_user_range(policydb, fromcon, user,
+						 &usercon))
+				continue;
+
+			rc = sidtab_context_to_sid(sidtab, &usercon, &sid);
+			if (rc == -ESTALE) {
+				rcu_read_unlock();
+				goto retry;
+			}
+			if (rc)
+				goto out_unlock;
+			if (mynel < maxnel) {
+				mysids[mynel++] = sid;
+			} else {
+				rc = -ENOMEM;
+				maxnel += SIDS_NEL;
+				mysids2 = kcalloc(maxnel, sizeof(*mysids2), GFP_ATOMIC);
+				if (!mysids2)
+					goto out_unlock;
+				memcpy(mysids2, mysids, mynel * sizeof(*mysids2));
+				kfree(mysids);
+				mysids = mysids2;
+				mysids[mynel++] = sid;
+			}
+		}
+	}
+	rc = 0;
+out_unlock:
+	rcu_read_unlock();
+	if (rc || !mynel) {
+		kfree(mysids);
+		return rc;
+	}
+
+	rc = -ENOMEM;
+	mysids2 = kcalloc(mynel, sizeof(*mysids2), GFP_KERNEL);
+	if (!mysids2) {
+		kfree(mysids);
+		return rc;
+	}
+	for (i = 0, j = 0; i < mynel; i++) {
+		struct av_decision dummy_avd;
+		rc = avc_has_perm_noaudit(fromsid, mysids[i],
+					  SECCLASS_PROCESS, /* kernel value */
+					  PROCESS__TRANSITION, AVC_STRICT,
+					  &dummy_avd);
+		if (!rc)
+			mysids2[j++] = mysids[i];
+		cond_resched();
+	}
+	kfree(mysids);
+	*sids = mysids2;
+	*nel = j;
+	return 0;
+}
+NOT FOUNDstruct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static int selinux_socket_unix_stream_connect(struct sock *sock,
+					      struct sock *other,
+					      struct sock *newsk)
+{
+	struct sk_security_struct *sksec_sock = sock->sk_security;
+	struct sk_security_struct *sksec_other = other->sk_security;
+	struct sk_security_struct *sksec_new = newsk->sk_security;
+	struct common_audit_data ad;
+	struct lsm_network_audit net;
+	int err;
+
+	ad_net_init_from_sk(&ad, &net, other);
+
+	err = avc_has_perm(sksec_sock->sid, sksec_other->sid,
+			   sksec_other->sclass,
+			   UNIX_STREAM_SOCKET__CONNECTTO, &ad);
+	if (err)
+		return err;
+
+	/* server child socket */
+	sksec_new->peer_sid = sksec_sock->sid;
+	err = security_sid_mls_copy(sksec_other->sid,
+				    sksec_sock->sid, &sksec_new->sid);
+	if (err)
+		return err;
+
+	/* connecting socket */
+	sksec_sock->peer_sid = sksec_new->sid;
+
+	return 0;
+}
+int security_sid_mls_copy(u32 sid, u32 mls_sid, u32 *new_sid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct context *context1;
+	struct context *context2;
+	struct context newcon;
+	char *s;
+	u32 len;
+	int rc;
+
+	if (!selinux_initialized()) {
+		*new_sid = sid;
+		return 0;
+	}
+
+retry:
+	rc = 0;
+	context_init(&newcon);
+
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (!policydb->mls_enabled) {
+		*new_sid = sid;
+		goto out_unlock;
+	}
+
+	rc = -EINVAL;
+	context1 = sidtab_search(sidtab, sid);
+	if (!context1) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		goto out_unlock;
+	}
+
+	rc = -EINVAL;
+	context2 = sidtab_search(sidtab, mls_sid);
+	if (!context2) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, mls_sid);
+		goto out_unlock;
+	}
+
+	newcon.user = context1->user;
+	newcon.role = context1->role;
+	newcon.type = context1->type;
+	rc = mls_context_cpy(&newcon, context2);
+	if (rc)
+		goto out_unlock;
+
+	/* Check the validity of the new context. */
+	if (!policydb_context_isvalid(policydb, &newcon)) {
+		rc = convert_context_handle_invalid_context(policydb,
+							&newcon);
+		if (rc) {
+			if (!context_struct_to_string(policydb, &newcon, &s,
+						      &len)) {
+				struct audit_buffer *ab;
+
+				ab = audit_log_start(audit_context(),
+						     GFP_ATOMIC,
+						     AUDIT_SELINUX_ERR);
+				audit_log_format(ab,
+						 "op=security_sid_mls_copy invalid_context=");
+				/* don't record NUL with untrusted strings */
+				audit_log_n_untrustedstring(ab, s, len - 1);
+				audit_log_end(ab);
+				kfree(s);
+			}
+			goto out_unlock;
+		}
+	}
+	rc = sidtab_context_to_sid(sidtab, &newcon, new_sid);
+	if (rc == -ESTALE) {
+		rcu_read_unlock();
+		context_destroy(&newcon);
+		goto retry;
+	}
+out_unlock:
+	rcu_read_unlock();
+	context_destroy(&newcon);
+	return rc;
+}
+NOT FOUNDstruct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+int selinux_audit_rule_match(u32 sid, u32 field, u32 op, void *vrule)
+{
+	struct selinux_state *state = &selinux_state;
+	struct selinux_policy *policy;
+	struct context *ctxt;
+	struct mls_level *level;
+	struct selinux_audit_rule *rule = vrule;
+	int match = 0;
+
+	if (unlikely(!rule)) {
+		WARN_ONCE(1, "selinux_audit_rule_match: missing rule\n");
+		return -ENOENT;
+	}
+
+	if (!selinux_initialized())
+		return 0;
+
+	rcu_read_lock();
+
+	policy = rcu_dereference(state->policy);
+
+	if (rule->au_seqno < policy->latest_granting) {
+		match = -ESTALE;
+		goto out;
+	}
+
+	ctxt = sidtab_search(policy->sidtab, sid);
+	if (unlikely(!ctxt)) {
+		WARN_ONCE(1, "selinux_audit_rule_match: unrecognized SID %d\n",
+			  sid);
+		match = -ENOENT;
+		goto out;
+	}
+
+	/* a field/op pair that is not caught here will simply fall through
+	   without a match */
+	switch (field) {
+	case AUDIT_SUBJ_USER:
+	case AUDIT_OBJ_USER:
+		switch (op) {
+		case Audit_equal:
+			match = (ctxt->user == rule->au_ctxt.user);
+			break;
+		case Audit_not_equal:
+			match = (ctxt->user != rule->au_ctxt.user);
+			break;
+		}
+		break;
+	case AUDIT_SUBJ_ROLE:
+	case AUDIT_OBJ_ROLE:
+		switch (op) {
+		case Audit_equal:
+			match = (ctxt->role == rule->au_ctxt.role);
+			break;
+		case Audit_not_equal:
+			match = (ctxt->role != rule->au_ctxt.role);
+			break;
+		}
+		break;
+	case AUDIT_SUBJ_TYPE:
+	case AUDIT_OBJ_TYPE:
+		switch (op) {
+		case Audit_equal:
+			match = (ctxt->type == rule->au_ctxt.type);
+			break;
+		case Audit_not_equal:
+			match = (ctxt->type != rule->au_ctxt.type);
+			break;
+		}
+		break;
+	case AUDIT_SUBJ_SEN:
+	case AUDIT_SUBJ_CLR:
+	case AUDIT_OBJ_LEV_LOW:
+	case AUDIT_OBJ_LEV_HIGH:
+		level = ((field == AUDIT_SUBJ_SEN ||
+			  field == AUDIT_OBJ_LEV_LOW) ?
+			 &ctxt->range.level[0] : &ctxt->range.level[1]);
+		switch (op) {
+		case Audit_equal:
+			match = mls_level_eq(&rule->au_ctxt.range.level[0],
+					     level);
+			break;
+		case Audit_not_equal:
+			match = !mls_level_eq(&rule->au_ctxt.range.level[0],
+					      level);
+			break;
+		case Audit_lt:
+			match = (mls_level_dom(&rule->au_ctxt.range.level[0],
+					       level) &&
+				 !mls_level_eq(&rule->au_ctxt.range.level[0],
+					       level));
+			break;
+		case Audit_le:
+			match = mls_level_dom(&rule->au_ctxt.range.level[0],
+					      level);
+			break;
+		case Audit_gt:
+			match = (mls_level_dom(level,
+					      &rule->au_ctxt.range.level[0]) &&
+				 !mls_level_eq(level,
+					       &rule->au_ctxt.range.level[0]));
+			break;
+		case Audit_ge:
+			match = mls_level_dom(level,
+					      &rule->au_ctxt.range.level[0]);
+			break;
+		}
+	}
+
+out:
+	rcu_read_unlock();
+	return match;
+}
+NOT FOUNDstruct sidtab_entry *sidtab_search_entry(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 0);
+}
+static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
+{
+	struct common_audit_data *ad = a;
+	struct selinux_audit_data *sad = ad->selinux_audit_data;
+	char *scontext = NULL;
+	char *tcontext = NULL;
+	const char *tclass = NULL;
+	u32 scontext_len;
+	u32 tcontext_len;
+	int rc;
+
+	rc = security_sid_to_context(sad->ssid, &scontext,
+				     &scontext_len);
+	if (rc)
+		audit_log_format(ab, " ssid=%d", sad->ssid);
+	else
+		audit_log_format(ab, " scontext=%s", scontext);
+
+	rc = security_sid_to_context(sad->tsid, &tcontext,
+				     &tcontext_len);
+	if (rc)
+		audit_log_format(ab, " tsid=%d", sad->tsid);
+	else
+		audit_log_format(ab, " tcontext=%s", tcontext);
+
+	tclass = secclass_map[sad->tclass-1].name;
+	audit_log_format(ab, " tclass=%s", tclass);
+
+	if (sad->denied)
+		audit_log_format(ab, " permissive=%u", sad->result ? 0 : 1);
+
+	trace_selinux_audited(sad, scontext, tcontext, tclass);
+	kfree(tcontext);
+	kfree(scontext);
+
+	/* in case of invalid context report also the actual context string */
+	rc = security_sid_to_context_inval(sad->ssid, &scontext,
+					   &scontext_len);
+	if (!rc && scontext) {
+		if (scontext_len && scontext[scontext_len - 1] == '\0')
+			scontext_len--;
+		audit_log_format(ab, " srawcon=");
+		audit_log_n_untrustedstring(ab, scontext, scontext_len);
+		kfree(scontext);
+	}
+
+	rc = security_sid_to_context_inval(sad->tsid, &scontext,
+					   &scontext_len);
+	if (!rc && scontext) {
+		if (scontext_len && scontext[scontext_len - 1] == '\0')
+			scontext_len--;
+		audit_log_format(ab, " trawcon=");
+		audit_log_n_untrustedstring(ab, scontext, scontext_len);
+		kfree(scontext);
+	}
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static ssize_t sel_read_initcon(struct file *file, char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	char *con;
+	u32 sid, len;
+	ssize_t ret;
+
+	sid = file_inode(file)->i_ino&SEL_INO_MASK;
+	ret = security_sid_to_context(sid, &con, &len);
+	if (ret)
+		return ret;
+
+	ret = simple_read_from_buffer(buf, count, ppos, con, len);
+	kfree(con);
+	return ret;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static ssize_t sel_write_context(struct file *file, char *buf, size_t size)
+{
+	char *canon = NULL;
+	u32 sid, len;
+	ssize_t length;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__CHECK_CONTEXT, NULL);
+	if (length)
+		goto out;
+
+	length = security_context_to_sid(buf, size, &sid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(sid, &canon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT) {
+		pr_err("SELinux: %s:  context size (%u) exceeds "
+			"payload max\n", __func__, len);
+		goto out;
+	}
+
+	memcpy(buf, canon, len);
+	length = len;
+out:
+	kfree(canon);
+	return length;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static ssize_t sel_write_create(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	char *namebuf = NULL, *objname = NULL;
+	u32 ssid, tsid, newsid;
+	u16 tclass;
+	ssize_t length;
+	char *newcon = NULL;
+	u32 len;
+	int nargs;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_CREATE,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -ENOMEM;
+	namebuf = kzalloc(size + 1, GFP_KERNEL);
+	if (!namebuf)
+		goto out;
+
+	length = -EINVAL;
+	nargs = sscanf(buf, "%s %s %hu %s", scon, tcon, &tclass, namebuf);
+	if (nargs < 3 || nargs > 4)
+		goto out;
+	if (nargs == 4) {
+		/*
+		 * If and when the name of new object to be queried contains
+		 * either whitespace or multibyte characters, they shall be
+		 * encoded based on the percentage-encoding rule.
+		 * If not encoded, the sscanf logic picks up only left-half
+		 * of the supplied name; split by a whitespace unexpectedly.
+		 */
+		char   *r, *w;
+		int     c1, c2;
+
+		r = w = namebuf;
+		do {
+			c1 = *r++;
+			if (c1 == '+')
+				c1 = ' ';
+			else if (c1 == '%') {
+				c1 = hex_to_bin(*r++);
+				if (c1 < 0)
+					goto out;
+				c2 = hex_to_bin(*r++);
+				if (c2 < 0)
+					goto out;
+				c1 = (c1 << 4) | c2;
+			}
+			*w++ = c1;
+		} while (c1 != '\0');
+
+		objname = namebuf;
+	}
+
+	length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_transition_sid_user(ssid, tsid, tclass,
+					      objname, &newsid);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(newsid, &newcon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT) {
+		pr_err("SELinux: %s:  context size (%u) exceeds "
+			"payload max\n", __func__, len);
+		goto out;
+	}
+
+	memcpy(buf, newcon, len);
+	length = len;
+out:
+	kfree(newcon);
+	kfree(namebuf);
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static ssize_t sel_write_member(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	u32 ssid, tsid, newsid;
+	u16 tclass;
+	ssize_t length;
+	char *newcon = NULL;
+	u32 len;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_MEMBER,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass) != 3)
+		goto out;
+
+	length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_member_sid(ssid, tsid, tclass, &newsid);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(newsid, &newcon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT) {
+		pr_err("SELinux: %s:  context size (%u) exceeds "
+			"payload max\n", __func__, len);
+		goto out;
+	}
+
+	memcpy(buf, newcon, len);
+	length = len;
+out:
+	kfree(newcon);
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static ssize_t sel_write_relabel(struct file *file, char *buf, size_t size)
+{
+	char *scon = NULL, *tcon = NULL;
+	u32 ssid, tsid, newsid;
+	u16 tclass;
+	ssize_t length;
+	char *newcon = NULL;
+	u32 len;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_RELABEL,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	scon = kzalloc(size + 1, GFP_KERNEL);
+	if (!scon)
+		goto out;
+
+	length = -ENOMEM;
+	tcon = kzalloc(size + 1, GFP_KERNEL);
+	if (!tcon)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass) != 3)
+		goto out;
+
+	length = security_context_str_to_sid(scon, &ssid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_context_str_to_sid(tcon, &tsid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_change_sid(ssid, tsid, tclass, &newsid);
+	if (length)
+		goto out;
+
+	length = security_sid_to_context(newsid, &newcon, &len);
+	if (length)
+		goto out;
+
+	length = -ERANGE;
+	if (len > SIMPLE_TRANSACTION_LIMIT)
+		goto out;
+
+	memcpy(buf, newcon, len);
+	length = len;
+out:
+	kfree(newcon);
+	kfree(tcon);
+	kfree(scon);
+	return length;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static ssize_t sel_write_user(struct file *file, char *buf, size_t size)
+{
+	char *con = NULL, *user = NULL, *ptr;
+	u32 sid, *sids = NULL;
+	ssize_t length;
+	char *newcon;
+	int rc;
+	u32 i, len, nsids;
+
+	length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			      SECCLASS_SECURITY, SECURITY__COMPUTE_USER,
+			      NULL);
+	if (length)
+		goto out;
+
+	length = -ENOMEM;
+	con = kzalloc(size + 1, GFP_KERNEL);
+	if (!con)
+		goto out;
+
+	length = -ENOMEM;
+	user = kzalloc(size + 1, GFP_KERNEL);
+	if (!user)
+		goto out;
+
+	length = -EINVAL;
+	if (sscanf(buf, "%s %s", con, user) != 2)
+		goto out;
+
+	length = security_context_str_to_sid(con, &sid, GFP_KERNEL);
+	if (length)
+		goto out;
+
+	length = security_get_user_sids(sid, user, &sids, &nsids);
+	if (length)
+		goto out;
+
+	length = sprintf(buf, "%u", nsids) + 1;
+	ptr = buf + length;
+	for (i = 0; i < nsids; i++) {
+		rc = security_sid_to_context(sids[i], &newcon, &len);
+		if (rc) {
+			length = rc;
+			goto out;
+		}
+		if ((length + len) >= SIMPLE_TRANSACTION_LIMIT) {
+			kfree(newcon);
+			length = -ERANGE;
+			goto out;
+		}
+		memcpy(ptr, newcon, len);
+		kfree(newcon);
+		ptr += len;
+		length += len;
+	}
+out:
+	kfree(sids);
+	kfree(user);
+	kfree(con);
+	return length;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static int selinux_dentry_init_security(struct dentry *dentry, int mode,
+					const struct qstr *name,
+					const char **xattr_name, void **ctx,
+					u32 *ctxlen)
+{
+	u32 newsid;
+	int rc;
+
+	rc = selinux_determine_inode_label(selinux_cred(current_cred()),
+					   d_inode(dentry->d_parent), name,
+					   inode_mode_to_security_class(mode),
+					   &newsid);
+	if (rc)
+		return rc;
+
+	if (xattr_name)
+		*xattr_name = XATTR_NAME_SELINUX;
+
+	return security_sid_to_context(newsid, (char **)ctx,
+				       ctxlen);
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static int selinux_key_getsecurity(struct key *key, char **_buffer)
+{
+	struct key_security_struct *ksec = key->security;
+	char *context = NULL;
+	unsigned len;
+	int rc;
+
+	rc = security_sid_to_context(ksec->sid,
+				     &context, &len);
+	if (!rc)
+		rc = len;
+	*_buffer = context;
+	return rc;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static int selinux_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
+{
+	return security_sid_to_context(secid,
+				       secdata, seclen);
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static int selinux_socket_getpeersec_stream(struct socket *sock,
+					    sockptr_t optval, sockptr_t optlen,
+					    unsigned int len)
+{
+	int err = 0;
+	char *scontext = NULL;
+	u32 scontext_len;
+	struct sk_security_struct *sksec = sock->sk->sk_security;
+	u32 peer_sid = SECSID_NULL;
+
+	if (sksec->sclass == SECCLASS_UNIX_STREAM_SOCKET ||
+	    sksec->sclass == SECCLASS_TCP_SOCKET ||
+	    sksec->sclass == SECCLASS_SCTP_SOCKET)
+		peer_sid = sksec->peer_sid;
+	if (peer_sid == SECSID_NULL)
+		return -ENOPROTOOPT;
+
+	err = security_sid_to_context(peer_sid, &scontext,
+				      &scontext_len);
+	if (err)
+		return err;
+	if (scontext_len > len) {
+		err = -ERANGE;
+		goto out_len;
+	}
+
+	if (copy_to_sockptr(optval, scontext, scontext_len))
+		err = -EFAULT;
+out_len:
+	if (copy_to_sockptr(optlen, &scontext_len, sizeof(scontext_len)))
+		err = -EFAULT;
+	kfree(scontext);
+	return err;
+}
+int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 0, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static int selinux_inode_init_security(struct inode *inode, struct inode *dir,
+				       const struct qstr *qstr,
+				       struct xattr *xattrs, int *xattr_count)
+{
+	const struct task_security_struct *tsec = selinux_cred(current_cred());
+	struct superblock_security_struct *sbsec;
+	struct xattr *xattr = lsm_get_xattr_slot(xattrs, xattr_count);
+	u32 newsid, clen;
+	u16 newsclass;
+	int rc;
+	char *context;
+
+	sbsec = selinux_superblock(dir->i_sb);
+
+	newsid = tsec->create_sid;
+	newsclass = inode_mode_to_security_class(inode->i_mode);
+	rc = selinux_determine_inode_label(tsec, dir, qstr, newsclass, &newsid);
+	if (rc)
+		return rc;
+
+	/* Possibly defer initialization to selinux_complete_init. */
+	if (sbsec->flags & SE_SBINITIALIZED) {
+		struct inode_security_struct *isec = selinux_inode(inode);
+		isec->sclass = newsclass;
+		isec->sid = newsid;
+		isec->initialized = LABEL_INITIALIZED;
+	}
+
+	if (!selinux_initialized() ||
+	    !(sbsec->flags & SBLABEL_MNT))
+		return -EOPNOTSUPP;
+
+	if (xattr) {
+		rc = security_sid_to_context_force(newsid,
+						   &context, &clen);
+		if (rc)
+			return rc;
+		xattr->value = context;
+		xattr->value_len = clen;
+		xattr->name = XATTR_SELINUX_SUFFIX;
+	}
+
+	return 0;
+}
+int security_sid_to_context_force(u32 sid,
+				  char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 1, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static int selinux_kernfs_init_security(struct kernfs_node *kn_dir,
+					struct kernfs_node *kn)
+{
+	const struct task_security_struct *tsec = selinux_cred(current_cred());
+	u32 parent_sid, newsid, clen;
+	int rc;
+	char *context;
+
+	rc = kernfs_xattr_get(kn_dir, XATTR_NAME_SELINUX, NULL, 0);
+	if (rc == -ENODATA)
+		return 0;
+	else if (rc < 0)
+		return rc;
+
+	clen = (u32)rc;
+	context = kmalloc(clen, GFP_KERNEL);
+	if (!context)
+		return -ENOMEM;
+
+	rc = kernfs_xattr_get(kn_dir, XATTR_NAME_SELINUX, context, clen);
+	if (rc < 0) {
+		kfree(context);
+		return rc;
+	}
+
+	rc = security_context_to_sid(context, clen, &parent_sid,
+				     GFP_KERNEL);
+	kfree(context);
+	if (rc)
+		return rc;
+
+	if (tsec->create_sid) {
+		newsid = tsec->create_sid;
+	} else {
+		u16 secclass = inode_mode_to_security_class(kn->mode);
+		struct qstr q;
+
+		q.name = kn->name;
+		q.hash_len = hashlen_string(kn_dir, kn->name);
+
+		rc = security_transition_sid(tsec->sid,
+					     parent_sid, secclass, &q,
+					     &newsid);
+		if (rc)
+			return rc;
+	}
+
+	rc = security_sid_to_context_force(newsid,
+					   &context, &clen);
+	if (rc)
+		return rc;
+
+	rc = kernfs_xattr_set(kn, XATTR_NAME_SELINUX, context, clen,
+			      XATTR_CREATE);
+	kfree(context);
+	return rc;
+}
+int security_sid_to_context_force(u32 sid,
+				  char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 1, 0);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
+static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
+{
+	struct common_audit_data *ad = a;
+	struct selinux_audit_data *sad = ad->selinux_audit_data;
+	char *scontext = NULL;
+	char *tcontext = NULL;
+	const char *tclass = NULL;
+	u32 scontext_len;
+	u32 tcontext_len;
+	int rc;
+
+	rc = security_sid_to_context(sad->ssid, &scontext,
+				     &scontext_len);
+	if (rc)
+		audit_log_format(ab, " ssid=%d", sad->ssid);
+	else
+		audit_log_format(ab, " scontext=%s", scontext);
+
+	rc = security_sid_to_context(sad->tsid, &tcontext,
+				     &tcontext_len);
+	if (rc)
+		audit_log_format(ab, " tsid=%d", sad->tsid);
+	else
+		audit_log_format(ab, " tcontext=%s", tcontext);
+
+	tclass = secclass_map[sad->tclass-1].name;
+	audit_log_format(ab, " tclass=%s", tclass);
+
+	if (sad->denied)
+		audit_log_format(ab, " permissive=%u", sad->result ? 0 : 1);
+
+	trace_selinux_audited(sad, scontext, tcontext, tclass);
+	kfree(tcontext);
+	kfree(scontext);
+
+	/* in case of invalid context report also the actual context string */
+	rc = security_sid_to_context_inval(sad->ssid, &scontext,
+					   &scontext_len);
+	if (!rc && scontext) {
+		if (scontext_len && scontext[scontext_len - 1] == '\0')
+			scontext_len--;
+		audit_log_format(ab, " srawcon=");
+		audit_log_n_untrustedstring(ab, scontext, scontext_len);
+		kfree(scontext);
+	}
+
+	rc = security_sid_to_context_inval(sad->tsid, &scontext,
+					   &scontext_len);
+	if (!rc && scontext) {
+		if (scontext_len && scontext[scontext_len - 1] == '\0')
+			scontext_len--;
+		audit_log_format(ab, " trawcon=");
+		audit_log_n_untrustedstring(ab, scontext, scontext_len);
+		kfree(scontext);
+	}
+}
+int security_sid_to_context_inval(u32 sid,
+				  char **scontext, u32 *scontext_len)
+{
+	return security_sid_to_context_core(sid, scontext,
+					    scontext_len, 1, 1);
+}
+static int security_sid_to_context_core(u32 sid, char **scontext,
+					u32 *scontext_len, int force,
+					int only_invalid)
+{
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct sidtab *sidtab;
+	struct sidtab_entry *entry;
+	int rc = 0;
+
+	if (scontext)
+		*scontext = NULL;
+	*scontext_len  = 0;
+
+	if (!selinux_initialized()) {
+		if (sid <= SECINITSID_NUM) {
+			char *scontextp;
+			const char *s;
+
+			/*
+			 * Before the policy is loaded, translate
+			 * SECINITSID_INIT to "kernel", because systemd and
+			 * libselinux < 2.6 take a getcon_raw() result that is
+			 * both non-null and not "kernel" to mean that a policy
+			 * is already loaded.
+			 */
+			if (sid == SECINITSID_INIT)
+				sid = SECINITSID_KERNEL;
+
+			s = initial_sid_to_string[sid];
+			if (!s)
+				return -EINVAL;
+			*scontext_len = strlen(s) + 1;
+			if (!scontext)
+				return 0;
+			scontextp = kmemdup(s, *scontext_len, GFP_ATOMIC);
+			if (!scontextp)
+				return -ENOMEM;
+			*scontext = scontextp;
+			return 0;
+		}
+		pr_err("SELinux: %s:  called before initial "
+		       "load_policy on unknown SID %d\n", __func__, sid);
+		return -EINVAL;
+	}
+	rcu_read_lock();
+	policy = rcu_dereference(selinux_state.policy);
+	policydb = &policy->policydb;
+	sidtab = policy->sidtab;
+
+	if (force)
+		entry = sidtab_search_entry_force(sidtab, sid);
+	else
+		entry = sidtab_search_entry(sidtab, sid);
+	if (!entry) {
+		pr_err("SELinux: %s:  unrecognized SID %d\n",
+			__func__, sid);
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+	if (only_invalid && !entry->context.len)
+		goto out_unlock;
+
+	rc = sidtab_entry_to_string(policydb, sidtab, entry, scontext,
+				    scontext_len);
+
+out_unlock:
+	rcu_read_unlock();
+	return rc;
+
+}
+struct sidtab_entry *sidtab_search_entry_force(struct sidtab *s, u32 sid)
+{
+	return sidtab_search_core(s, sid, 1);
+}
