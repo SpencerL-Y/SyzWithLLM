@@ -105,7 +105,14 @@ We refer the configuring of Syzkaller to [HERE](https://github.com/SpencerL-Y/Sy
 
 
 
+## Run experiment
 
+```
+python3 ./run_batch_experiment [1/0] [close_distance]
+```
+
+```[1/0]``` represents that whether the LLM is enabled or not
+```[close_distance]``` is a number >= 1 used to denote the close distance.
 
 
 
