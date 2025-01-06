@@ -84,6 +84,7 @@ cd linuxRepo
 git@github.com:torvalds/linux.git
 mv linux linux_new
 git@github.com:SpencerL-Y/line2addr_kernel.git
+ctags -R  --options=.ctags  linux_new
 mv line2addr_kernel line2addr
 git@github.com:SpencerL-Y/llvm_kernel_analysis.git
 cd ./llvm_kernel_analysis/
