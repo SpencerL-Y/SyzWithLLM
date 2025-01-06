@@ -1,0 +1,70 @@
+
+case id: 4
+
+function name: __sys_setfsgid
+result: [setfsgid, setfsgid16]result: [setfsgid, setfsgid32]
+case id: 5
+
+function name: do_sched_yield
+result: [sched_yield]result: [yield, sched_yield]
+case id: 7
+
+function name: vm_acct_memory
+result: [mremap, swapoff, shmem]result: [access, madvise, mlock, mlock2, mlockall, mmap, mmap_pgoff, mmap2, mprotect, remap_file_pages, shmat, shmdt, shmem_mmap, vm_mmap, vm_unacct_memory]
+case id: 8
+
+function name: __shmem_file_setup
+result: [memfd_create, shmat]result: [shm_open, memfd_create]
+case id: 11
+
+function name: __anon_inode_getfile
+result: [inotify_init, inotify_init1, fsopen, fspick, timerfd_create, epoll_create, epoll_create1, eventfd, eventfd2, signalfd, signalfd4]result: [perf_event_open]
+case id: 13
+
+function name: copy_fsxattr_from_user
+result: [ioctl]result: [setxattr, fsetxattr]
+case id: 15
+
+function name: keyring_ptr_to_key
+result: To determine which syscalls may reach the function `keyring_ptr_to_key`, we first need to trace through the function calls that eventually lead to `keyring_ptr_to_key`. 
+
+1. The given function `find_key_to_update` directly calls `keyring_ptr_to_key`.
+2. The function `find_key_to_update` is called by `__key_create_or_update`.
+3. The function `__key_create_or_update` is called by both `key_create_or_update` and `key_create`.
+4. The function `key_create_or_update` is called by the syscall wrapper `SYSCALL_DEFINE5(add_key, ...)`.
+
+Therefore, the list of syscalls that can reach the function `keyring_ptr_to_key` is:
+
+```plaintext
+[add_key]
+```result: [keyctl]
+case id: 17
+
+function name: wait_for_device_probe
+result: [reboot, hibernate]result: [init_module, sys_init_module]
+case id: 18
+
+function name: memcpy_to_page
+result: [execve, execveat]result: [memcpy_to_page]
+case id: 25
+
+function name: fsnotify_data_sb
+result: [read, write, open, close, rename, unlink, mkdir, rmdir, creat, link, symlink, chmod, fchmod, chown, fchown, lchown, access, truncate, ftruncate, stat, fstat, lstat]result: [fanotify_init, fanotify_mark]
+case id: 26
+
+function name: security_inode_setxattr
+result: [getxattr, setxattr, lsetxattr, fsetxattr]result: [setxattr, lsetxattr, fsetxattr]
+case id: 29
+
+function name: bpf_prog_free
+result: [setsockopt, bind]result: [bpf, close, open, openat, perf_event_open]
+case id: 35
+
+function name: srcu_read_lock_nmisafe
+result: [read, write, ioctl, open, lseek, poll, release, writev, readv]result: [srcu_read_lock_nmisafe]
+case id: 40
+
+function name: sidtab_search_core
+result: ```plaintext
+[execve, keyctl, setxattr, msgsnd, write]
+```result: [sidtab_search]
