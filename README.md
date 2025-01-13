@@ -94,7 +94,8 @@ cd ./Analyzer
 mkdir build
 cd ./build
 cmake ../src
-make cd ../../../
+make 
+cd ../../../
 ```
 
 Note that the root path and folder path used in ```Compilation.py``` and ```project_root``` in ```Analyzer.cpp``` need to be configured accordingly.
