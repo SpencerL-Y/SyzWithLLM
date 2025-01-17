@@ -78,6 +78,8 @@ cd imageDir
 cd ..
 ```
 
+When `create-image.sh` is finished, the `bullseyes.img` file will be generated at `/SyzWithLLM/imageDir/`.
+
 ### construct ```linuxRepo``` folder
 ```
 cd linuxRepo
@@ -90,6 +92,11 @@ git@github.com:SpencerL-Y/llvm_kernel_analysis.git
 cd ./llvm_kernel_analysis/
 mkdir bc_dir
 python3 Compilation.py fuzzing
+```
+
+When `Compilation.py` is finished, `vmlinux` will be generated at `/SyzWithLLM/linuxRepo/llvm_kernel_analysis/bc_dir/` and `bzImage` will be generated at `/SyzWithLLM/linuxRepo/llvm_kernel_analysis/bc_dir/arch/x86/boot/`.
+
+```
 cd ./Analyzer
 mkdir build
 cd ./build
@@ -104,8 +111,54 @@ Note that the root path and folder path used in ```Compilation.py``` and ```proj
 
 We refer the configuring of Syzkaller to [HERE](https://github.com/SpencerL-Y/SyzLLM/blob/master/docs/linux/setup_ubuntu-host_qemu-vm_x86-64-kernel.md) and [HERE](https://github.com/SpencerL-Y/SyzLLM/blob/master/docs/linux/setup.md).
 
+And the following steps of configuring Syzkaller are for your reference.
 
+Before configuring Syzkaller, you should install qemu first, and verify if kernel boot and sshd start. If it succeeds, you are prompted to enter root to log in. Otherwise, something may have gone wrong in one of the previous steps.
+```
+apt install qemu-system-x86 
+qemu-system-x86_64 \
+	-m 2G \
+	-smp 2 \
+	-kernel $KERNEL/arch/x86/boot/bzImage \   
+	-append "console=ttyS0 root=/dev/sda earlyprintk=serial net.ifnames=0" \
+	-drive file=$IMAGE/bullseye.img,format=raw \   
+	-net user,host=10.0.2.10,hostfwd=tcp:127.0.0.1:10021-:22 \
+	-net nic,model=e1000 \
+	-enable-kvm \
+	-nographic \
+	-pidfile vm.pid \
+	2>&1 | tee vm.log
+```
 
+Now we can configure Syzkaller and it should be in the `SyzWithLLM/` directory.
+ ```
+cd syzkaller
+ ```
+Create a syz-manager configuration file `my.cfg` with the following contents (the path where SyzWithLLM is located needs to be relpaced with the actual path) and palce the file in the `SyzWithLLM/syzkaller/` directory.
+```
+{
+    "target": "linux/amd64",
+    "http": "127.0.0.1:56741",
+    "workdir": "/home/ubuntu/SyzWithLLM/syzkaller/workdir",
+    "kernel_obj": "/home/ubuntu/SyzWithLLM/linuxRepo/llvm_kernel_analysis/bc_dir",
+    "image": "/home/ubuntu/SyzWithLLM/imageDir/bullseye.img",
+    "sshkey": "/home/ubuntu/SyzWithLLM/imageDir/bullseye.id_rsa",
+    "syzkaller": "/home/ubuntu/SyzWithLLM/syzkaller",
+    "procs": 8,
+    "type": "qemu",
+    "vm": {
+        "count": 4,
+        "kernel": "/home/ubuntu/SyzWithLLM/linuxRepo/llvm_kernel_analysis/bc_dir/arch/x86/boot/bzImage",
+        "cpu": 2,
+        "mem": 2048
+    }
+}
+```
+Run Syzkaller and check if you configure it successfully.
+```
+mkdir workdir
+./bin/syz-manager -config=my.cfg
+```
 
 ## Run experiment
 
