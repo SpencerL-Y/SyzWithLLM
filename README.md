@@ -162,6 +162,29 @@ mkdir workdir
 
 ## Run experiment
 
+There are several absolute paths in our source code, before running the experiment, please follow the following tips to modify these paths into your actual path to avoid running errors. 
+
+Here we take `SyzWithLLM/ChatAnalyzer/chat_interface.py, line 5 and line 7` as example, and you can modify them into the following lines. The `prefix path` represents where `SyzWithLLM` is in.
+
+```
+sys.path.insert(0, os.path.abspath('prefix path + /SyzWithLLM/ChatAnalyzer'))
+project_root = "prefix path + /SyzWithLLM/"
+```
+
+The files containing absolute paths are as follows:
+
+```
+SyzWithLLM/ChatAnalyzer/chat_interface.py, line 5 and line 7.
+SyzWithLLM/ChatAnalyzer/chat_interface_mannual.py, line 5 and line 6.
+SyzWithLLM/ChatAnalyzer/extract_func_body.py, line 5.
+SyzWithLLM/ChatAnalyzer/extract_function_callpaths.py, line 5 and line 8.
+SyzWithLLM/ChatAnalyzer/mutation_prompt.py, line 3.
+SyzWithLLM/linuxRepo/line2addr/addr_extractor.py, line 8.
+SyzWithLLM/run_experiment.py, line 7.
+```
+
+Now you can run the experiment using the following instruction.
+
 ```
 python3 ./run_batch_experiment [1/0] [close_distance]
 ```
