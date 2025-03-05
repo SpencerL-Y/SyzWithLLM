@@ -1,6 +1,6 @@
-# LLMGuidedSyzkaller
+# SyzAgent
 
-SyzWithLLM is a directed fuzzing project that implemented upon Google's kernel fuzzer Syzkaller. The idea is using static analysis and LLM to guide the initial generation of test cases and guide the adjustment of test cases generation during the fuzzing procedure, in order to fuzz to specific function in the kernel.
+SyzAgent is a directed fuzzing project that implemented upon Google's kernel fuzzer Syzkaller. The idea is using static analysis and LLM to guide the initial generation of test cases and guide the adjustment of test cases generation during the fuzzing procedure, in order to fuzz to specific function in the kernel.
 
 ## Platform Requirement
 
@@ -10,7 +10,7 @@ Ubuntu host, QEMU vm, x86-64 kernel and the same environment requirement imposed
 The folder hierarchy is shown below:
 
 ```
-LLMGuidedSyzkaller/ 
+SyzAgent/ 
     ├── ChatAnalyzer/   # LLM interface and static analyzer  interface
     |        ├── syz_comm_content.txt
     |        ├── syz_comm_sig.txt
