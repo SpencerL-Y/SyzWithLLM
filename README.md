@@ -193,5 +193,6 @@ python3 ./run_batch_experiment [1/0] [close_distance]
 ```[close_distance]``` is a number >= 1 used to denote the close distance.
 
 
+## Publication
 
-
+Paper of FASE 2025 is [HERE](https://arxiv.org/abs/2503.02301)
